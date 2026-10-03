@@ -180,6 +180,8 @@ describe("leveraged ETF detection", () => {
     expect(guessLeveragedEtf("TRADR 2X LONG TSTX DAILYETF")).toMatchObject({ underlying: "TSTX", leverage: 2, issuer: "Tradr" });
     expect(guessLeveragedEtf("GRANITESHARES 2X LONG ABC DAILY ETF")).toMatchObject({ underlying: "ABC" });
     expect(guessLeveragedEtf("DIREXION DAILY ABC BEAR3X SHARES")).toMatchObject({ underlying: "ABC", leverage: 3, direction: "inverse" });
+    expect(guessLeveragedEtf("DEFIANCE DAILY TARGET 2XLONG ABC ETF")).toMatchObject({ underlying: "ABC", leverage: 2, direction: "long", issuer: "Defiance" });
+    expect(guessLeveragedEtf("LEVERAGE SHARES 2X LONG ABC DAILY ETF")).toMatchObject({ underlying: "ABC", issuer: "Leverage Shares" });
   });
 
   it("flags ETFs whose name doesn't say the underlying, with no guess", () => {

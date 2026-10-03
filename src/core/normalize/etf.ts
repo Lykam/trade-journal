@@ -1,8 +1,9 @@
 import type { SymbolInfo } from "../types";
 
 // Names of single-stock leveraged ETFs (SPEC §3.4). "2X"/"3X" (alone or glued
-// to BULL/BEAR) is required, so names like "BULLDOG TEST" don't match.
-const LEVERAGED = /(?:^|[\s-])(?:BULL|BEAR)?\s?([23])X(?=\s|$)|\b(?:BULL|BEAR)([23])X\b/i;
+// to BULL/BEAR, or to LONG/SHORT as in "2XLONG") is required, so names like
+// "BULLDOG TEST" don't match.
+const LEVERAGED = /(?:^|[\s-])(?:BULL|BEAR)?\s?([23])X(?=\s|$|LONG|SHORT)|\b(?:BULL|BEAR)([23])X\b/i;
 
 const ISSUERS: Array<[RegExp, string]> = [
   [/DIREXION/i, "Direxion"],
@@ -31,6 +32,7 @@ export function guessLeveragedEtf(name: string): EtfGuess | null {
   const candidates = [
     /DAILY\s+([A-Z.]{1,6})\s+(?:BULL|BEAR)/i, // DIREXION DAILY ABC BULL2X SHARES
     /[23]X\s+(?:LONG|SHORT|INVERSE)\s+([A-Z.]{1,6})\s+DAILY/i, // GRANITESHARES 2X LONG ABC DAILY ETF
+    /[23]X\s*(?:LONG|SHORT)\s+([A-Z.]{1,6})\s+ETF\b/i, // DEFIANCE DAILY TARGET 2XLONG ABC ETF
   ];
   let underlying: string | null = null;
   for (const re of candidates) {
