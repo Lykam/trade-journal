@@ -13,5 +13,16 @@ the rolling 90-day average.
 See [`docs/SPEC.md`](docs/SPEC.md) for the full specification and the
 decisions log (§10).
 
-Status: specification complete; implementation starts with milestone 1 (data
-core).
+Status: milestone 1 (data core) in progress: parsers, grouping and the import CLI.
+
+## Development
+
+```
+npm install
+npm test                 # Vitest, synthetic fixtures only
+npm run import -- --dry-run [--all] [files…]   # preview an import into ../trade-history
+npm run trades -- --date 2026-10-01 --style swing
+npm run verify           # local only: recompute and check derived/trades.json
+```
+
+The CLI reads and writes `$TRADE_HISTORY_DIR` (default `../trade-history`).

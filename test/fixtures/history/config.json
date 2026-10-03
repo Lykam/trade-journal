@@ -1,0 +1,15 @@
+{
+  "timezone": "America/New_York",
+  "weekStartsOn": "monday",
+  "accounts": ["schwab-main", "webull"],
+  "schwabAccounts": { "000": "schwab-main" },
+  "webullAccount": "webull",
+  "styleByAccount": { "schwab-main": "swing", "webull": "day" },
+  "gauge": {
+    "baselineDays": 90,
+    "excludeCurrentWeekFromBaseline": true,
+    "minSample": { "day": 5, "swing": 3 },
+    "bands": { "halfSizeBelowPts": 0, "quarterSizeBelowPts": 10 },
+    "swingIncludesOpenPositions": true
+  }
+}

@@ -1,0 +1,3 @@
+{
+  "FAKU": { "underlying": "FAKE", "type": "leveraged_etf", "leverage": 2, "direction": "long", "issuer": "Direxion" }
+}

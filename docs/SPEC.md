@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.3)
+# Trade Journal — Spec (v0.4)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -126,7 +126,7 @@ This repo is the shared contract other apps rely on, so it documents itself.
 ```
 trade-history/
   README.md                   format overview, how to import, how to consume
-  schema/
+  schema/                     copied from trade-journal/schema by the importer (Q17)
     fills.schema.json         JSON Schema for fills/<year>.json
     overrides.schema.json
     config.schema.json
@@ -157,7 +157,7 @@ grouping can ignore it and read `fills/`.
   "schemaVersion": 1,
   "fills": [
     {
-      "id": "wb-3f9a1c2e",            // broker prefix + stable hash (see §4.3)
+      "id": "wb-3f9a1c2e07d4",        // broker prefix + 12-hex-char stable hash (see §4.3)
       "broker": "webull",             // "webull" | "schwab"
       "account": "webull",            // "schwab-main", room for more accounts later
       "symbol": "ABCD",
@@ -186,7 +186,7 @@ grouping can ignore it and read `fills/`.
 ```jsonc
 {
   "trades": {
-    "wb-3f9a1c2e": { "style": "swing", "exclude": false, "tags": ["imbalance"], "note": "" }
+    "wb-3f9a1c2e07d4": { "style": "swing", "exclude": false, "tags": ["imbalance"], "note": "" }
   },
   "openingPositions": [
     // positions held before the earliest imported fill, so a lone sell is still matched
@@ -202,6 +202,8 @@ grouping can ignore it and read `fills/`.
   "timezone": "America/New_York",
   "weekStartsOn": "monday",
   "accounts": ["schwab-main", "webull"],      // anything else in an export is rejected
+  "schwabAccounts": { "123": "schwab-main" }, // id in Trading_XXX<id>_Transactions_*.csv → account (Q16)
+  "webullAccount": "webull",
   "styleByAccount": { "schwab-main": "swing", "webull": "day" },  // intent default; override per trade
   "gauge": {
     "baselineDays": 90,
@@ -270,6 +272,7 @@ interface Trade {
   status: "open" | "closed" | "unmatched";
   maxPosition: number;
   openQty: number;            // > 0 only when status = "open"
+  unmatchedQty: number;       // shares sold beyond the position; > 0 only when status = "unmatched"
   avgEntry: number; avgExit: number | null;
   grossPnl: number; fees: number; netPnl: number;   // realized
   result: "win" | "loss" | "breakeven" | null;   // >0 / <0 / =0.00; null while open
@@ -283,6 +286,7 @@ interface Trade {
     realized?: number;        // trims and close only
   }>;
   tags: string[];
+  note?: string;              // quick note from overrides.json, when set
   excluded: boolean;
 }
 
@@ -343,15 +347,21 @@ Amount`.
   `"day"`, and `seq` preserves CSV order, reversed so the oldest row comes
   first. For same-day matching, buys are ordered before sells when the
   position is flat. This is safe because the account is long only.
+  Concretely: within one day, CSV order is kept, except that when the next
+  sell would take the position below zero, the next buy from later that day
+  is moved ahead of it. The preview reports how many days needed this.
 
 ### 4.3 Dedupe and fill ids
 
-- `id` = broker prefix + short SHA-256 of
-  `account|symbol|side|qty|price|executedAt|n`, where `n` is the occurrence
+- `id` = broker prefix + the first 12 hex characters of the SHA-256 of
+  `account|symbol|side|qty|price|executedAt|n` (Q15), where `n` is the occurrence
   index of an otherwise identical row in the same file. Two real identical
   fills in the same second are both kept.
 - A fill whose `id` already exists is skipped. The result reports
   **added / duplicate / skipped (non-trade) / errors**.
+- An existing `id` whose content differs (a hash collision, or a broker
+  changing a past row) is an **error**, never silently merged. A file with
+  any error is not imported at all.
 - Re-importing any file is idempotent.
 
 ### 4.4 Grouping (fills → trades → ideas)
@@ -365,7 +375,8 @@ Amount`.
    its own trade.
 3. A sell that would take the position below 0 marks the trade
    `unmatched`. It appears under "Needs attention" and is excluded from stats
-   until it is fixed with `openingPositions`.
+   until it is fixed with `openingPositions`. Its P&L covers only the shares
+   that were actually held (zero for a lone sell), and `result` is `null`.
 4. **Style follows intent, not hold time.** A swing trade has a tight stop and
    can stop out intraday, but it was entered to be held. It counts as a
    **swing** trade and goes against the swing win rate, even if it closed the
@@ -376,9 +387,10 @@ Amount`.
    - **Per-trade override** in `overrides.json` (`"style"`), for the
      occasional Schwab day trade or Webull swing. You can set it from Trade
      detail or with a bulk action on Trades.
-   - **Sanity flag:** a `day` trade still open after its open date (a Webull
-     position held overnight) appears under "Needs attention" as "Held
-     overnight: still a day trade?". It is not changed automatically.
+   - **Sanity flag:** a `day` trade still open after its open date, or closed
+     on a later date than it opened (a Webull position held overnight),
+     appears under "Needs attention" as "Held overnight: still a day
+     trade?". It is not changed automatically.
    - **Hold time** is still recorded and reported separately (Duration filter,
      "Performance by duration"). For example, you can see how many swings
      stopped out the same day versus worked over days.
@@ -428,8 +440,11 @@ Editing overrides on the Trade detail page uses the same commit flow.
 **B. Through Claude or the CLI** (run from `trade-journal`)
 - `npm run import -- [files…]`. With no arguments, it uses the newest
   `Webull_Orders_Records*.csv` and `Trading_*_Transactions_*.csv` in
-  `~/Downloads`. It writes into `$TRADE_HISTORY_DIR` (default
-  `../trade-history`).
+  `~/Downloads`; `--all` uses every matching export there (oldest first),
+  for backfills. It writes into `$TRADE_HISTORY_DIR` (default
+  `../trade-history`, or `--history-dir`).
+- The CLI writes files only; it never runs git. Commits and pushes are made
+  separately, after the preview is approved.
 - `--dry-run` prints the same preview as the web app.
 - `npm run trades -- --date YYYY-MM-DD [--style day|swing]` lists derived
   trades in a readable form.
@@ -874,7 +889,12 @@ Reviews attach to **ideas**, not individual trades.
 - **App:** Vite + React + TypeScript; Recharts; `react-markdown` with
   `rehype-raw` and `rehype-sanitize`; Papa Parse.
 - **Shared logic:** pure TS in `src/core/`, imported by both the app and the
-  CLI.
+  CLI. Hashing uses `@noble/hashes` (synchronous, identical in browser and
+  Node).
+- **JSON Schemas:** the canonical copies live in `trade-journal/schema/`, are
+  validated against the synthetic output in tests, and are copied into
+  `trade-history/schema/` by the importer on every write (Q17). The CLI
+  validates every file it reads or writes with Ajv.
 - **CLI:** run with `tsx`.
 - **Tests:** Vitest with **synthetic fixtures only**, because the repo is
   public. These are hand-written CSVs that copy the exact Schwab and Webull
@@ -896,7 +916,8 @@ trade-journal/
     core/gauge/        gauge.ts
     core/reviews/      parse-header.ts, join.ts
     app/               React pages and components
-  cli/                 import.ts, trades.ts, verify.ts
+  cli/                 import.ts, trades.ts, verify.ts, lib/ (Node I/O + report printing)
+  schema/              canonical JSON Schemas (copied into trade-history)
   build/               bundle-data.ts, encrypt.ts, fetch-quotes.ts
   test/fixtures/       synthetic CSVs + expected JSON
   .github/workflows/
@@ -980,6 +1001,9 @@ Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
 | Q12 | Main-page content | Dashboard top, always visible: (1) gauges, (2) **open positions quick view** (opened date, trim dates, realized / unrealized / total P&L per position, plus totals), (3) **Recent 10 Day / Recent 10 Swing** side by side. An in-depth **Open Positions page** (event timeline, market value) sits behind it. |
 | Q13 | Gauge details | Confirmed: open swing positions count in **every** week's swing gauge until closed. Padding minimums stay at **5 day / 3 swing**. Baseline = closed trades in the 90 days before this week. |
 | Q14 | Import handling | Every original CSV is **archived** to `trade-history/imports/raw/`. When Claude imports, it shows the dry-run preview and **waits for your OK** before committing and pushing. |
+| Q15 | Fill id length | 12 hex chars of SHA-256 (48 bits), not 8. At ~20k fills, 8 chars gives about a 5% chance of a collision; 12 makes it negligible. Collisions are still detected and reported as errors. (2026-10-03, milestone 1) |
+| Q16 | Account mapping | `config.json` maps the Schwab export's file-name id to an account label (`schwabAccounts`), and names the Webull account (`webullAccount`). The real id exists only in private `trade-history`; tests use a fake `000`. (2026-10-03, milestone 1) |
+| Q17 | Schema location | Canonical schemas live with the code in `trade-journal/schema/` and are copied into `trade-history/schema/` on each import, so the code and the contract can't drift. (2026-10-03, milestone 1) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open

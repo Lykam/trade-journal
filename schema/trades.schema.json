@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "trades.schema.json",
+  "title": "trade-history derived/trades.json (generated)",
+  "type": "object",
+  "required": ["generated", "generator", "trades", "ideas"],
+  "additionalProperties": false,
+  "definitions": {
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "at", "qty", "price"],
+      "properties": {
+        "kind": { "enum": ["open", "add", "trim", "close"] },
+        "at": { "type": "string" },
+        "qty": { "type": "number" },
+        "price": { "type": "number" },
+        "realized": { "type": "number" }
+      }
+    },
+    "trade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ideaId", "account", "broker", "symbol", "underlying", "instrument", "leverage", "direction", "style", "sameDay", "openedAt", "closedAt", "status", "maxPosition", "openQty", "unmatchedQty", "avgEntry", "avgExit", "grossPnl", "fees", "netPnl", "result", "holdMinutes", "fillIds", "avgCost", "realizedPnl", "events", "tags", "excluded"],
+      "properties": {
+        "id": { "type": "string" },
+        "ideaId": { "type": "string", "minLength": 1 },
+        "account": { "type": "string" },
+        "broker": { "enum": ["schwab", "webull"] },
+        "symbol": { "type": "string" },
+        "underlying": { "type": "string" },
+        "instrument": { "enum": ["stock", "leveraged_etf"] },
+        "leverage": { "type": "number" },
+        "direction": { "enum": ["long", "inverse"] },
+        "style": { "enum": ["day", "swing"] },
+        "sameDay": { "type": "boolean" },
+        "openedAt": { "type": "string" },
+        "closedAt": { "type": ["string", "null"] },
+        "status": { "enum": ["open", "closed", "unmatched"] },
+        "maxPosition": { "type": "number" },
+        "openQty": { "type": "number", "minimum": 0 },
+        "unmatchedQty": { "type": "number", "minimum": 0 },
+        "avgEntry": { "type": "number" },
+        "avgExit": { "type": ["number", "null"] },
+        "grossPnl": { "type": "number" },
+        "fees": { "type": "number" },
+        "netPnl": { "type": "number" },
+        "result": { "enum": ["win", "loss", "breakeven", null] },
+        "holdMinutes": { "type": ["number", "null"] },
+        "fillIds": { "type": "array", "items": { "type": "string" } },
+        "avgCost": { "type": "number" },
+        "realizedPnl": { "type": "number" },
+        "events": { "type": "array", "items": { "$ref": "#/definitions/event" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" },
+        "excluded": { "type": "boolean" }
+      }
+    },
+    "idea": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "underlying", "accounts", "symbolsTraded", "usedEtf", "style", "date", "tradeIds", "netPnl", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "underlying": { "type": "string" },
+        "accounts": { "type": "array", "items": { "type": "string" } },
+        "symbolsTraded": { "type": "array", "items": { "type": "string" } },
+        "usedEtf": { "type": "boolean" },
+        "style": { "enum": ["day", "swing"] },
+        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "tradeIds": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "netPnl": { "type": "number" },
+        "status": { "enum": ["open", "closed"] }
+      }
+    }
+  },
+  "properties": {
+    "generated": { "const": true },
+    "generator": { "type": "string" },
+    "trades": { "type": "array", "items": { "$ref": "#/definitions/trade" } },
+    "ideas": { "type": "array", "items": { "$ref": "#/definitions/idea" } }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "config.schema.json",
+  "title": "trade-history config.json",
+  "type": "object",
+  "required": ["timezone", "weekStartsOn", "accounts", "schwabAccounts", "webullAccount", "styleByAccount", "gauge"],
+  "additionalProperties": false,
+  "properties": {
+    "timezone": { "const": "America/New_York" },
+    "weekStartsOn": { "enum": ["monday", "sunday"] },
+    "accounts": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "schwabAccounts": {
+      "type": "object",
+      "description": "Account id from the Schwab export file name (Trading_XXX<id>_Transactions_...) mapped to an account label.",
+      "additionalProperties": { "type": "string" }
+    },
+    "webullAccount": { "type": "string" },
+    "styleByAccount": { "type": "object", "additionalProperties": { "enum": ["day", "swing"] } },
+    "gauge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baselineDays", "excludeCurrentWeekFromBaseline", "minSample", "bands", "swingIncludesOpenPositions"],
+      "properties": {
+        "baselineDays": { "type": "integer", "minimum": 1 },
+        "excludeCurrentWeekFromBaseline": { "type": "boolean" },
+        "minSample": {
+          "type": "object", "additionalProperties": false, "required": ["day", "swing"],
+          "properties": { "day": { "type": "integer", "minimum": 0 }, "swing": { "type": "integer", "minimum": 0 } }
+        },
+        "bands": {
+          "type": "object", "additionalProperties": false, "required": ["halfSizeBelowPts", "quarterSizeBelowPts"],
+          "properties": { "halfSizeBelowPts": { "type": "number" }, "quarterSizeBelowPts": { "type": "number" } }
+        },
+        "swingIncludesOpenPositions": { "type": "boolean" }
+      }
+    }
+  }
+}

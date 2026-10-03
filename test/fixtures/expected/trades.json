@@ -1,0 +1,1380 @@
+{
+  "generated": true,
+  "generator": "trade-journal@0.1.0",
+  "trades": [
+    {
+      "id": "wb-c4ae2a0f1952",
+      "ideaId": "wb-c4ae2a0f1952",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "PLMT",
+      "underlying": "PLMT",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-01-15T09:45:05-05:00",
+      "closedAt": "2025-01-15T15:59:59-05:00",
+      "status": "closed",
+      "maxPosition": 5,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 3,
+      "avgExit": 3.1,
+      "grossPnl": 0.5,
+      "fees": 0,
+      "netPnl": 0.5,
+      "result": "win",
+      "holdMinutes": 374.9,
+      "fillIds": [
+        "wb-c4ae2a0f1952",
+        "wb-8199e08151cd"
+      ],
+      "avgCost": 3,
+      "realizedPnl": 0.5,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-01-15T09:45:05-05:00",
+          "qty": 5,
+          "price": 3
+        },
+        {
+          "kind": "close",
+          "at": "2025-01-15T15:59:59-05:00",
+          "qty": 5,
+          "price": 3.1,
+          "realized": 0.5
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "sc-8eef435ae68a",
+      "ideaId": "sc-8eef435ae68a",
+      "account": "schwab-main",
+      "broker": "schwab",
+      "symbol": "SWGA",
+      "underlying": "SWGA",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "swing",
+      "sameDay": false,
+      "openedAt": "2025-03-03T00:00:00-05:00",
+      "closedAt": "2025-03-12T00:00:00-04:00",
+      "status": "closed",
+      "maxPosition": 20,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 12.5,
+      "avgExit": 12.5,
+      "grossPnl": 0,
+      "fees": 0,
+      "netPnl": 0,
+      "result": "breakeven",
+      "holdMinutes": null,
+      "fillIds": [
+        "sc-8eef435ae68a",
+        "sc-5afd3a38a318",
+        "sc-82a71973b1f7",
+        "sc-96d35607db0f"
+      ],
+      "avgCost": 12.5,
+      "realizedPnl": 0,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-03T00:00:00-05:00",
+          "qty": 10,
+          "price": 12
+        },
+        {
+          "kind": "add",
+          "at": "2025-03-05T00:00:00-05:00",
+          "qty": 10,
+          "price": 13
+        },
+        {
+          "kind": "trim",
+          "at": "2025-03-07T00:00:00-05:00",
+          "qty": 5,
+          "price": 14,
+          "realized": 7.5
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-12T00:00:00-04:00",
+          "qty": 15,
+          "price": 12,
+          "realized": -7.5
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "sc-48c4da81183b",
+      "ideaId": "sc-48c4da81183b",
+      "account": "schwab-main",
+      "broker": "schwab",
+      "symbol": "OLDP",
+      "underlying": "OLDP",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "swing",
+      "sameDay": true,
+      "openedAt": "2025-03-06T00:00:00-05:00",
+      "closedAt": "2025-03-06T00:00:00-05:00",
+      "status": "unmatched",
+      "maxPosition": 0,
+      "openQty": 0,
+      "unmatchedQty": 5,
+      "avgEntry": 0,
+      "avgExit": 8,
+      "grossPnl": 0,
+      "fees": 0,
+      "netPnl": 0,
+      "result": null,
+      "holdMinutes": null,
+      "fillIds": [
+        "sc-48c4da81183b"
+      ],
+      "avgCost": 0,
+      "realizedPnl": 0,
+      "events": [
+        {
+          "kind": "close",
+          "at": "2025-03-06T00:00:00-05:00",
+          "qty": 5,
+          "price": 8,
+          "realized": 0
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "sc-fced7b6d3790",
+      "ideaId": "sc-fced7b6d3790",
+      "account": "schwab-main",
+      "broker": "schwab",
+      "symbol": "BIGF",
+      "underlying": "BIGF",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "swing",
+      "sameDay": false,
+      "openedAt": "2025-03-10T00:00:00-04:00",
+      "closedAt": "2025-03-11T00:00:00-04:00",
+      "status": "closed",
+      "maxPosition": 1,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 1234.5,
+      "avgExit": 1240,
+      "grossPnl": 5.5,
+      "fees": 1.31,
+      "netPnl": 4.19,
+      "result": "win",
+      "holdMinutes": null,
+      "fillIds": [
+        "sc-fced7b6d3790",
+        "sc-ced09412e412"
+      ],
+      "avgCost": 1234.5,
+      "realizedPnl": 4.19,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-10T00:00:00-04:00",
+          "qty": 1,
+          "price": 1234.5
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-11T00:00:00-04:00",
+          "qty": 1,
+          "price": 1240,
+          "realized": 4.84
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-f4c533f30d20",
+      "ideaId": "wb-f4c533f30d20",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "ZZTA",
+      "underlying": "ZZTA",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-03-10T09:31:05-04:00",
+      "closedAt": "2025-03-10T09:52:00-04:00",
+      "status": "closed",
+      "maxPosition": 4,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 1.55,
+      "avgExit": 1.725,
+      "grossPnl": 0.7,
+      "fees": 0,
+      "netPnl": 0.7,
+      "result": "win",
+      "holdMinutes": 20.92,
+      "fillIds": [
+        "wb-f4c533f30d20",
+        "wb-1b11801d5c4b",
+        "wb-a78f206fd339",
+        "wb-03eafd096ec3"
+      ],
+      "avgCost": 1.55,
+      "realizedPnl": 0.7,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-10T09:31:05-04:00",
+          "qty": 2,
+          "price": 1.5
+        },
+        {
+          "kind": "add",
+          "at": "2025-03-10T09:35:00-04:00",
+          "qty": 2,
+          "price": 1.6
+        },
+        {
+          "kind": "trim",
+          "at": "2025-03-10T09:40:00-04:00",
+          "qty": 1,
+          "price": 1.8,
+          "realized": 0.25
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-10T09:52:00-04:00",
+          "qty": 3,
+          "price": 1.7,
+          "realized": 0.45
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-e014bf2aadb1",
+      "ideaId": "wb-e014bf2aadb1",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "QXRB",
+      "underlying": "QXRB",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-03-10T10:00:00-04:00",
+      "closedAt": "2025-03-10T10:20:00-04:00",
+      "status": "closed",
+      "maxPosition": 3,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 2,
+      "avgExit": 1.9,
+      "grossPnl": -0.3,
+      "fees": 0,
+      "netPnl": -0.3,
+      "result": "loss",
+      "holdMinutes": 20,
+      "fillIds": [
+        "wb-e014bf2aadb1",
+        "wb-4d29edece471"
+      ],
+      "avgCost": 2,
+      "realizedPnl": -0.3,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-10T10:00:00-04:00",
+          "qty": 3,
+          "price": 2
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-10T10:20:00-04:00",
+          "qty": 3,
+          "price": 1.9,
+          "realized": -0.3
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-be3997b0ed98",
+      "ideaId": "wb-f4c533f30d20",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "ZZTA",
+      "underlying": "ZZTA",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-03-10T14:10:00-04:00",
+      "closedAt": "2025-03-10T14:15:00-04:00",
+      "status": "closed",
+      "maxPosition": 1,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 1.65,
+      "avgExit": 1.65,
+      "grossPnl": 0,
+      "fees": 0,
+      "netPnl": 0,
+      "result": "breakeven",
+      "holdMinutes": 5,
+      "fillIds": [
+        "wb-be3997b0ed98",
+        "wb-7e9caedfea1f"
+      ],
+      "avgCost": 1.65,
+      "realizedPnl": 0,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-10T14:10:00-04:00",
+          "qty": 1,
+          "price": 1.65
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-10T14:15:00-04:00",
+          "qty": 1,
+          "price": 1.65,
+          "realized": 0
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-286b17e984b6",
+      "ideaId": "wb-286b17e984b6",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "QXRB",
+      "underlying": "QXRB",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-03-11T09:30:01-04:00",
+      "closedAt": "2025-03-11T09:31:00-04:00",
+      "status": "closed",
+      "maxPosition": 2,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 2.1,
+      "avgExit": 2.2,
+      "grossPnl": 0.2,
+      "fees": 0,
+      "netPnl": 0.2,
+      "result": "win",
+      "holdMinutes": 0.98,
+      "fillIds": [
+        "wb-286b17e984b6",
+        "wb-688f7aa10d9f",
+        "wb-346f119b8646"
+      ],
+      "avgCost": 2.1,
+      "realizedPnl": 0.2,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-11T09:30:01-04:00",
+          "qty": 1,
+          "price": 2.1
+        },
+        {
+          "kind": "add",
+          "at": "2025-03-11T09:30:01-04:00",
+          "qty": 1,
+          "price": 2.1
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-11T09:31:00-04:00",
+          "qty": 2,
+          "price": 2.2,
+          "realized": 0.2
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-c49e5bae13bf",
+      "ideaId": "wb-c49e5bae13bf",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "RNDB",
+      "underlying": "RNDB",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-03-11T10:00:00-04:00",
+      "closedAt": "2025-03-11T10:05:00-04:00",
+      "status": "closed",
+      "maxPosition": 1,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 2.1234,
+      "avgExit": 2.1272,
+      "grossPnl": 0,
+      "fees": 0,
+      "netPnl": 0,
+      "result": "breakeven",
+      "holdMinutes": 5,
+      "fillIds": [
+        "wb-c49e5bae13bf",
+        "wb-f3478895521e"
+      ],
+      "avgCost": 2.1234,
+      "realizedPnl": 0,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-11T10:00:00-04:00",
+          "qty": 1,
+          "price": 2.1234
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-11T10:05:00-04:00",
+          "qty": 1,
+          "price": 2.1272,
+          "realized": 0
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-767e02f44116",
+      "ideaId": "wb-767e02f44116",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "FAKE",
+      "underlying": "FAKE",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-03-12T09:35:00-04:00",
+      "closedAt": "2025-03-12T09:50:00-04:00",
+      "status": "closed",
+      "maxPosition": 1,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 10,
+      "avgExit": 10.5,
+      "grossPnl": 0.5,
+      "fees": 0,
+      "netPnl": 0.5,
+      "result": "win",
+      "holdMinutes": 15,
+      "fillIds": [
+        "wb-767e02f44116",
+        "wb-f6777c7c51b9"
+      ],
+      "avgCost": 10,
+      "realizedPnl": 0.5,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-12T09:35:00-04:00",
+          "qty": 1,
+          "price": 10
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-12T09:50:00-04:00",
+          "qty": 1,
+          "price": 10.5,
+          "realized": 0.5
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-77d8833865dc",
+      "ideaId": "wb-767e02f44116",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "FAKU",
+      "underlying": "FAKE",
+      "instrument": "leveraged_etf",
+      "leverage": 2,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-03-12T10:15:00-04:00",
+      "closedAt": "2025-03-12T10:30:00-04:00",
+      "status": "closed",
+      "maxPosition": 2,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 20,
+      "avgExit": 19.5,
+      "grossPnl": -1,
+      "fees": 0,
+      "netPnl": -1,
+      "result": "loss",
+      "holdMinutes": 15,
+      "fillIds": [
+        "wb-77d8833865dc",
+        "wb-938bbf19fc58"
+      ],
+      "avgCost": 20,
+      "realizedPnl": -1,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-12T10:15:00-04:00",
+          "qty": 2,
+          "price": 20
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-12T10:30:00-04:00",
+          "qty": 2,
+          "price": 19.5,
+          "realized": -1
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-d21c901bf540",
+      "ideaId": "wb-d21c901bf540",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "ORPH",
+      "underlying": "ORPH",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-03-12T11:00:00-04:00",
+      "closedAt": "2025-03-12T11:00:00-04:00",
+      "status": "unmatched",
+      "maxPosition": 0,
+      "openQty": 0,
+      "unmatchedQty": 1,
+      "avgEntry": 0,
+      "avgExit": 4,
+      "grossPnl": 0,
+      "fees": 0,
+      "netPnl": 0,
+      "result": null,
+      "holdMinutes": 0,
+      "fillIds": [
+        "wb-d21c901bf540"
+      ],
+      "avgCost": 0,
+      "realizedPnl": 0,
+      "events": [
+        {
+          "kind": "close",
+          "at": "2025-03-12T11:00:00-04:00",
+          "qty": 1,
+          "price": 4,
+          "realized": 0
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-d4fd57f30121",
+      "ideaId": "wb-d4fd57f30121",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "HOLD",
+      "underlying": "HOLD",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": false,
+      "openedAt": "2025-03-12T15:55:00-04:00",
+      "closedAt": "2025-03-13T09:40:00-04:00",
+      "status": "closed",
+      "maxPosition": 2,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 5,
+      "avgExit": 5.2,
+      "grossPnl": 0.4,
+      "fees": 0,
+      "netPnl": 0.4,
+      "result": "win",
+      "holdMinutes": 1065,
+      "fillIds": [
+        "wb-d4fd57f30121",
+        "wb-32a3af0cb984"
+      ],
+      "avgCost": 5,
+      "realizedPnl": 0.4,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-12T15:55:00-04:00",
+          "qty": 2,
+          "price": 5
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-13T09:40:00-04:00",
+          "qty": 2,
+          "price": 5.2,
+          "realized": 0.4
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "sc-532f259d6620",
+      "ideaId": "sc-532f259d6620",
+      "account": "schwab-main",
+      "broker": "schwab",
+      "symbol": "FAKU",
+      "underlying": "FAKE",
+      "instrument": "leveraged_etf",
+      "leverage": 2,
+      "direction": "long",
+      "style": "swing",
+      "sameDay": true,
+      "openedAt": "2025-03-13T00:00:00-04:00",
+      "closedAt": "2025-03-13T00:00:00-04:00",
+      "status": "closed",
+      "maxPosition": 2,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 20.2,
+      "avgExit": 20,
+      "grossPnl": -0.4,
+      "fees": 0,
+      "netPnl": -0.4,
+      "result": "loss",
+      "holdMinutes": null,
+      "fillIds": [
+        "sc-532f259d6620",
+        "sc-ddfa7eae47f2"
+      ],
+      "avgCost": 20.2,
+      "realizedPnl": -0.4,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-13T00:00:00-04:00",
+          "qty": 2,
+          "price": 20.2
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-13T00:00:00-04:00",
+          "qty": 2,
+          "price": 20,
+          "realized": -0.4
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "sc-21e108613da5",
+      "ideaId": "sc-532f259d6620",
+      "account": "schwab-main",
+      "broker": "schwab",
+      "symbol": "FAKU",
+      "underlying": "FAKE",
+      "instrument": "leveraged_etf",
+      "leverage": 2,
+      "direction": "long",
+      "style": "swing",
+      "sameDay": true,
+      "openedAt": "2025-03-13T00:00:00-04:00",
+      "closedAt": "2025-03-13T00:00:00-04:00",
+      "status": "closed",
+      "maxPosition": 2,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 20.5,
+      "avgExit": 21,
+      "grossPnl": 1,
+      "fees": 0,
+      "netPnl": 1,
+      "result": "win",
+      "holdMinutes": null,
+      "fillIds": [
+        "sc-21e108613da5",
+        "sc-2044ec1cc1b2"
+      ],
+      "avgCost": 20.5,
+      "realizedPnl": 1,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-13T00:00:00-04:00",
+          "qty": 2,
+          "price": 20.5
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-13T00:00:00-04:00",
+          "qty": 2,
+          "price": 21,
+          "realized": 1
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "sc-15de00be7e1d",
+      "ideaId": "sc-15de00be7e1d",
+      "account": "schwab-main",
+      "broker": "schwab",
+      "symbol": "SDAY",
+      "underlying": "SDAY",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "swing",
+      "sameDay": true,
+      "openedAt": "2025-03-14T00:00:00-04:00",
+      "closedAt": "2025-03-14T00:00:00-04:00",
+      "status": "closed",
+      "maxPosition": 1,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 5,
+      "avgExit": 5.5,
+      "grossPnl": 0.5,
+      "fees": 0,
+      "netPnl": 0.5,
+      "result": "win",
+      "holdMinutes": null,
+      "fillIds": [
+        "sc-15de00be7e1d",
+        "sc-e628ce567ad8"
+      ],
+      "avgCost": 5,
+      "realizedPnl": 0.5,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-14T00:00:00-04:00",
+          "qty": 1,
+          "price": 5
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-14T00:00:00-04:00",
+          "qty": 1,
+          "price": 5.5,
+          "realized": 0.5
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "sc-d050070a19f1",
+      "ideaId": "sc-d050070a19f1",
+      "account": "schwab-main",
+      "broker": "schwab",
+      "symbol": "OPSW",
+      "underlying": "OPSW",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "swing",
+      "sameDay": false,
+      "openedAt": "2025-03-14T00:00:00-04:00",
+      "closedAt": null,
+      "status": "open",
+      "maxPosition": 4,
+      "openQty": 2,
+      "unmatchedQty": 0,
+      "avgEntry": 9,
+      "avgExit": 10,
+      "grossPnl": 2,
+      "fees": 0,
+      "netPnl": 2,
+      "result": null,
+      "holdMinutes": null,
+      "fillIds": [
+        "sc-d050070a19f1",
+        "sc-88e05aee13b5"
+      ],
+      "avgCost": 9,
+      "realizedPnl": 2,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-14T00:00:00-04:00",
+          "qty": 4,
+          "price": 9
+        },
+        {
+          "kind": "trim",
+          "at": "2025-03-18T00:00:00-04:00",
+          "qty": 2,
+          "price": 10,
+          "realized": 2
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-4266df2cc316",
+      "ideaId": "wb-4266df2cc316",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "OPNQ",
+      "underlying": "OPNQ",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": false,
+      "openedAt": "2025-03-14T15:00:00-04:00",
+      "closedAt": null,
+      "status": "open",
+      "maxPosition": 3,
+      "openQty": 3,
+      "unmatchedQty": 0,
+      "avgEntry": 1,
+      "avgExit": null,
+      "grossPnl": 0,
+      "fees": 0,
+      "netPnl": 0,
+      "result": null,
+      "holdMinutes": null,
+      "fillIds": [
+        "wb-4266df2cc316"
+      ],
+      "avgCost": 1,
+      "realizedPnl": 0,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-14T15:00:00-04:00",
+          "qty": 3,
+          "price": 1
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "sc-f7e0fe2e8b98",
+      "ideaId": "sc-f7e0fe2e8b98",
+      "account": "schwab-main",
+      "broker": "schwab",
+      "symbol": "TSTU",
+      "underlying": "TSTU",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "swing",
+      "sameDay": false,
+      "openedAt": "2025-03-17T00:00:00-04:00",
+      "closedAt": "2025-03-18T00:00:00-04:00",
+      "status": "closed",
+      "maxPosition": 1,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 30,
+      "avgExit": 31,
+      "grossPnl": 1,
+      "fees": 0,
+      "netPnl": 1,
+      "result": "win",
+      "holdMinutes": null,
+      "fillIds": [
+        "sc-f7e0fe2e8b98",
+        "sc-320aaea15035"
+      ],
+      "avgCost": 30,
+      "realizedPnl": 1,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-17T00:00:00-04:00",
+          "qty": 1,
+          "price": 30
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-18T00:00:00-04:00",
+          "qty": 1,
+          "price": 31,
+          "realized": 1
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "wb-6df0021b12a4",
+      "ideaId": "wb-6df0021b12a4",
+      "account": "webull",
+      "broker": "webull",
+      "symbol": "ZZTA",
+      "underlying": "ZZTA",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "day",
+      "sameDay": true,
+      "openedAt": "2025-03-17T09:31:00-04:00",
+      "closedAt": "2025-03-17T09:33:00-04:00",
+      "status": "closed",
+      "maxPosition": 1,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 1.4,
+      "avgExit": 1.45,
+      "grossPnl": 0.05,
+      "fees": 0,
+      "netPnl": 0.05,
+      "result": "win",
+      "holdMinutes": 2,
+      "fillIds": [
+        "wb-6df0021b12a4",
+        "wb-9a2f49bff1ec"
+      ],
+      "avgCost": 1.4,
+      "realizedPnl": 0.05,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-17T09:31:00-04:00",
+          "qty": 1,
+          "price": 1.4
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-17T09:33:00-04:00",
+          "qty": 1,
+          "price": 1.45,
+          "realized": 0.05
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    },
+    {
+      "id": "sc-555efba108d8",
+      "ideaId": "sc-555efba108d8",
+      "account": "schwab-main",
+      "broker": "schwab",
+      "symbol": "BULF",
+      "underlying": "BULF",
+      "instrument": "stock",
+      "leverage": 1,
+      "direction": "long",
+      "style": "swing",
+      "sameDay": true,
+      "openedAt": "2025-03-19T00:00:00-04:00",
+      "closedAt": "2025-03-19T00:00:00-04:00",
+      "status": "closed",
+      "maxPosition": 1,
+      "openQty": 0,
+      "unmatchedQty": 0,
+      "avgEntry": 2,
+      "avgExit": 2.5,
+      "grossPnl": 0.5,
+      "fees": 0,
+      "netPnl": 0.5,
+      "result": "win",
+      "holdMinutes": null,
+      "fillIds": [
+        "sc-555efba108d8",
+        "sc-b697fe8c06f0"
+      ],
+      "avgCost": 2,
+      "realizedPnl": 0.5,
+      "events": [
+        {
+          "kind": "open",
+          "at": "2025-03-19T00:00:00-04:00",
+          "qty": 1,
+          "price": 2
+        },
+        {
+          "kind": "close",
+          "at": "2025-03-19T00:00:00-04:00",
+          "qty": 1,
+          "price": 2.5,
+          "realized": 0.5
+        }
+      ],
+      "tags": [],
+      "excluded": false
+    }
+  ],
+  "ideas": [
+    {
+      "id": "wb-c4ae2a0f1952",
+      "underlying": "PLMT",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "PLMT"
+      ],
+      "usedEtf": false,
+      "style": "day",
+      "date": "2025-01-15",
+      "tradeIds": [
+        "wb-c4ae2a0f1952"
+      ],
+      "netPnl": 0.5,
+      "status": "closed"
+    },
+    {
+      "id": "sc-8eef435ae68a",
+      "underlying": "SWGA",
+      "accounts": [
+        "schwab-main"
+      ],
+      "symbolsTraded": [
+        "SWGA"
+      ],
+      "usedEtf": false,
+      "style": "swing",
+      "date": "2025-03-03",
+      "tradeIds": [
+        "sc-8eef435ae68a"
+      ],
+      "netPnl": 0,
+      "status": "closed"
+    },
+    {
+      "id": "sc-48c4da81183b",
+      "underlying": "OLDP",
+      "accounts": [
+        "schwab-main"
+      ],
+      "symbolsTraded": [
+        "OLDP"
+      ],
+      "usedEtf": false,
+      "style": "swing",
+      "date": "2025-03-06",
+      "tradeIds": [
+        "sc-48c4da81183b"
+      ],
+      "netPnl": 0,
+      "status": "closed"
+    },
+    {
+      "id": "sc-fced7b6d3790",
+      "underlying": "BIGF",
+      "accounts": [
+        "schwab-main"
+      ],
+      "symbolsTraded": [
+        "BIGF"
+      ],
+      "usedEtf": false,
+      "style": "swing",
+      "date": "2025-03-10",
+      "tradeIds": [
+        "sc-fced7b6d3790"
+      ],
+      "netPnl": 4.19,
+      "status": "closed"
+    },
+    {
+      "id": "wb-f4c533f30d20",
+      "underlying": "ZZTA",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "ZZTA"
+      ],
+      "usedEtf": false,
+      "style": "day",
+      "date": "2025-03-10",
+      "tradeIds": [
+        "wb-f4c533f30d20",
+        "wb-be3997b0ed98"
+      ],
+      "netPnl": 0.7,
+      "status": "closed"
+    },
+    {
+      "id": "wb-e014bf2aadb1",
+      "underlying": "QXRB",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "QXRB"
+      ],
+      "usedEtf": false,
+      "style": "day",
+      "date": "2025-03-10",
+      "tradeIds": [
+        "wb-e014bf2aadb1"
+      ],
+      "netPnl": -0.3,
+      "status": "closed"
+    },
+    {
+      "id": "wb-286b17e984b6",
+      "underlying": "QXRB",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "QXRB"
+      ],
+      "usedEtf": false,
+      "style": "day",
+      "date": "2025-03-11",
+      "tradeIds": [
+        "wb-286b17e984b6"
+      ],
+      "netPnl": 0.2,
+      "status": "closed"
+    },
+    {
+      "id": "wb-c49e5bae13bf",
+      "underlying": "RNDB",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "RNDB"
+      ],
+      "usedEtf": false,
+      "style": "day",
+      "date": "2025-03-11",
+      "tradeIds": [
+        "wb-c49e5bae13bf"
+      ],
+      "netPnl": 0,
+      "status": "closed"
+    },
+    {
+      "id": "wb-767e02f44116",
+      "underlying": "FAKE",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "FAKE",
+        "FAKU"
+      ],
+      "usedEtf": true,
+      "style": "day",
+      "date": "2025-03-12",
+      "tradeIds": [
+        "wb-767e02f44116",
+        "wb-77d8833865dc"
+      ],
+      "netPnl": -0.5,
+      "status": "closed"
+    },
+    {
+      "id": "wb-d21c901bf540",
+      "underlying": "ORPH",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "ORPH"
+      ],
+      "usedEtf": false,
+      "style": "day",
+      "date": "2025-03-12",
+      "tradeIds": [
+        "wb-d21c901bf540"
+      ],
+      "netPnl": 0,
+      "status": "closed"
+    },
+    {
+      "id": "wb-d4fd57f30121",
+      "underlying": "HOLD",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "HOLD"
+      ],
+      "usedEtf": false,
+      "style": "day",
+      "date": "2025-03-12",
+      "tradeIds": [
+        "wb-d4fd57f30121"
+      ],
+      "netPnl": 0.4,
+      "status": "closed"
+    },
+    {
+      "id": "sc-532f259d6620",
+      "underlying": "FAKE",
+      "accounts": [
+        "schwab-main"
+      ],
+      "symbolsTraded": [
+        "FAKU"
+      ],
+      "usedEtf": true,
+      "style": "swing",
+      "date": "2025-03-13",
+      "tradeIds": [
+        "sc-532f259d6620",
+        "sc-21e108613da5"
+      ],
+      "netPnl": 0.6,
+      "status": "closed"
+    },
+    {
+      "id": "sc-15de00be7e1d",
+      "underlying": "SDAY",
+      "accounts": [
+        "schwab-main"
+      ],
+      "symbolsTraded": [
+        "SDAY"
+      ],
+      "usedEtf": false,
+      "style": "swing",
+      "date": "2025-03-14",
+      "tradeIds": [
+        "sc-15de00be7e1d"
+      ],
+      "netPnl": 0.5,
+      "status": "closed"
+    },
+    {
+      "id": "sc-d050070a19f1",
+      "underlying": "OPSW",
+      "accounts": [
+        "schwab-main"
+      ],
+      "symbolsTraded": [
+        "OPSW"
+      ],
+      "usedEtf": false,
+      "style": "swing",
+      "date": "2025-03-14",
+      "tradeIds": [
+        "sc-d050070a19f1"
+      ],
+      "netPnl": 2,
+      "status": "open"
+    },
+    {
+      "id": "wb-4266df2cc316",
+      "underlying": "OPNQ",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "OPNQ"
+      ],
+      "usedEtf": false,
+      "style": "day",
+      "date": "2025-03-14",
+      "tradeIds": [
+        "wb-4266df2cc316"
+      ],
+      "netPnl": 0,
+      "status": "open"
+    },
+    {
+      "id": "sc-f7e0fe2e8b98",
+      "underlying": "TSTU",
+      "accounts": [
+        "schwab-main"
+      ],
+      "symbolsTraded": [
+        "TSTU"
+      ],
+      "usedEtf": false,
+      "style": "swing",
+      "date": "2025-03-17",
+      "tradeIds": [
+        "sc-f7e0fe2e8b98"
+      ],
+      "netPnl": 1,
+      "status": "closed"
+    },
+    {
+      "id": "wb-6df0021b12a4",
+      "underlying": "ZZTA",
+      "accounts": [
+        "webull"
+      ],
+      "symbolsTraded": [
+        "ZZTA"
+      ],
+      "usedEtf": false,
+      "style": "day",
+      "date": "2025-03-17",
+      "tradeIds": [
+        "wb-6df0021b12a4"
+      ],
+      "netPnl": 0.05,
+      "status": "closed"
+    },
+    {
+      "id": "sc-555efba108d8",
+      "underlying": "BULF",
+      "accounts": [
+        "schwab-main"
+      ],
+      "symbolsTraded": [
+        "BULF"
+      ],
+      "usedEtf": false,
+      "style": "swing",
+      "date": "2025-03-19",
+      "tradeIds": [
+        "sc-555efba108d8"
+      ],
+      "netPnl": 0.5,
+      "status": "closed"
+    }
+  ]
+}
