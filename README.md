@@ -13,7 +13,7 @@ the rolling 90-day average.
 See [`docs/SPEC.md`](docs/SPEC.md) for the full specification and the
 decisions log (§10).
 
-Status: milestone 1 (data core) in progress: parsers, grouping and the import CLI.
+Status: milestone 1 (data core) complete. Next: milestone 2, gauges and dashboard.
 
 ## Development
 
