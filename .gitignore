@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+*.log
+.DS_Store
+
+# Never commit real trade data to this public repo
+_data/
+*.csv
+quotes.json
+data.enc
