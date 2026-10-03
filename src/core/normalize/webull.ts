@@ -30,7 +30,7 @@ export function parseWebull(
   const { rows } = parseCsv(text);
   const skipped: Record<string, number> = {};
   const errors: string[] = [];
-  const raw: (RawFill & { name: string })[] = [];
+  const raw: (RawFill & { name: string; placedAt: string })[] = [];
 
   // Exports are newest-first; walk oldest-first so seq and id occurrence
   // indexes are the same in every overlapping export.
@@ -67,6 +67,7 @@ export function parseWebull(
         source: opts.source,
         importedAt: opts.importedAt,
         name: (r["Name"] ?? "").trim(),
+        placedAt: r["Placed Time"]?.trim() ? parseWebullTime(r["Placed Time"]) : "",
       });
     } catch (e) {
       errors.push(`line ${line}: ${(e as Error).message}`);
@@ -81,6 +82,9 @@ export function parseWebull(
     f.seq = n;
   }
 
-  const fills = assignIds(raw.map(({ name: _n, ...f }) => f)).map((f, i) => ({ ...f, name: raw[i]!.name }));
+  const fills = assignIds(
+    raw.map(({ name: _n, placedAt: _p, ...f }) => f),
+    raw.map((f) => f.placedAt),
+  ).map((f, i) => ({ ...f, name: raw[i]!.name }));
   return { fills, rows: rows.length, skipped, errors };
 }

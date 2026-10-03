@@ -6,10 +6,12 @@ export interface MergeResult {
   duplicates: number;
   /** Same id but different content: a hash collision or a changed export. Never silently merged. */
   conflicts: string[];
+  /** Webull ticker changes: same fill, new symbol. The stored (first-seen) symbol is kept (Q18). */
+  renames: Array<{ id: string; from: string; to: string }>;
   warnings: string[];
 }
 
-const CONTENT_KEYS = ["broker", "account", "symbol", "side", "qty", "price", "fees", "executedAt"] as const;
+const CONTENT_KEYS = ["broker", "account", "side", "qty", "price", "fees", "executedAt"] as const;
 
 export function compareFills(a: Fill, b: Fill): number {
   const ta = Date.parse(a.executedAt);
@@ -39,6 +41,7 @@ export function mergeFills(existing: Fill[], incoming: Fill[]): MergeResult {
   const added: Fill[] = [];
   const conflicts: string[] = [];
   const warnings: string[] = [];
+  const renames: MergeResult["renames"] = [];
   let duplicates = 0;
 
   const groupKey = (f: Fill) => `${f.account}|${f.executedAt}`;
@@ -71,6 +74,7 @@ export function mergeFills(existing: Fill[], incoming: Fill[]): MergeResult {
           continue;
         }
         duplicates++;
+        if (prev.symbol !== f.symbol) renames.push({ id: f.id, from: prev.symbol, to: f.symbol });
         if (covered) prev.seq = f.seq;
         continue;
       }
@@ -80,5 +84,5 @@ export function mergeFills(existing: Fill[], incoming: Fill[]): MergeResult {
     }
   }
 
-  return { fills: [...byId.values()].sort(compareFills), added, duplicates, conflicts, warnings };
+  return { fills: [...byId.values()].sort(compareFills), added, duplicates, conflicts, renames, warnings };
 }

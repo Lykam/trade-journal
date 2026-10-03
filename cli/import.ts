@@ -80,13 +80,19 @@ export function runImport(argv: string[], log: (s: string) => void = console.log
   for (const e of errors.slice(0, 20)) log(`  ERROR ${e}`);
   for (const w of warnings.slice(0, 20)) log(`  WARN  ${w}`);
 
+  const renames = new Map<string, number>();
+  // Overlapping exports each re-report the same renamed fills, so take the largest count, not the sum.
+  for (const f of result.files) for (const [k, n] of Object.entries(f.renames)) renames.set(k, Math.max(renames.get(k) ?? 0, n));
+  log(`\nTICKER CHANGES (${renames.size}) — Webull now reports these fills under a new symbol; the original symbol is kept`);
+  log(renames.size ? [...renames].map(([k, n]) => `  ${k}  (${n} fills)`).join("\n") : "  none");
+
   log(`\nNEW ETF SYMBOLS TO MAP (${result.unmappedEtfs.length}) — add to symbols.json`);
   log(result.unmappedEtfs.length ? etfTable(result.unmappedEtfs) : "  none");
 
   log(`\nTRADES: ${diff.added.length} new, ${diff.changed.length} changed, ${diff.removed.length} removed  ·  ${trades.length} trades in ${ideas.length} ideas`);
-  const shown = [...diff.added, ...diff.changed].slice(-limit);
+  const shown = limit > 0 ? [...diff.added, ...diff.changed].slice(-limit) : [];
   if (shown.length) {
-    log(`(latest ${shown.length}; use --limit to show more)`);
+    log(`(latest ${shown.length}; use --limit N to change)`);
     log(tradeRows(shown));
   }
 

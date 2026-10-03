@@ -149,6 +149,19 @@ describe("dedupe", () => {
     expect(later.added.every((f) => f.importedAt === "2025-04-01T00:00:00Z")).toBe(true);
   });
 
+  it("treats a Webull ticker change on past rows as the same fill and keeps the first symbol", () => {
+    const r = importFiles([input(WEBULL_A), input(WEBULL_B)], [], ctx);
+    expect(r.files[1]).toMatchObject({ added: 2, duplicates: 23, renames: { "PLMT → PLMN": 2 }, errors: [] });
+    expect(r.fills.filter((f) => f.symbol === "PLMT")).toHaveLength(2);
+    expect(r.fills.some((f) => f.symbol === "PLMN")).toBe(false);
+  });
+
+  it("uses the renamed symbol when the later export is the first one imported", () => {
+    const r = importFiles([input(WEBULL_B), input(WEBULL_A)], [], ctx);
+    expect(r.fills.filter((f) => f.symbol === "PLMN")).toHaveLength(2);
+    expect(r.files[1]!.renames).toEqual({ "PLMN → PLMT": 2 });
+  });
+
   it("flags the same id with different content as a conflict", () => {
     const parsed = wb(WEBULL_A).fills;
     const tampered = parsed.map((f, i) => (i === 0 ? { ...f, fees: 1 } : f));

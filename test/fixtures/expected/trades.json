@@ -3,8 +3,8 @@
   "generator": "trade-journal@0.1.0",
   "trades": [
     {
-      "id": "wb-c4ae2a0f1952",
-      "ideaId": "wb-c4ae2a0f1952",
+      "id": "wb-64128e3c0583",
+      "ideaId": "wb-64128e3c0583",
       "account": "webull",
       "broker": "webull",
       "symbol": "PLMT",
@@ -28,8 +28,8 @@
       "result": "win",
       "holdMinutes": 374.9,
       "fillIds": [
-        "wb-c4ae2a0f1952",
-        "wb-8199e08151cd"
+        "wb-64128e3c0583",
+        "wb-796e2641b296"
       ],
       "avgCost": 3,
       "realizedPnl": 0.5,
@@ -207,8 +207,8 @@
       "excluded": false
     },
     {
-      "id": "wb-f4c533f30d20",
-      "ideaId": "wb-f4c533f30d20",
+      "id": "wb-4fa89f0bc78f",
+      "ideaId": "wb-4fa89f0bc78f",
       "account": "webull",
       "broker": "webull",
       "symbol": "ZZTA",
@@ -232,10 +232,10 @@
       "result": "win",
       "holdMinutes": 20.92,
       "fillIds": [
-        "wb-f4c533f30d20",
-        "wb-1b11801d5c4b",
-        "wb-a78f206fd339",
-        "wb-03eafd096ec3"
+        "wb-4fa89f0bc78f",
+        "wb-e85d7d8026de",
+        "wb-222472a7a90e",
+        "wb-5bf0fe72ba8c"
       ],
       "avgCost": 1.55,
       "realizedPnl": 0.7,
@@ -271,8 +271,8 @@
       "excluded": false
     },
     {
-      "id": "wb-e014bf2aadb1",
-      "ideaId": "wb-e014bf2aadb1",
+      "id": "wb-1c16affd9a67",
+      "ideaId": "wb-1c16affd9a67",
       "account": "webull",
       "broker": "webull",
       "symbol": "QXRB",
@@ -296,8 +296,8 @@
       "result": "loss",
       "holdMinutes": 20,
       "fillIds": [
-        "wb-e014bf2aadb1",
-        "wb-4d29edece471"
+        "wb-1c16affd9a67",
+        "wb-2ecbb51f7c46"
       ],
       "avgCost": 2,
       "realizedPnl": -0.3,
@@ -320,8 +320,8 @@
       "excluded": false
     },
     {
-      "id": "wb-be3997b0ed98",
-      "ideaId": "wb-f4c533f30d20",
+      "id": "wb-1cdafff96e51",
+      "ideaId": "wb-4fa89f0bc78f",
       "account": "webull",
       "broker": "webull",
       "symbol": "ZZTA",
@@ -345,8 +345,8 @@
       "result": "breakeven",
       "holdMinutes": 5,
       "fillIds": [
-        "wb-be3997b0ed98",
-        "wb-7e9caedfea1f"
+        "wb-1cdafff96e51",
+        "wb-756bd1830494"
       ],
       "avgCost": 1.65,
       "realizedPnl": 0,
@@ -369,8 +369,8 @@
       "excluded": false
     },
     {
-      "id": "wb-286b17e984b6",
-      "ideaId": "wb-286b17e984b6",
+      "id": "wb-6a72f40d4a17",
+      "ideaId": "wb-6a72f40d4a17",
       "account": "webull",
       "broker": "webull",
       "symbol": "QXRB",
@@ -394,9 +394,9 @@
       "result": "win",
       "holdMinutes": 0.98,
       "fillIds": [
-        "wb-286b17e984b6",
-        "wb-688f7aa10d9f",
-        "wb-346f119b8646"
+        "wb-6a72f40d4a17",
+        "wb-737a438049f8",
+        "wb-217057244bd4"
       ],
       "avgCost": 2.1,
       "realizedPnl": 0.2,
@@ -425,8 +425,8 @@
       "excluded": false
     },
     {
-      "id": "wb-c49e5bae13bf",
-      "ideaId": "wb-c49e5bae13bf",
+      "id": "wb-616d9e1eed97",
+      "ideaId": "wb-616d9e1eed97",
       "account": "webull",
       "broker": "webull",
       "symbol": "RNDB",
@@ -450,8 +450,8 @@
       "result": "breakeven",
       "holdMinutes": 5,
       "fillIds": [
-        "wb-c49e5bae13bf",
-        "wb-f3478895521e"
+        "wb-616d9e1eed97",
+        "wb-40e7a710a538"
       ],
       "avgCost": 2.1234,
       "realizedPnl": 0,
@@ -474,8 +474,8 @@
       "excluded": false
     },
     {
-      "id": "wb-767e02f44116",
-      "ideaId": "wb-767e02f44116",
+      "id": "wb-8a319afe3829",
+      "ideaId": "wb-8a319afe3829",
       "account": "webull",
       "broker": "webull",
       "symbol": "FAKE",
@@ -499,8 +499,8 @@
       "result": "win",
       "holdMinutes": 15,
       "fillIds": [
-        "wb-767e02f44116",
-        "wb-f6777c7c51b9"
+        "wb-8a319afe3829",
+        "wb-233cb5f9c12c"
       ],
       "avgCost": 10,
       "realizedPnl": 0.5,
@@ -523,8 +523,8 @@
       "excluded": false
     },
     {
-      "id": "wb-77d8833865dc",
-      "ideaId": "wb-767e02f44116",
+      "id": "wb-5860416b551f",
+      "ideaId": "wb-8a319afe3829",
       "account": "webull",
       "broker": "webull",
       "symbol": "FAKU",
@@ -548,8 +548,8 @@
       "result": "loss",
       "holdMinutes": 15,
       "fillIds": [
-        "wb-77d8833865dc",
-        "wb-938bbf19fc58"
+        "wb-5860416b551f",
+        "wb-26b367a2984c"
       ],
       "avgCost": 20,
       "realizedPnl": -1,
@@ -572,8 +572,8 @@
       "excluded": false
     },
     {
-      "id": "wb-d21c901bf540",
-      "ideaId": "wb-d21c901bf540",
+      "id": "wb-5dd9a3b97cbc",
+      "ideaId": "wb-5dd9a3b97cbc",
       "account": "webull",
       "broker": "webull",
       "symbol": "ORPH",
@@ -597,7 +597,7 @@
       "result": null,
       "holdMinutes": 0,
       "fillIds": [
-        "wb-d21c901bf540"
+        "wb-5dd9a3b97cbc"
       ],
       "avgCost": 0,
       "realizedPnl": 0,
@@ -614,8 +614,8 @@
       "excluded": false
     },
     {
-      "id": "wb-d4fd57f30121",
-      "ideaId": "wb-d4fd57f30121",
+      "id": "wb-f1716d322462",
+      "ideaId": "wb-f1716d322462",
       "account": "webull",
       "broker": "webull",
       "symbol": "HOLD",
@@ -639,8 +639,8 @@
       "result": "win",
       "holdMinutes": 1065,
       "fillIds": [
-        "wb-d4fd57f30121",
-        "wb-32a3af0cb984"
+        "wb-f1716d322462",
+        "wb-bb88c8732081"
       ],
       "avgCost": 5,
       "realizedPnl": 0.4,
@@ -859,8 +859,8 @@
       "excluded": false
     },
     {
-      "id": "wb-4266df2cc316",
-      "ideaId": "wb-4266df2cc316",
+      "id": "wb-9ccda1fc79da",
+      "ideaId": "wb-9ccda1fc79da",
       "account": "webull",
       "broker": "webull",
       "symbol": "OPNQ",
@@ -884,7 +884,7 @@
       "result": null,
       "holdMinutes": null,
       "fillIds": [
-        "wb-4266df2cc316"
+        "wb-9ccda1fc79da"
       ],
       "avgCost": 1,
       "realizedPnl": 0,
@@ -949,8 +949,8 @@
       "excluded": false
     },
     {
-      "id": "wb-6df0021b12a4",
-      "ideaId": "wb-6df0021b12a4",
+      "id": "wb-13e2a3ce2e61",
+      "ideaId": "wb-13e2a3ce2e61",
       "account": "webull",
       "broker": "webull",
       "symbol": "ZZTA",
@@ -974,8 +974,8 @@
       "result": "win",
       "holdMinutes": 2,
       "fillIds": [
-        "wb-6df0021b12a4",
-        "wb-9a2f49bff1ec"
+        "wb-13e2a3ce2e61",
+        "wb-8e001a2603e8"
       ],
       "avgCost": 1.4,
       "realizedPnl": 0.05,
@@ -1049,7 +1049,7 @@
   ],
   "ideas": [
     {
-      "id": "wb-c4ae2a0f1952",
+      "id": "wb-64128e3c0583",
       "underlying": "PLMT",
       "accounts": [
         "webull"
@@ -1061,7 +1061,7 @@
       "style": "day",
       "date": "2025-01-15",
       "tradeIds": [
-        "wb-c4ae2a0f1952"
+        "wb-64128e3c0583"
       ],
       "netPnl": 0.5,
       "status": "closed"
@@ -1121,7 +1121,7 @@
       "status": "closed"
     },
     {
-      "id": "wb-f4c533f30d20",
+      "id": "wb-4fa89f0bc78f",
       "underlying": "ZZTA",
       "accounts": [
         "webull"
@@ -1133,14 +1133,14 @@
       "style": "day",
       "date": "2025-03-10",
       "tradeIds": [
-        "wb-f4c533f30d20",
-        "wb-be3997b0ed98"
+        "wb-4fa89f0bc78f",
+        "wb-1cdafff96e51"
       ],
       "netPnl": 0.7,
       "status": "closed"
     },
     {
-      "id": "wb-e014bf2aadb1",
+      "id": "wb-1c16affd9a67",
       "underlying": "QXRB",
       "accounts": [
         "webull"
@@ -1152,13 +1152,13 @@
       "style": "day",
       "date": "2025-03-10",
       "tradeIds": [
-        "wb-e014bf2aadb1"
+        "wb-1c16affd9a67"
       ],
       "netPnl": -0.3,
       "status": "closed"
     },
     {
-      "id": "wb-286b17e984b6",
+      "id": "wb-6a72f40d4a17",
       "underlying": "QXRB",
       "accounts": [
         "webull"
@@ -1170,13 +1170,13 @@
       "style": "day",
       "date": "2025-03-11",
       "tradeIds": [
-        "wb-286b17e984b6"
+        "wb-6a72f40d4a17"
       ],
       "netPnl": 0.2,
       "status": "closed"
     },
     {
-      "id": "wb-c49e5bae13bf",
+      "id": "wb-616d9e1eed97",
       "underlying": "RNDB",
       "accounts": [
         "webull"
@@ -1188,13 +1188,13 @@
       "style": "day",
       "date": "2025-03-11",
       "tradeIds": [
-        "wb-c49e5bae13bf"
+        "wb-616d9e1eed97"
       ],
       "netPnl": 0,
       "status": "closed"
     },
     {
-      "id": "wb-767e02f44116",
+      "id": "wb-8a319afe3829",
       "underlying": "FAKE",
       "accounts": [
         "webull"
@@ -1207,14 +1207,14 @@
       "style": "day",
       "date": "2025-03-12",
       "tradeIds": [
-        "wb-767e02f44116",
-        "wb-77d8833865dc"
+        "wb-8a319afe3829",
+        "wb-5860416b551f"
       ],
       "netPnl": -0.5,
       "status": "closed"
     },
     {
-      "id": "wb-d21c901bf540",
+      "id": "wb-5dd9a3b97cbc",
       "underlying": "ORPH",
       "accounts": [
         "webull"
@@ -1226,13 +1226,13 @@
       "style": "day",
       "date": "2025-03-12",
       "tradeIds": [
-        "wb-d21c901bf540"
+        "wb-5dd9a3b97cbc"
       ],
       "netPnl": 0,
       "status": "closed"
     },
     {
-      "id": "wb-d4fd57f30121",
+      "id": "wb-f1716d322462",
       "underlying": "HOLD",
       "accounts": [
         "webull"
@@ -1244,7 +1244,7 @@
       "style": "day",
       "date": "2025-03-12",
       "tradeIds": [
-        "wb-d4fd57f30121"
+        "wb-f1716d322462"
       ],
       "netPnl": 0.4,
       "status": "closed"
@@ -1305,7 +1305,7 @@
       "status": "open"
     },
     {
-      "id": "wb-4266df2cc316",
+      "id": "wb-9ccda1fc79da",
       "underlying": "OPNQ",
       "accounts": [
         "webull"
@@ -1317,7 +1317,7 @@
       "style": "day",
       "date": "2025-03-14",
       "tradeIds": [
-        "wb-4266df2cc316"
+        "wb-9ccda1fc79da"
       ],
       "netPnl": 0,
       "status": "open"
@@ -1341,7 +1341,7 @@
       "status": "closed"
     },
     {
-      "id": "wb-6df0021b12a4",
+      "id": "wb-13e2a3ce2e61",
       "underlying": "ZZTA",
       "accounts": [
         "webull"
@@ -1353,7 +1353,7 @@
       "style": "day",
       "date": "2025-03-17",
       "tradeIds": [
-        "wb-6df0021b12a4"
+        "wb-13e2a3ce2e61"
       ],
       "netPnl": 0.05,
       "status": "closed"

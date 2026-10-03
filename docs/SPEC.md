@@ -332,6 +332,11 @@ Time-in-Force, Placed Time, Filled Time`.
   Parse the EDT/EST abbreviation into an offset. Precision is `"second"`.
 - Each export is a cumulative history, so successive exports overlap heavily.
   Dedupe handles this (§4.3).
+- **Webull rewrites the symbol on past rows after a ticker change** (seen in
+  real exports: the same fills appear under the old ticker in one export and
+  the new ticker in the next). Webull fill ids therefore leave the symbol out
+  (§4.3), the first-seen symbol is kept, and the preview lists each
+  "OLD → NEW" ticker change (Q18).
 
 ### 4.2 Schwab (`Trading_XXX###_Transactions_*.csv`)
 
@@ -353,8 +358,12 @@ Amount`.
 
 ### 4.3 Dedupe and fill ids
 
-- `id` = broker prefix + the first 12 hex characters of the SHA-256 of
-  `account|symbol|side|qty|price|executedAt|n` (Q15), where `n` is the occurrence
+- `id` = broker prefix + the first 12 hex characters of the SHA-256 of the
+  fill's identity plus `|n` (Q15):
+  - Schwab: `account|symbol|side|qty|price|executedAt`. Rows are date-only,
+    so the symbol is needed to tell same-day fills apart.
+  - Webull: `account|side|qty|price|executedAt|placedAt` (`Placed Time`),
+    without the symbol, because Webull renames past rows (§4.1, Q18)., where `n` is the occurrence
   index of an otherwise identical row in the same file. Two real identical
   fills in the same second are both kept.
 - A fill whose `id` already exists is skipped. The result reports
@@ -1004,6 +1013,7 @@ Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
 | Q15 | Fill id length | 12 hex chars of SHA-256 (48 bits), not 8. At ~20k fills, 8 chars gives about a 5% chance of a collision; 12 makes it negligible. Collisions are still detected and reported as errors. (2026-10-03, milestone 1) |
 | Q16 | Account mapping | `config.json` maps the Schwab export's file-name id to an account label (`schwabAccounts`), and names the Webull account (`webullAccount`). The real id exists only in private `trade-history`; tests use a fake `000`. (2026-10-03, milestone 1) |
 | Q17 | Schema location | Canonical schemas live with the code in `trade-journal/schema/` and are copied into `trade-history/schema/` on each import, so the code and the contract can't drift. (2026-10-03, milestone 1) |
+| Q18 | Webull ticker changes | Webull rewrites past rows to a new ticker (e.g. after a reverse merger). Webull fill ids hash the order's placed time instead of the symbol, so a renamed row dedupes to the same fill. The **first-seen symbol is kept** (what was traded, matching Tradervue and reviews written at the time), and the preview lists ticker changes. Schwab ids keep the symbol. (2026-10-03, milestone 1) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open

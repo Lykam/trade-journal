@@ -27,6 +27,8 @@ export interface FileReport {
   skipped: Record<string, number>;
   errors: string[];
   warnings: string[];
+  /** "OLD → NEW": count of fills Webull now reports under a new ticker. */
+  renames: Record<string, number>;
 }
 
 export interface UnmappedEtf {
@@ -77,7 +79,7 @@ export function importFiles(
   for (const input of inputs) {
     const report: FileReport = {
       source: input.name, broker: null, account: null, rows: 0, parsed: 0,
-      added: 0, duplicates: 0, skipped: {}, errors: [], warnings: [],
+      added: 0, duplicates: 0, skipped: {}, errors: [], warnings: [], renames: {},
     };
     files.push(report);
     const broker = detectBroker(input.text);
@@ -108,6 +110,10 @@ export function importFiles(
     report.added = merged.added.length;
     report.duplicates = merged.duplicates;
     report.warnings = merged.warnings;
+    for (const r of merged.renames) {
+      const k = `${r.from} → ${r.to}`;
+      report.renames[k] = (report.renames[k] ?? 0) + 1;
+    }
   }
 
   const unmappedEtfs: UnmappedEtf[] = [];
