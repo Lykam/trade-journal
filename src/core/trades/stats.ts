@@ -60,3 +60,11 @@ export function heldOvernightDayTrades(trades: Trade[], today: string): Trade[] 
       ((t.status === "open" && etDate(t.openedAt) < today) || (t.status === "closed" && !t.sameDay)),
   );
 }
+
+/** Closed trades, latest close first. Same-instant closes (Schwab, date only) reverse the input order. */
+export function byCloseDesc(trades: Trade[]): Trade[] {
+  return trades
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => Date.parse(b.t.closedAt!) - Date.parse(a.t.closedAt!) || b.i - a.i)
+    .map(({ t }) => t);
+}

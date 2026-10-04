@@ -2,7 +2,7 @@ import type { Config, DerivedTrades, Fill, Overrides, SymbolsMap } from "../type
 import { buildTrades } from "./grouping";
 
 export { buildTrades, assignIdeas } from "./grouping";
-export { summarize, isScored, markToMarket, heldOvernightDayTrades, type Summary } from "./stats";
+export { summarize, isScored, markToMarket, heldOvernightDayTrades, byCloseDesc, type Summary } from "./stats";
 
 export function deriveTrades(
   fills: Fill[],

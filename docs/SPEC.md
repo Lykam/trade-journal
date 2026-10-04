@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.4)
+# Trade Journal — Spec (v0.5)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -488,8 +488,9 @@ flat-to-flat round trip), never an idea.
 
 - **Window:** closed, non-excluded day trades whose `closedAt`
   falls in the current week (Mon–Sun, ET).
-- **Backfill:** if the window has fewer than 5 trades, it is padded with the
-  most recent earlier day trades. The gauge shows a label such as
+- **Backfill:** if the window has fewer than 5 decisive (win or loss) trades,
+  it is padded with the most recent earlier day trades. Breakevens are shown
+  but don't count toward the 5 (Q20). The gauge shows a label such as
   "3 this week + 2 prior".
 
 ### 5.2 Swing gauge inputs
@@ -501,15 +502,20 @@ The window combines realized and unrealized results:
 2. **All currently open swing positions,** whenever they were opened. Each one
    is **marked to market** with the latest quote from §5.4 for the symbol
    actually held (HYNX, not 000660.KS):
-   `unrealized = (lastPrice − avgEntry) × openQty`, plus any realized P&L from
-   partial sells. It counts as a win if > $0, a loss if < $0, and is left out
+   `unrealized = (lastPrice − avgCost) × openQty` on the current average cost
+   (§6.1a), plus any realized P&L from partial sells (Q25). It counts as a win if > $0, a loss if < $0, and is left out
    if it is exactly $0.00.
 3. **Backfill:** if (1) + (2) gives fewer than 3, the window is padded with the
    most recent earlier closed swing trades.
 4. If a position has no quote (a newly imported position not yet priced, a
    failed fetch, or an unknown symbol), it is **left out** and the gauge shows
    "2 open positions not priced". Positions are never guessed. A quote older
-   than one trading session is still used, but is labeled **stale**.
+   than one trading session is still used, but is labeled **stale**: a full
+   regular session (weekday 09:30–16:00 ET) has passed since the quote, or
+   the quote was carried over from a failed fetch (Q21).
+5. **"As of now":** the gauge takes `now` as a parameter. Trades closed after
+   `now` are ignored, and a position open at `now` is rebuilt from its events,
+   so any past week can be recomputed and the tests are deterministic (Q23).
 
 Example: closed AAPL +$120 (W), NVDA −$40 (L); open MU +$85 (W), AMD −$30 (L),
 TSLA +$10 (W). The window is 3W / 2L = 60%.
@@ -556,12 +562,15 @@ fully static.
   3. Fetch quotes for only those symbols with the `yahoo-finance2` npm package
      (no key; keeps the codebase all TypeScript).
   4. Write `quotes.json`:
-     `{ "asOf": "...", "quotes": { "PALU": { "price": 61.12, "time": "...", "marketState": "REGULAR" } } }`.
+     `{ "asOf": "...", "attemptedAt": "...", "quotes": { "PALU": { "price": 61.12, "time": "...", "marketState": "REGULAR" } } }`.
+     `asOf` is the last successful fetch; a quote carried over from a failed
+     fetch has `"stale": true`. Symbols no longer held are dropped.
   5. Continue into the same build → bundle → **encrypt** → deploy steps as
      `deploy.yml`. Both workflows call one reusable workflow and share
      `concurrency: pages`.
 - **Quotes are never committed** to any repo, and symbols are never printed in
-  the logs. They exist only inside the encrypted `data.enc`. The public repo
+  the logs (`npm run quotes` prints counts only, and error messages are
+  reduced to their type because they can echo the request). They exist only inside the encrypted `data.enc`. The public repo
   doesn't reveal what you hold.
 - **Freshness:** about 15 minutes in theory. GitHub often starts scheduled runs
   5–15 minutes late, and occasionally skips one under heavy load, so expect
@@ -592,7 +601,7 @@ fully static.
   and unrealized P&L, avg win / avg loss, profit factor, and expectancy per
   trade.
 - A sparkline of the last 8 weeks' win rates against the baseline, from
-  closed trades only.
+  closed trades only. The 8th bar is the current (partial) week.
 - **Open swing positions table** under the swing gauge: symbol, open date,
   qty, avg entry, last price, unrealized $ / %, and days held.
 
@@ -677,7 +686,8 @@ everything else, and are never hidden.
      net P&L. Clicking a row opens Trade detail.
    - This always counts **trades** (round trips), not ideas, and ignores the
      30/60/90 range.
-4. **Week strip:** seven day cards (Sun–Sat). Each shows the date, net P&L
+4. **Week strip:** seven day cards for the gauge week (`weekStartsOn`,
+   Mon–Sun by default, Q19). Each shows the date, net P&L
    (colored) and the number of trades. A 📄 icon appears if any review exists
    for that day. Clicking a card opens the Trades page filtered to that day.
    Arrows step to previous weeks.
@@ -698,7 +708,10 @@ everything else, and are never hidden.
    - **Performance by duration:** buckets of < 5 min, 5–30 min, 30 min–2 h,
      2 h to close, 1–5 days, 1–4 weeks, > 4 weeks.
    - **Needs attention:** unmatched fills, unmapped ETF symbols, unpriced
-     open positions, and OPEN swing reviews whose position has closed.
+     open positions (and stale quotes), day trades held overnight, and OPEN
+     swing reviews whose position has closed. Unmapped ETFs need the broker's
+     name column, which fills don't store, so they surface in the import
+     preview; review checks arrive with reviews in milestone 3.
 7. **Edit Layout** (show, hide and reorder widgets, saved per browser) is a
    v1.1 nice-to-have, not v1. Blocks 1–3 stay pinned at the top regardless.
 
@@ -895,8 +908,16 @@ Reviews attach to **ideas**, not individual trades.
 
 ## 7. `trade-journal` repo: tech and layout
 
-- **App:** Vite + React + TypeScript; Recharts; `react-markdown` with
-  `rehype-raw` and `rehype-sanitize`; Papa Parse.
+- **App:** Vite + React + TypeScript; hand-rolled SVG charts (Q22);
+  `react-markdown` with `rehype-raw` and `rehype-sanitize`; Papa Parse.
+  Hash routes (`#/`, `#/open`, …) so GitHub Pages needs no rewrites.
+- **Local data (`npm run dev`):** a dev-only Vite plugin
+  (`build/dev-data-plugin.ts`, `apply: "serve"`) serves `$TRADE_HISTORY_DIR`
+  (`config.json`, `symbols.json`, `derived/trades.json`) plus the local
+  `quotes.json` at `<base>__data/bundle.json`, and reloads the page when they
+  change. The app fetches it only behind `import.meta.env.DEV`, so `vite build`
+  contains neither the data nor the loader (`test/build-leak.test.ts`).
+  `?now=<ISO>` pins the app's clock for checking past weeks.
 - **Shared logic:** pure TS in `src/core/`, imported by both the app and the
   CLI. Hashing uses `@noble/hashes` (synchronous, identical in browser and
   Node).
@@ -923,11 +944,15 @@ trade-journal/
     core/normalize/    schwab.ts, webull.ts, dedupe.ts
     core/trades/       grouping.ts, stats.ts
     core/gauge/        gauge.ts
+    core/dashboard/    dashboard.ts (open positions, recent 10, week strip, range widgets)
+    core/calendar.ts   ET dates, weeks, trading sessions
+    core/quotes.ts     quotes.json merge rules
     core/reviews/      parse-header.ts, join.ts
     app/               React pages and components
   cli/                 import.ts, trades.ts, verify.ts, lib/ (Node I/O + report printing)
   schema/              canonical JSON Schemas (copied into trade-history)
-  build/               bundle-data.ts, encrypt.ts, fetch-quotes.ts
+  build/               fetch-quotes.ts, load-bundle.ts, dev-data-plugin.ts, check-dist.ts
+                       (bundle-data.ts, encrypt.ts in milestone 4)
   test/fixtures/       synthetic CSVs + expected JSON
   .github/workflows/
     build-deploy.yml   reusable: checkout data → [quotes] → build → encrypt → deploy
@@ -951,7 +976,10 @@ Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
    `build/encrypt.ts` writes
    `data.enc` and `img/<hash>.enc`.
 5. **Leak guard:** fail the deploy if `dist/` contains any symbol from the
-   fills or any review file name in plaintext.
+   fills or any review file name in plaintext. `build/check-dist.ts` runs at
+   the end of `npm run build`; it prints counts only, and skips a symbol that
+   is also a word in the app's own source (e.g. a UI label), since the source
+   is public and ticker-scanned before every commit (Q24).
 6. `actions/upload-pages-artifact` → `actions/deploy-pages`.
 7. Use `concurrency: pages` so back-to-back imports and price runs collapse
    into one deploy.
@@ -1014,11 +1042,20 @@ Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
 | Q16 | Account mapping | `config.json` maps the Schwab export's file-name id to an account label (`schwabAccounts`), and names the Webull account (`webullAccount`). The real id exists only in private `trade-history`; tests use a fake `000`. (2026-10-03, milestone 1) |
 | Q17 | Schema location | Canonical schemas live with the code in `trade-journal/schema/` and are copied into `trade-history/schema/` on each import, so the code and the contract can't drift. (2026-10-03, milestone 1) |
 | Q18 | Webull ticker changes | Webull rewrites past rows to a new ticker (e.g. after a reverse merger). Webull fill ids hash the order's placed time instead of the symbol, so a renamed row dedupes to the same fill. The **first-seen symbol is kept** (what was traded, matching Tradervue and reviews written at the time), and the preview lists ticker changes. Schwab ids keep the symbol. (2026-10-03, milestone 1) |
+| Q19 | Week strip | The dashboard week strip shows the **gauge week** (`weekStartsOn`, Mon–Sun), not Sun–Sat, so the strip and the gauges always cover the same days; on a Sunday a Sun–Sat strip would show an empty week. (2026-10-04, milestone 2) |
+| Q20 | Backfill minimum | `minSample` counts **decisive** (win/loss) trades. Breakevens in the window are shown but don't count toward the 5 / 3 minimum, so the win rate always rests on at least that many trades. Labels count W/L. (2026-10-04, milestone 2) |
+| Q21 | Stale quote | Stale = at least one complete regular session (weekday 09:30–16:00 ET) ended after the quote time, or the quote was carried over from a failed fetch. Friday's close is fresh over the weekend and on Monday until 16:00. Holidays aren't modeled, so a holiday makes a quote stale a day early. (2026-10-04, milestone 2) |
+| Q22 | Charts | Hand-rolled SVG instead of Recharts: the widgets are simple, the Terminal look stays exact, and the bundle stays small. Green/red follow Q10; every value also carries its sign and a direct label, because red↔green is weak for color-blind readers. (2026-10-04, milestone 2) |
+| Q23 | Gauge "now" | Gauges are computed as of `now`: later closes are ignored and open positions are rebuilt from their events, so past weeks (sparkline, tests, `?now=`) are reproducible. Historical marks use whatever quotes are passed in. (2026-10-04, milestone 2) |
+| Q24 | Dev data and leak guard | Dev data comes from a serve-only Vite plugin behind `import.meta.env.DEV`; a build test plants a canary symbol and checks `dist/`. `check-dist` skips symbols that are also words in the public source. (2026-10-04, milestone 2) |
+| Q25 | Swing mark basis | Open swing positions are marked on the **current average cost** (`avgCost`) plus realized P&L from trims, the same numbers as the Open Positions page, rather than `avgEntry`. (2026-10-04, milestone 2) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open
 
-- Nothing blocks milestone 1.
+- Gross/Net toggle (§6.0) arrives with the Trades page in milestone 3; the
+  dashboard shows net P&L.
+- Nothing blocks milestone 3.
 
 ## 11. Future
 

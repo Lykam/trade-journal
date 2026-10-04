@@ -1,0 +1,130 @@
+import type { Gauge as GaugeData, SizeState } from "../../core/gauge/gauge";
+import type { Config } from "../../core/types";
+import { dateOf, mmdd, money, pct, pnlClass, pts, timeOf } from "../format";
+
+const CX = 100, CY = 100, R = 80;
+const clamp = (x: number) => Math.min(1, Math.max(0, x));
+/** Win rate 0…1 → point on the semicircle (0 at the left, 1 at the right). */
+const at = (rate: number, r = R) => {
+  const a = Math.PI * (1 - clamp(rate));
+  return [CX + r * Math.cos(a), CY - r * Math.sin(a)] as const;
+};
+const f = (n: number) => n.toFixed(1);
+function arc(from: number, to: number) {
+  const [x1, y1] = at(from);
+  const [x2, y2] = at(to);
+  return `M${f(x1)} ${f(y1)} A${R} ${R} 0 0 1 ${f(x2)} ${f(y2)}`;
+}
+
+const STATE_LABEL: Record<SizeState, string> = { full: "FULL SIZE", half: "½ SIZE", quarter: "¼ SIZE" };
+
+function Dial({ g, bands }: { g: GaugeData; bands: Config["gauge"]["bands"] }) {
+  const base = g.baseline.winRate;
+  const rate = g.stats.winRate;
+  const label = `${g.style} gauge: ${pct(rate)} in the window against a ${pct(base)} baseline`;
+  const segments: Array<{ from: number; to: number; cls: string; state: SizeState }> =
+    base === null
+      ? []
+      : [
+          { from: 0, to: clamp(base - bands.quarterSizeBelowPts / 100), cls: "s-loss", state: "quarter" },
+          { from: clamp(base - bands.quarterSizeBelowPts / 100), to: clamp(base - bands.halfSizeBelowPts / 100), cls: "s-half", state: "half" },
+          { from: clamp(base - bands.halfSizeBelowPts / 100), to: 1, cls: "s-gain", state: "full" },
+        ];
+  const [mx1, my1] = base === null ? [0, 0] : at(base, R - 12);
+  const [mx2, my2] = base === null ? [0, 0] : at(base, R + 12);
+  const [nx, ny] = rate === null ? [CX, CY] : at(rate, R - 18);
+  return (
+    <svg className="dial" viewBox="0 0 200 122" role="img" aria-label={label}>
+      {base === null ? (
+        <path d={arc(0, 1)} className="band s-muted" />
+      ) : (
+        segments
+          .filter((s) => s.to > s.from)
+          .map((s) => <path key={s.state} d={arc(s.from, s.to)} className={`band ${s.cls} ${g.state === s.state ? "" : "dimmed"}`} />)
+      )}
+      {base !== null && <line x1={f(mx1)} y1={f(my1)} x2={f(mx2)} y2={f(my2)} className="marker" />}
+      {rate !== null && <line x1={CX} y1={CY} x2={f(nx)} y2={f(ny)} className="needle" />}
+      <rect x={CX - 6} y={CY - 6} width="12" height="12" className="hub" />
+      <text x={CX} y={CY - 22} textAnchor="middle" className="value">{pct(rate)}</text>
+      <text x={CX - R} y={CY + 18} textAnchor="middle" className="scale">0</text>
+      <text x={CX + R} y={CY + 18} textAnchor="middle" className="scale">100</text>
+      {base !== null && <text x={CX} y={CY + 18} textAnchor="middle" className="scale">BASE {pct(base)}</text>}
+    </svg>
+  );
+}
+
+function Sparkline({ g }: { g: GaugeData }) {
+  const W = 8 * 14, H = 28;
+  const base = g.baseline.winRate;
+  return (
+    <div className="spark">
+      <span>8 WK</span>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: W, height: H }} role="img"
+        aria-label={`Weekly win rates, last 8 weeks: ${g.sparkline.map((p) => pct(p.winRate)).join(", ")}`}>
+        {base !== null && <line x1="0" x2={W} y1={H - base * H} y2={H - base * H} className="chart-ref" />}
+        {g.sparkline.map((p, i) => {
+          const h = p.winRate === null ? 1 : Math.max(1, p.winRate * H);
+          const cls = p.winRate === null ? "f-dim" : base === null || p.winRate >= base ? "f-gain" : "f-loss";
+          return (
+            <rect key={p.weekStart} x={i * 14 + 2} y={H - h} width="10" height={h} className={cls} opacity={p.current ? 1 : 0.7}>
+              <title>{`wk of ${p.weekStart}${p.current ? " (this week)" : ""}: ${pct(p.winRate)} · ${p.wins}W/${p.losses}L`}</title>
+            </rect>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+export function GaugeCard({ g, config }: { g: GaugeData; config: Config }) {
+  const s = g.stats;
+  const b = g.baseline;
+  const swing = g.style === "swing";
+  return (
+    <section className="panel gauge" aria-label={`${g.style} gauge`}>
+      <Dial g={g} bands={config.gauge.bands} />
+      <div className="body">
+        <div className="label">
+          {g.style} · base {pct(b.winRate)} · {b.wins}W/{b.losses}L · {config.gauge.baselineDays}D
+        </div>
+        <div className={`state ${g.state ?? "none"}`}>▌{g.state ? STATE_LABEL[g.state] : "NO SIGNAL"}</div>
+        <div className="muted">
+          Δ {pts(g.delta)} · {g.label.toUpperCase()}
+        </div>
+        <div style={{ color: "var(--text-2)" }}>{g.message}</div>
+        <div className="stats">
+          {swing ? (
+            <span>
+              W/L <b>{s.closed.wins}/{s.closed.losses}</b> closed · <b>{s.open.wins}/{s.open.losses}</b> open
+            </span>
+          ) : (
+            <span>W/L <b>{s.wins}/{s.losses}</b>{s.breakevens ? <span className="flat"> +{s.breakevens} BE</span> : null}</span>
+          )}
+          <span>REAL <b className={pnlClass(s.realized)}>{money(s.realized)}</b></span>
+          {swing && <span>UNREAL <b className={pnlClass(s.unrealized)}>{money(s.unrealized)}</b></span>}
+          <span>AVG W <b>{money(s.avgWin)}</b></span>
+          <span>AVG L <b>{money(s.avgLoss)}</b></span>
+          <span>PF <b>{s.profitFactor ?? (s.wins ? "∞" : "—")}</b></span>
+          <span>EXP <b className={pnlClass(s.expectancy)}>{money(s.expectancy)}</b></span>
+        </div>
+        <div className="notes">
+          {swing && g.pricesAsOf && (
+            <span className="dim">
+              PRICES AS OF {timeOf(g.pricesAsOf)} {dateOf(g.pricesAsOf) !== dateOf(g.now) && `(${mmdd(dateOf(g.pricesAsOf))})`}
+              {g.stale.length > 0 && <span className="half"> · {g.stale.length} STALE</span>}
+            </span>
+          )}
+          {swing && g.unpriced.length > 0 && (
+            <span className="half">
+              {g.unpriced.length} open position{g.unpriced.length === 1 ? "" : "s"} not priced
+            </span>
+          )}
+          {b.lowConfidence && (
+            <span className="dim">LOW-CONFIDENCE BASELINE: {b.wins + b.losses} trades in {config.gauge.baselineDays} days (&lt; 20)</span>
+          )}
+        </div>
+        <Sparkline g={g} />
+      </div>
+    </section>
+  );
+}

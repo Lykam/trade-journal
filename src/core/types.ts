@@ -139,3 +139,31 @@ export interface DerivedTrades {
   trades: Trade[];
   ideas: Idea[];
 }
+
+/** One price for a held symbol (SPEC §5.4). */
+export interface Quote {
+  price: number;
+  /** When the price was set (Yahoo regularMarketTime), ISO 8601. */
+  time: string;
+  marketState?: string;
+  /** The last fetch for this symbol failed and this is a carried-over price. */
+  stale?: true;
+}
+
+/** quotes.json: written by build/fetch-quotes.ts, never committed. */
+export interface QuotesFile {
+  /** Time of the last successful fetch. */
+  asOf: string;
+  /** Time of the last attempt, successful or not. */
+  attemptedAt?: string;
+  quotes: Record<string, Quote>;
+}
+
+/** Everything the app reads: served by the dev plugin now, decrypted from data.enc later (milestone 4). */
+export interface DataBundle {
+  config: Config;
+  symbols: SymbolsMap;
+  derived: DerivedTrades;
+  quotes: QuotesFile | null;
+  loadedAt: string;
+}

@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && tsx build/check-dist.ts",
+    "check:dist": "tsx build/check-dist.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "import": "tsx cli/import.ts",
     "trades": "tsx cli/trades.ts",
-    "verify": "tsx cli/verify.ts"
+    "verify": "tsx cli/verify.ts",
+    "quotes": "tsx build/fetch-quotes.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",
@@ -29,6 +31,7 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "yahoo-finance2": "^4.0.3"
   }
 }
