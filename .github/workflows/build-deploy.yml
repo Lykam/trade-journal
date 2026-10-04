@@ -30,11 +30,13 @@ jobs:
     steps:
       - name: Check secrets
         env:
-          DATA_READ_TOKEN: ${{ secrets.DATA_READ_TOKEN }}
+          TRADE_HISTORY_DEPLOY_KEY: ${{ secrets.TRADE_HISTORY_DEPLOY_KEY }}
+          PLAYBOOK_DEPLOY_KEY: ${{ secrets.PLAYBOOK_DEPLOY_KEY }}
           SITE_PASSPHRASE: ${{ secrets.SITE_PASSPHRASE }}
         run: |
           missing=""
-          [ -n "$DATA_READ_TOKEN" ] || missing="$missing DATA_READ_TOKEN"
+          [ -n "$TRADE_HISTORY_DEPLOY_KEY" ] || missing="$missing TRADE_HISTORY_DEPLOY_KEY"
+          [ -n "$PLAYBOOK_DEPLOY_KEY" ] || missing="$missing PLAYBOOK_DEPLOY_KEY"
           [ -n "$SITE_PASSPHRASE" ] || missing="$missing SITE_PASSPHRASE"
           if [ -n "$missing" ]; then echo "::error::Missing Actions secret(s):$missing"; exit 1; fi
 
@@ -52,11 +54,12 @@ jobs:
       # Tests run on synthetic fixtures before any private data is checked out.
       - run: npm test
 
+      # Read-only deploy keys, one per private repo (Q37).
       - name: Check out trade-history (read-only)
         uses: actions/checkout@v7
         with:
           repository: Lykam/trade-history
-          token: ${{ secrets.DATA_READ_TOKEN }}
+          ssh-key: ${{ secrets.TRADE_HISTORY_DEPLOY_KEY }}
           path: _data/trade-history
           persist-credentials: false
 
@@ -64,7 +67,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: Lykam/Playbook
-          token: ${{ secrets.DATA_READ_TOKEN }}
+          ssh-key: ${{ secrets.PLAYBOOK_DEPLOY_KEY }}
           path: _data/Playbook
           persist-credentials: false
 

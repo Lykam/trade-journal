@@ -56,7 +56,7 @@ There are three repos, each with one job:
         └──────────────┬──────────────────┘
                        ▼                      ◀── every 15 min in market hours
  trade-journal (PUBLIC) — GitHub Action           (prices.yml)
-   checkout self + trade-history + Playbook (read-only token)
+   checkout self + trade-history + Playbook (read-only deploy keys)
    test → build app → fetch quotes for open positions (Yahoo)
         → bundle data → ENCRYPT → actions/deploy-pages
                        │
@@ -92,7 +92,7 @@ There are three repos, each with one job:
 
 | Secret | Where | Scope |
 |---|---|---|
-| `DATA_READ_TOKEN` | Actions secret in `trade-journal` | Fine-grained PAT: **Contents: read** on `trade-history` and `Playbook` |
+| `TRADE_HISTORY_DEPLOY_KEY`, `PLAYBOOK_DEPLOY_KEY` | Actions secrets in `trade-journal` | Private halves of **read-only deploy keys** on `trade-history` and `Playbook` (one repo each, no expiry). Replaces the planned `DATA_READ_TOKEN` PAT (Q37). |
 | `SITE_PASSPHRASE` | Actions secret in `trade-journal` | Encrypts the bundle |
 | `DISPATCH_TOKEN` | Actions secret in `trade-history` and `Playbook` | Fine-grained PAT: **Contents: read & write** on `trade-journal` only. GitHub requires write access to send `repository_dispatch`. |
 | Browser PAT | Entered in app Settings and stored encrypted in `localStorage` | Fine-grained PAT: **Contents: read & write** on `trade-history` only |
@@ -574,7 +574,7 @@ fully static.
     it's closed, apart from the post-close run.
   - It can also be run by hand with `workflow_dispatch`.
 - **Steps:**
-  1. Check out `trade-history` read-only with `DATA_READ_TOKEN`.
+  1. Check out `trade-history` read-only with its deploy key.
   2. Read the open positions from `derived/trades.json`.
   3. Fetch quotes for only those symbols with the `yahoo-finance2` npm package
      (no key; keeps the codebase all TypeScript).
@@ -1019,10 +1019,10 @@ Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
 All of this lives in the reusable `build-deploy.yml`; `deploy.yml` and
 `prices.yml` only call it.
 
-1. Check that `DATA_READ_TOKEN` and `SITE_PASSPHRASE` exist, check out
+1. Check that the deploy-key secrets and `SITE_PASSPHRASE` exist, check out
    `trade-journal`, `npm ci`, `npm test` (synthetic fixtures only).
 2. Only then check out `trade-history` and `Playbook` into `./_data/` using
-   `DATA_READ_TOKEN` (`persist-credentials: false`), so neither the install
+   their read-only deploy keys (`persist-credentials: false`), so neither the install
    nor the tests ever have the private data on disk (Q36).
 3. Restore the encrypted quotes cache, `npm run build` (`tsc`, `vite build`,
    `check-dist` on the plain build).
@@ -1142,6 +1142,7 @@ the commit leaves the private repo.
 | Q34 | Encryption details | The PBKDF2 salt is random but **fixed** in `build/kdf.json`, so a remembered key survives the many deploys a day (a per-build salt would force the passphrase after every price run); edit it to force re-entry. Plaintext is padded to size buckets (64 KiB data, 32 KiB images), `data.enc` is gzipped JSON, and image files are HMAC-named with random decoys padding `img/` to a multiple of 16, so dist reveals no names and no exact counts. The header (and an image's own name) is GCM additional data. `SITE_PASSPHRASE` must be at least 16 characters. The quotes cache is stored encrypted, because caches in a public repo can be restored by other workflow runs. (2026-10-04, milestone 4) |
 | Q35 | Public logs | Actions logs of a public repo are public, so with `TJ_PUBLIC_LOG=1` (set by `build-deploy.yml`) `fetch-quotes`, `check-dist` and `encrypt` print no counts (open positions, symbols, reviews, images), only outcomes. JSON parse errors, which quote their input, are replaced by a generic message. Locally the counts still print. (2026-10-04, milestone 4) |
 | Q36 | Deploy order | The private repos are checked out **after** `npm ci` and `npm test` (the user's list had them first), so dependency install scripts and the test suite never run with private data on disk. Everything after that is as in §7. (2026-10-04, milestone 4) |
+| Q37 | Data read access | The deploy reads `trade-history` and `Playbook` with **read-only SSH deploy keys** (secrets `TRADE_HISTORY_DEPLOY_KEY`, `PLAYBOOK_DEPLOY_KEY`) instead of a fine-grained PAT: each key reaches one repo, can't write, doesn't expire, and can be created with `gh` (PATs can't). `DISPATCH_TOKEN` stays a PAT, since `repository_dispatch` needs API access. (2026-10-04, milestone 4) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open

@@ -46,6 +46,6 @@ The CLI reads and writes `$TRADE_HISTORY_DIR` (default `../trade-history`).
 `.github/workflows/deploy.yml` (push to main, `repository_dispatch: data-updated`
 from the data repos, manual) and `prices.yml` (every 15 min in market hours plus
 ~16:20 ET) both call `build-deploy.yml`: test → check out the private repos →
-build → quotes → encrypt → leak guard → GitHub Pages. Secrets: `DATA_READ_TOKEN`
-and `SITE_PASSPHRASE` here, `DISPATCH_TOKEN` in `trade-history` and `Playbook`
+build → quotes → encrypt → leak guard → GitHub Pages. Secrets: read-only deploy
+keys `TRADE_HISTORY_DEPLOY_KEY` / `PLAYBOOK_DEPLOY_KEY` and `SITE_PASSPHRASE` here, `DISPATCH_TOKEN` in `trade-history` and `Playbook`
 (SPEC §2, §7).
