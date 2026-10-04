@@ -1,8 +1,11 @@
 // Bulk actions on overrides.json (SPEC §6.3): Add tag / Remove tag / Set style /
-// Exclude. Pure: they return a new Overrides object. Committing it to
-// trade-history is milestone 5; until then the Trades page only previews.
+// Exclude, plus Add tags and the quick note on Trade detail (§6.4). Pure: they
+// return a new Overrides object. planOverrideCommit replays staged actions on
+// the current trade-history and lists the files one commit writes.
+import { derivedWrite, jsonText, type FileWrite, type HistorySnapshot } from "../history/files";
+import type { Validate } from "../schema-names";
 import { buildTrades } from "../trades/grouping";
-import type { Config, Fill, Overrides, SymbolsMap, Trade, TradeOverride } from "../types";
+import type { Config, DerivedTrades, Fill, Overrides, SymbolsMap, Trade, TradeOverride } from "../types";
 
 export type BulkAction =
   | { kind: "addTag"; tag: string }
@@ -93,5 +96,79 @@ export function previewOverrides(
     ideasBefore: a.ideas.length,
     ideasAfter: b.ideas.length,
     ideasChanged: [...bIdeas].filter((k) => !aIdeas.has(k)).length + [...aIdeas].filter((k) => !bIdeas.has(k)).length,
+  };
+}
+
+export function describeAction(a: BulkAction): string {
+  switch (a.kind) {
+    case "addTag": return `+tag "${a.tag}"`;
+    case "removeTag": return `−tag "${a.tag}"`;
+    case "setStyle": return `style → ${a.style}`;
+    case "exclude": return a.exclude ? "exclude" : "include";
+    case "setNote": return "note";
+  }
+}
+
+/** One staged edit: an action and the ids of the trades it applies to. */
+export interface StagedAction {
+  tradeIds: string[];
+  action: BulkAction;
+}
+
+export const describeStaged = (s: StagedAction) => `${describeAction(s.action)} on ${s.tradeIds.length} trade${s.tradeIds.length === 1 ? "" : "s"}`;
+
+export class MissingTradesError extends Error {
+  override name = "MissingTradesError";
+  constructor(readonly ids: string[]) {
+    super(`${ids.length} staged trade${ids.length === 1 ? " no longer exists" : "s no longer exist"} in trade-history; discard and stage again`);
+  }
+}
+
+/** Replay staged actions, in order, on an overrides file. Trades are looked up in `trades` by id. */
+export function replayStaged(overrides: Overrides, trades: Trade[], staged: StagedAction[], config: Config): Overrides {
+  const byId = new Map(trades.map((t) => [t.id, t]));
+  const missing = [...new Set(staged.flatMap((s) => s.tradeIds))].filter((id) => !byId.has(id));
+  if (missing.length) throw new MissingTradesError(missing);
+  return staged.reduce((ov, s) => applyBulkAction(ov, s.tradeIds.map((id) => byId.get(id)!), s.action, config), overrides);
+}
+
+export interface OverrideCommitPlan {
+  overrides: Overrides;
+  derived: DerivedTrades;
+  preview: OverridePreview;
+  /** Changed overrides.json entries: id → new entry (null when removed). */
+  changes: Record<string, TradeOverride | null>;
+  files: FileWrite[];
+  message: string;
+  /** Equal for two plans that write the same override changes (the user approved these). */
+  fingerprint: string;
+}
+
+/**
+ * The commit for a group of staged actions, computed against the current
+ * trade-history (not the deployed bundle): overrides.json plus a regenerated
+ * derived/trades.json.
+ */
+export function planOverrideCommit(
+  snap: HistorySnapshot,
+  staged: StagedAction[],
+  ctx: { generator: string },
+  validate: Validate,
+): OverrideCommitPlan {
+  const before = buildTrades(snap.fills, snap);
+  const overrides = replayStaged(snap.overrides, before.trades, staged, snap.config);
+  validate("overrides", overrides, "overrides.json");
+  const after = buildTrades(snap.fills, { ...snap, overrides });
+  const derived: DerivedTrades = { generated: true, generator: ctx.generator, trades: after.trades, ideas: after.ideas };
+  const changes = Object.fromEntries(changedOverrideIds(snap.overrides, overrides).map((id) => [id, overrides.trades[id] ?? null]));
+  const n = Object.keys(changes).length;
+  return {
+    overrides,
+    derived,
+    preview: previewOverrides(snap.fills, snap, snap.overrides, overrides),
+    changes,
+    files: [{ path: "overrides.json", content: jsonText(overrides) }, derivedWrite(derived, validate)],
+    message: `Edit overrides: ${staged.map(describeStaged).join("; ")} (${n} entr${n === 1 ? "y" : "ies"})`,
+    fingerprint: JSON.stringify(changes),
   };
 }

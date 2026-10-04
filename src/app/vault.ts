@@ -5,6 +5,7 @@
 import {
   decodeHeader, decryptData, decryptFile, deriveKeyBytes, fromBase64, importAesKey, KIND_IMAGE, toBase64, WrongKeyError,
 } from "../core/crypto";
+import { tokenKey } from "../core/github/token-store";
 import { imageType } from "../core/reviews/images";
 import type { DataBundle } from "../core/types";
 
@@ -73,6 +74,10 @@ export function setRemembered(remember: boolean) {
 
 // The unlocked key and image map live in memory only.
 let current: CryptoKey | null = null;
+/** Seals the GitHub token in localStorage (HKDF from the site key, SPEC §2). */
+let secrets: CryptoKey | null = null;
+/** SHA-256 of the data.enc that is loaded, to notice a new deploy. */
+let loadedDigest: string | null = null;
 let imageFiles: Record<string, string> = {};
 const imageUrls = new Map<string, Promise<string>>();
 
@@ -92,12 +97,38 @@ export async function fetchEncrypted(): Promise<Uint8Array> {
   return new Uint8Array(await res.arrayBuffer());
 }
 
+async function digest(file: Uint8Array): Promise<string> {
+  return toBase64(new Uint8Array(await crypto.subtle.digest("SHA-256", file as Uint8Array<ArrayBuffer>)));
+}
+
 async function open(file: Uint8Array, raw: Uint8Array): Promise<DataBundle> {
   const key = await importAesKey(raw);
   const bundle = await decryptData<DataBundle>(key, file);
   current = key;
+  secrets = await tokenKey(raw);
+  loadedDigest = await digest(file);
   imageFiles = bundle.imageFiles ?? {};
   return bundle;
+}
+
+/**
+ * The key that seals secrets kept in this browser, while unlocked. Dev mode has
+ * no site key, so it gets a random one that lives in this page only.
+ */
+export async function secretKey(): Promise<CryptoKey | null> {
+  if (import.meta.env.DEV && !secrets) secrets = await tokenKey(crypto.getRandomValues(new Uint8Array(32)));
+  return secrets;
+}
+
+/**
+ * Fetch data.enc again. null while it is the same file as the one loaded;
+ * otherwise the new bundle, decrypted with the current key.
+ */
+export async function fetchNewBundle(): Promise<DataBundle | null> {
+  if (!current) return null;
+  const file = await fetchEncrypted();
+  if ((await digest(file)) === loadedDigest) return null;
+  return decryptData<DataBundle>(current, file);
 }
 
 /**
@@ -131,6 +162,7 @@ export async function unlockWithPassphrase(file: Uint8Array, passphrase: string,
 export function lock() {
   clearStoredKey();
   current = null;
+  secrets = null;
   for (const p of imageUrls.values()) p.then(URL.revokeObjectURL, () => {});
   imageUrls.clear();
   window.location.reload();

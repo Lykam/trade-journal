@@ -1,6 +1,7 @@
 // Read the plaintext data the app needs from a trade-history checkout, a Playbook
 // checkout and the local quotes.json. Used by the dev server now and by
 // bundle-data.ts (milestone 4).
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadHistory, validate } from "../cli/lib/history";
@@ -23,5 +24,18 @@ export function loadBundle(historyDir: string, quotesFile: string, playbookDir: 
     quotes: readQuotes(quotesFile),
     playbook: loadPlaybook(playbookDir),
     loadedAt: new Date().toISOString(),
+    history: headCommit(historyDir),
   };
+}
+
+/** HEAD of the trade-history checkout, so the app can tell when a deploy includes its commit. */
+export function headCommit(dir: string): { sha: string; date: string } | null {
+  if (!existsSync(join(dir, ".git"))) return null;
+  try {
+    const out = execFileSync("git", ["-C", dir, "log", "-1", "--format=%H %cI"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const [sha, date] = out.split(" ");
+    return sha && date ? { sha, date: new Date(date).toISOString() } : null;
+  } catch {
+    return null;
+  }
 }

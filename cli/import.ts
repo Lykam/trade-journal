@@ -8,13 +8,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { importFiles } from "../src/core/normalize";
-import { etDate } from "../src/core/normalize/util";
-import { buildTrades } from "../src/core/trades";
-import { generatorVersion, loadHistory, resolveHistoryDir, writeHistory } from "./lib/history";
-import {
-  attentionSection, diffTrades, etfTable, filesTable, monthlyTable, summaryTable, tradeRows,
-} from "./lib/report";
+import { importWrites, planImport, previewLines } from "../src/core/import/plan";
+import { archivedRaw, generatorVersion, loadHistory, resolveHistoryDir, schemaTexts, validate, writeFiles } from "./lib/history";
 
 export const PATTERNS = {
   webull: /^Webull_Orders_Records.*\.csv$/i,
@@ -57,64 +52,21 @@ export function runImport(argv: string[], log: (s: string) => void = console.log
 
   const history = loadHistory(historyDir);
   const importedAt = values.now ?? new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-  const today = etDate(importedAt);
-  const result = importFiles(
-    files.map((f) => ({ name: basename(f), text: readFileSync(f, "utf8") })),
-    history.fills,
-    { config: history.config, symbols: history.symbols, importedAt },
-  );
-  const { trades, ideas, reorderedDays } = buildTrades(result.fills, history);
-  const diff = diffTrades(history.derived, trades);
-  const limit = Number(values.limit);
+  const inputs = files.map((f) => ({ name: basename(f), bytes: new Uint8Array(readFileSync(f)) }));
+  const plan = planImport(inputs, history, { importedAt });
+  const title = `IMPORT ${dryRun ? "PREVIEW (dry run: nothing written)" : ""}`;
+  for (const line of previewLines(plan, { title, target: historyDir, limit: Number(values.limit) })) log(line);
 
-  const errors = result.files.flatMap((f) => f.errors.map((e) => `${f.source}: ${e}`));
-  const warnings = result.files.flatMap((f) => f.warnings.map((w) => `${f.source}: ${w}`));
-  const skipped = result.files.reduce((s, f) => s + Object.values(f.skipped).reduce((a, b) => a + b, 0), 0);
-  const dup = result.files.reduce((s, f) => s + f.duplicates, 0);
-
-  log(`IMPORT ${dryRun ? "PREVIEW (dry run: nothing written)" : ""}`);
-  log(`trade-history: ${historyDir}\n`);
-  log(filesTable(result.files));
-  log(`\nTotal: +${result.added.length} new fills, ${dup} duplicates, ${skipped} skipped rows, ${errors.length} errors`);
-  log(`Fills after import: ${result.fills.length}  (${result.fills[0] ? etDate(result.fills[0].executedAt) : "—"} → ${result.fills.at(-1) ? etDate(result.fills.at(-1)!.executedAt) : "—"})`);
-  for (const e of errors.slice(0, 20)) log(`  ERROR ${e}`);
-  for (const w of warnings.slice(0, 20)) log(`  WARN  ${w}`);
-
-  const renames = new Map<string, number>();
-  // Overlapping exports each re-report the same renamed fills, so take the largest count, not the sum.
-  for (const f of result.files) for (const [k, n] of Object.entries(f.renames)) renames.set(k, Math.max(renames.get(k) ?? 0, n));
-  log(`\nTICKER CHANGES (${renames.size}) — Webull now reports these fills under a new symbol; the original symbol is kept`);
-  log(renames.size ? [...renames].map(([k, n]) => `  ${k}  (${n} fills)`).join("\n") : "  none");
-
-  log(`\nNEW ETF SYMBOLS TO MAP (${result.unmappedEtfs.length}) — add to symbols.json`);
-  log(result.unmappedEtfs.length ? etfTable(result.unmappedEtfs) : "  none");
-
-  log(`\nTRADES: ${diff.added.length} new, ${diff.changed.length} changed, ${diff.removed.length} removed  ·  ${trades.length} trades in ${ideas.length} ideas`);
-  const shown = limit > 0 ? [...diff.added, ...diff.changed].slice(-limit) : [];
-  if (shown.length) {
-    log(`(latest ${shown.length}; use --limit N to change)`);
-    log(tradeRows(shown));
-  }
-
-  log("\nSUMMARY BY STYLE AND BROKER (win % = W ÷ (W+L); unmatched and open trades not scored)");
-  log(summaryTable(trades));
-  log("\nBY MONTH");
-  log(monthlyTable(trades));
-  log("");
-  log(attentionSection(trades, today, reorderedDays.length));
-
-  if (errors.length) {
+  if (plan.errors.length) {
     log("\nNot writing: fix the errors above first.");
     return 1;
   }
   if (dryRun) return 0;
 
-  const written = writeHistory(historyDir, {
-    fills: result.fills,
-    derived: { generated: true, generator: generatorVersion(), trades, ideas },
-    archive: files,
-    today,
-  });
+  const written = writeFiles(
+    historyDir,
+    importWrites(plan, { generator: generatorVersion(), schemas: schemaTexts(), archived: archivedRaw(historyDir) }, validate),
+  );
   log(`\nWrote ${written.length} file(s) to ${historyDir}:`);
   for (const w of written) log(`  ${w}`);
   return 0;

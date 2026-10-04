@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { weekStart } from "../../core/calendar";
 import { needsAttention, openPositions, openTotals, rangeStats, recentTrades } from "../../core/dashboard/dashboard";
 import { computeGauges } from "../../core/gauge/gauge";
@@ -11,6 +11,30 @@ import { RecentTen } from "../components/Recent";
 import { WeekStrip } from "../components/WeekStrip";
 import { WidgetGrid } from "../components/Widgets";
 import { usePersisted } from "../data";
+import { refreshPrices, useDeploy, useToken } from "../github";
+
+/** Optional (SPEC §5.4): shown only when a token may start prices.yml. */
+function RefreshPrices() {
+  const token = useToken();
+  const deploy = useDeploy();
+  const [error, setError] = useState<string | null>(null);
+  if (token.status !== "ok" || !token.record.actions) return null;
+  const record = token.record;
+  return (
+    <span className="row">
+      <button
+        type="button"
+        className="btn"
+        disabled={deploy?.phase === "waiting"}
+        onClick={() => { setError(null); refreshPrices(record).catch((e) => setError((e as Error).message)); }}
+        title="Start the prices workflow now; new prices appear after its deploy (1–2 min)"
+      >
+        REFRESH PRICES
+      </button>
+      {error && <span className="loss small">{error}</span>}
+    </span>
+  );
+}
 
 const RANGES = ["30", "60", "90"] as const;
 
@@ -33,6 +57,7 @@ export function Dashboard({ data, journal, now }: { data: DataBundle; journal: J
     <main className="page">
       <header className="page-head">
         <h1>DASHBOARD <span className="sub">/ WK OF {wk.start} – {wk.end}</span></h1>
+        <RefreshPrices />
       </header>
 
       <div className="gauges">

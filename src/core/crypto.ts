@@ -139,3 +139,49 @@ export async function decryptData<T>(key: CryptoKey, file: Uint8Array): Promise<
   const payload = await decryptFile(key, file, KIND_DATA);
   return JSON.parse(new TextDecoder().decode(await gunzip(payload))) as T;
 }
+
+/**
+ * A separate AES-GCM key for one purpose (e.g. sealing the GitHub token),
+ * derived from the data key's raw bytes with HKDF-SHA256. Non-extractable.
+ */
+export async function deriveSubKey(raw: Uint8Array, info: string): Promise<CryptoKey> {
+  const base = await subtle().importKey("raw", buf(raw), "HKDF", false, ["deriveKey"]);
+  return subtle().deriveKey(
+    { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: new TextEncoder().encode(info) },
+    base,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+/** A small secret sealed with AES-GCM: JSON-safe, base64 fields. */
+export interface Sealed {
+  v: 1;
+  iv: string;
+  ct: string;
+}
+
+export async function seal(key: CryptoKey, plaintext: string, aad: string): Promise<Sealed> {
+  const iv = globalThis.crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const ct = await subtle().encrypt(
+    { name: "AES-GCM", iv, additionalData: new TextEncoder().encode(aad), tagLength: TAG_BYTES * 8 },
+    key,
+    new TextEncoder().encode(plaintext),
+  );
+  return { v: 1, iv: toBase64(iv), ct: toBase64(new Uint8Array(ct)) };
+}
+
+/** Throws WrongKeyError if the key or the additional data don't match. */
+export async function unseal(key: CryptoKey, sealed: Sealed, aad: string): Promise<string> {
+  try {
+    const plain = await subtle().decrypt(
+      { name: "AES-GCM", iv: buf(fromBase64(sealed.iv)), additionalData: new TextEncoder().encode(aad), tagLength: TAG_BYTES * 8 },
+      key,
+      buf(fromBase64(sealed.ct)),
+    );
+    return new TextDecoder().decode(plain);
+  } catch {
+    throw new WrongKeyError("could not unseal");
+  }
+}

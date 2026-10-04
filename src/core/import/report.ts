@@ -1,8 +1,9 @@
-// Plain-text tables for the CLI. Output goes to the terminal only (never CI logs).
-import type { FileReport, UnmappedEtf } from "../../src/core/normalize";
-import { etDate } from "../../src/core/normalize/util";
-import { heldOvernightDayTrades, summarize, type Summary } from "../../src/core/trades";
-import type { DerivedTrades, Trade } from "../../src/core/types";
+// Plain-text import preview tables, shared by the CLI (terminal only, never CI
+// logs) and the Import page, so both show the same preview (SPEC §4.5).
+import type { FileReport, UnmappedEtf } from "../normalize";
+import { etDate } from "../normalize/util";
+import { heldOvernightDayTrades, summarize, type Summary } from "../trades";
+import type { DerivedTrades, Trade } from "../types";
 
 export function table(rows: Array<Array<string | number>>, align: Array<"l" | "r"> = []): string {
   const cells = rows.map((r) => r.map(String));

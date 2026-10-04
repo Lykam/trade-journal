@@ -7,7 +7,7 @@ import { parseArgs } from "node:util";
 import { etDate } from "../src/core/normalize/util";
 import { buildTrades } from "../src/core/trades";
 import { loadHistory, resolveHistoryDir } from "./lib/history";
-import { attentionSection, diffTrades, monthlyTable, summaryTable } from "./lib/report";
+import { attentionSection, diffTrades, monthlyTable, summaryTable } from "../src/core/import/report";
 
 export function runVerify(argv: string[], log: (s: string) => void = console.log): number {
   const { values } = parseArgs({ args: argv, options: { "history-dir": { type: "string" } } });

@@ -10,7 +10,7 @@ import { etDate } from "../src/core/normalize/util";
 import { buildTrades, summarize } from "../src/core/trades";
 import type { Trade } from "../src/core/types";
 import { loadHistory, resolveHistoryDir } from "./lib/history";
-import { money, pct, table, tradeRows } from "./lib/report";
+import { money, pct, table, tradeRows } from "../src/core/import/report";
 
 export function runTrades(argv: string[], log: (s: string) => void = console.log): number {
   const { values } = parseArgs({

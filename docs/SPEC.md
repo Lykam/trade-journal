@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.7)
+# Trade Journal — Spec (v0.8)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -96,9 +96,20 @@ There are three repos, each with one job:
 | `SITE_PASSPHRASE` | Actions secret in `trade-journal` | Encrypts the bundle |
 | `DISPATCH_TOKEN` | Actions secret in `trade-history` and `Playbook` | Fine-grained PAT: **Contents: read & write** on `trade-journal` only. GitHub requires write access to send `repository_dispatch`. |
 | Browser PAT | Entered in app Settings and stored encrypted in `localStorage` | Fine-grained PAT: **Contents: read & write** on `trade-history` only |
+| Browser Actions PAT (optional) | Same, alongside the browser PAT | Fine-grained PAT: **Actions: read & write** on `trade-journal` only, for "Refresh prices". Separate because a token's permissions apply to every repo it selects (Q38). |
 
 The browser never gets write access to `Playbook`, and reviews are read-only
-in the app.
+in the app. Neither browser token can write `trade-journal`'s code.
+
+**Browser token at rest (Q38):** sealed with AES-GCM under a key derived (HKDF,
+`src/core/github/token-store.ts`) from the site key, in `localStorage` only;
+the plaintext lives in memory while unlocked. LOCK forgets the site key, so the
+sealed token can't be read until the passphrase is entered again; a changed
+passphrase makes it unreadable and Settings asks for it again. Saving checks
+the token: fine-grained (`github_pat_`), can read `main` and create a blob
+(an unreferenced blob, no commit) in the data repo, and, for the Actions token,
+that a `workflow_dispatch` on a ref that doesn't exist is refused with 422 (no
+such ref) rather than 403. The client sends it only to `https://api.github.com`.
 
 ### Encryption
 
@@ -453,15 +464,36 @@ in the same commit.
    GitHub API.
 3. It shows a preview: N new fills, M duplicates, skipped rows, and the
    resulting new or changed trades with their P&L.
-4. On **Commit**, it makes one commit to `trade-history/main` through the
-   Git Data API (blobs, tree, commit), for example
+4. ETF symbols the preview detects get a row with the name-based guess
+   pre-filled; checked rows are written to `symbols.json` in the same commit
+   and the trades are regrouped with them (the CLI still lists them for a hand
+   edit).
+5. On **Commit**, it makes one commit to `trade-history/main` through the
+   Git Data API (blobs, tree, commit, then a non-forced ref update), for example
    `"Import Webull 2026-10-03: +42 fills"`. The same commit always archives
    the original CSV to `imports/raw/<YYYY-MM-DD>-<original name>.csv`, so all
    data can be rebuilt from the originals if a parser bug is ever found.
-5. `notify-journal.yml` dispatches the redeploy. The app shows "deploying…"
-   until the new `data.enc` hash appears.
+   Only files whose content changed are written (compared by git blob id),
+   and a CSV whose bytes are already under `imports/raw/` isn't archived
+   again. If `main` moved since the read, the app re-reads and recomputes; if
+   the result differs from what the preview showed, it stops and shows the new
+   preview instead of committing (Q40). It never force-pushes.
+6. `notify-journal.yml` dispatches the redeploy. The app shows "Deploying…",
+   polling `data.enc` (no-store) until a new one decrypts to a bundle built
+   from that commit or a later one (the bundle records the trade-history HEAD
+   it was built from), then offers RELOAD. After 5 minutes it links to the
+   Actions runs instead.
 
-Editing overrides on the Trade detail page uses the same commit flow.
+Editing overrides (bulk actions, Add tags, quick note) uses the same commit
+flow: the staged actions are replayed on `overrides.json` as it is on `main`
+now, the preview against that is shown, and CONFIRM writes `overrides.json` and
+a regenerated `derived/trades.json` in one commit. The browser and the CLI share
+`src/core/import/plan.ts` and `src/core/history/files.ts`, and a test checks
+that the same CSVs give byte-identical files through both paths.
+
+The token's repository is a setting (default `Lykam/trade-history`), so the
+commit path can be tried on a throwaway repo; a commit there never appears in
+`data.enc`, so "Deploying…" then waits for any newer deploy.
 
 **B. Through Claude or the CLI** (run from `trade-journal`)
 - `npm run import -- [files…]`. With no arguments, it uses the newest
@@ -607,9 +639,10 @@ fully static.
   deploy, which runs the price step too. New positions are priced right away
   instead of waiting for the next scheduled run.
 - **"Refresh prices" button (optional):** the dashboard can start `prices.yml`
-  on demand through `workflow_dispatch`. This needs the browser PAT to also
-  have **Actions: read & write** on `trade-journal`. The new prices appear
-  after the redeploy, in about 1–2 minutes.
+  on demand through `workflow_dispatch`. This needs the optional **Actions
+  token** (Actions: read & write on `trade-journal` only, Q38); the button is
+  hidden without it. The new prices appear after the redeploy, in about 1–2
+  minutes, behind the same "Deploying…" banner as a commit.
 - **Source risk:** Yahoo's endpoint is unofficial and has broken before. The
   fetch is behind a small `QuoteProvider` interface, so another source (e.g.
   Finnhub or Alpaca with a key stored as an Actions secret) can be swapped in
@@ -829,7 +862,7 @@ Schwab trades show the date only). Below it are the tag chips, with an
     HTML comments hidden. An **Open full review** link goes to the Journal.
   - If there is no review, the panel shows a short **quick note**, editable
     and saved to `overrides.json` (one or two lines, like Tradervue's notes
-    field). Until milestone 5 the edit is staged and previewed only (Q32). It also has a **Start review** button that copies
+    field). The edit is staged, previewed, then committed (Q32, §4.5A). It also has a **Start review** button that copies
     `/playbook-review <TICKER> <DATE>` to the clipboard to paste into Claude.
     This replaces Tradervue's "Insert template".
 - **Charts section, from your Playbook images:** a gallery of
@@ -916,12 +949,18 @@ Schwab trades show the date only). Below it are the tag chips, with an
 ### 6.8 Import
 
 See §4.5A. Drag-and-drop CSVs, then a preview (new, duplicate and skipped
-counts; any new ETF symbols to map; resulting trades), then **Commit**.
+counts, errors, Webull ticker changes, new ETF symbols to map with a guess,
+new or changed trades with P&L, and the full `--dry-run` report), then
+**Commit**. Errors block the commit. Needs the browser token.
 
 ### 6.9 Settings
 
 - Lock the app and change "remember on this device".
-- GitHub PAT.
+- GitHub token: repository (default `Lykam/trade-history`), the token, and the
+  optional Actions token; checked on save, with Replace and Clear. Links open
+  GitHub's new-token page with name, description, expiry and permissions
+  pre-filled (`?name=…&target_name=Lykam&expires_in=90&contents=write`);
+  repository access can't be pre-filled and is picked by hand.
 - A read-only view of `config.json` and `symbols.json`, with links to edit
   them on GitHub.
 
@@ -997,9 +1036,13 @@ trade-journal/
     core/market.ts     prices-workflow market window
     core/reviews/      parse-header.ts, join.ts, images.ts
     core/journal/      filter.ts (URL state, matching), rows.ts (table rows, sort, prev/next),
-                       calendar-view.ts, tags.ts, overrides.ts (bulk actions), journal.ts
+                       calendar-view.ts, tags.ts, overrides.ts (bulk actions, commit plan), journal.ts
+    core/import/       plan.ts (one import: parse, merge, regroup, preview, files), report.ts
+    core/history/      files.ts (parse trade-history, exact bytes to write, git blob ids)
+    core/github/       client.ts (REST + Git Data API), token-store.ts, deploy.ts
+    core/schema.ts     Ajv validator over the schema texts (CLI: disk; app: bundled)
     app/               React pages and components
-  cli/                 import.ts, trades.ts, verify.ts, scan-public.ts, lib/ (Node I/O + report printing)
+  cli/                 import.ts, trades.ts, verify.ts, scan-public.ts, lib/ (Node I/O)
   schema/              canonical JSON Schemas (copied into trade-history)
   build/               fetch-quotes.ts, load-bundle.ts, playbook.ts, dev-data-plugin.ts,
                        dev-demo.ts, check-dist.ts
@@ -1143,11 +1186,14 @@ the commit leaves the private repo.
 | Q35 | Public logs | Actions logs of a public repo are public, so with `TJ_PUBLIC_LOG=1` (set by `build-deploy.yml`) `fetch-quotes`, `check-dist` and `encrypt` print no counts (open positions, symbols, reviews, images), only outcomes. JSON parse errors, which quote their input, are replaced by a generic message. Locally the counts still print. (2026-10-04, milestone 4) |
 | Q36 | Deploy order | The private repos are checked out **after** `npm ci` and `npm test` (the user's list had them first), so dependency install scripts and the test suite never run with private data on disk. Everything after that is as in §7. (2026-10-04, milestone 4) |
 | Q37 | Data read access | The deploy reads `trade-history` and `Playbook` with **read-only SSH deploy keys** (secrets `TRADE_HISTORY_DEPLOY_KEY`, `PLAYBOOK_DEPLOY_KEY`) instead of a fine-grained PAT: each key reaches one repo, can't write, doesn't expire, and can be created with `gh` (PATs can't). `DISPATCH_TOKEN` stays a PAT, since `repository_dispatch` needs API access. (2026-10-04, milestone 4) |
+| Q38 | Browser tokens | A fine-grained token's permissions apply to **every** repo it selects, so one token with Contents on `trade-history` and Actions on `trade-journal` would also get Contents: write on the public app repo, which deploys the site. "Refresh prices" therefore uses an optional **second** token (Actions: read & write on `trade-journal` only). Both are sealed together under an HKDF subkey of the site key in `localStorage`; Settings warns if the main token reaches `trade-journal`. The data repo is a setting, for testing on a throwaway repo. (2026-10-04, milestone 5) |
+| Q39 | Leak guard vs. libraries | `check-dist` also skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`, now Ajv, whose code generator has short uppercase operator names that match a traded symbol). Ajv loads only with the import / commit chunk. (2026-10-04, milestone 5) |
+| Q40 | Commit safety | Commits are computed from `trade-history` read fresh through the API, never from `data.enc`. On a moved `main` the app re-reads and recomputes (up to 3 tries) and commits only if the result matches the approved preview (new fill ids, ETF mappings and trade counts for an import; the changed override entries for an edit); otherwise it shows the new preview. Unchanged files are skipped by git blob id, so an import that adds nothing archives only new CSVs, and an edit already on `main` commits nothing. "Deploying…" resolves when a new `data.enc` was built from that commit or a later one (`history` in the bundle). (2026-10-04, milestone 5) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open
 
-- Nothing blocks milestone 5.
+- Milestone 5: live-site checks (token, sandbox import and override commits, Deploying…) pending.
 
 ## 11. Future
 

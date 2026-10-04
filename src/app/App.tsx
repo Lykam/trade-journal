@@ -6,7 +6,9 @@ import { appNow, useBundle, useRoute } from "./data";
 import { timeOf } from "./format";
 import { lock } from "./vault";
 import { CalendarPage } from "./pages/CalendarPage";
+import { DeployBanner } from "./components/DeployBanner";
 import { Dashboard } from "./pages/Dashboard";
+import { ImportPage } from "./pages/ImportPage";
 import { JournalPage, ReviewPage } from "./pages/JournalPage";
 import { LockScreen } from "./pages/LockScreen";
 import { OpenPage } from "./pages/OpenPage";
@@ -27,7 +29,6 @@ const NAV = [
 
 const STUBS: Record<string, { title: string; milestone: number }> = {
   "/reports": { title: "REPORTS", milestone: 7 },
-  "/import": { title: "IMPORT", milestone: 5 },
 };
 
 export function App() {
@@ -62,6 +63,7 @@ export function App() {
   else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
   else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
   else if (path === "/settings") page = <SettingsPage data={load.data} />;
+  else if (path === "/import") page = <ImportPage />;
   else page = <Stub {...(STUBS[path] ?? { title: "NOT FOUND", milestone: 3 })} params={params} />;
 
   const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path;
@@ -84,6 +86,7 @@ export function App() {
           <button type="button" className="btn" onClick={lock} disabled={load.status !== "ready"} title="Forget the key in this browser">LOCK</button>
         )}
       </nav>
+      <DeployBanner />
       {page}
     </>
   );

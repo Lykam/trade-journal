@@ -258,7 +258,7 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
           <button type="button" className="btn" disabled={note === (t.note ?? "")} onClick={() => apply([t], { kind: "setNote", note })}>STAGE NOTE</button>
           {staged && <span className="dim small">staged, not saved</span>}
         </div>
-        {staged && <StagedPreview data={data} staged={staged} onDiscard={() => { discard(); setNote(t.note ?? ""); }} />}
+        {staged && <StagedPreview data={data} staged={staged} onDiscard={() => { discard(); setNote(t.note ?? ""); }} onCommitted={discard} />}
         <div className="start-review">
           <button type="button" className="btn primary" onClick={async () => setCopied((await copyText(command)) ? "ok" : "fail")}>START REVIEW</button>
           <code>{command}</code>

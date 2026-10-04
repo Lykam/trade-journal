@@ -187,4 +187,6 @@ export interface DataBundle {
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */
   imageFiles?: Record<string, string>;
   loadedAt: string;
+  /** The trade-history commit the bundle was built from (absent when the checkout isn't a git repo). */
+  history?: { sha: string; date: string } | null;
 }
