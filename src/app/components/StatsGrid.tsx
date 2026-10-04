@@ -105,7 +105,7 @@ export function GridColumns({ sides, f }: { sides: Array<{ label: React.ReactNod
   const cols = sides.map((s) => gridCells(s.g, f));
   return (
     <section className="panel scroll-x">
-      <table className="grid dense">
+      <table className="grid dense cols">
         <thead>
           <tr>
             <th>STAT</th>

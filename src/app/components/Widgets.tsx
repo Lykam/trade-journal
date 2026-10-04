@@ -59,7 +59,7 @@ export interface WinDay {
 export function WinByDay({ days, avg, fmt = money }: { days: WinDay[]; avg: number | null; fmt?: (n: number) => string }) {
   if (days.length === 0) return <div className="empty">No closed trades in range</div>;
   return (
-    <div style={{ position: "relative", height: 200, display: "flex", alignItems: "flex-end", gap: 2, borderBottom: "1px solid var(--border-strong)" }}
+    <div style={{ position: "relative", height: 200, display: "flex", alignItems: "flex-end", gap: days.length > 60 ? 0 : 2, overflow: "hidden", borderBottom: "1px solid var(--border-strong)" }}
       role="img" aria-label={`Win rate by day; average ${pct(avg)}`}>
       {avg !== null && (
         <div style={{ position: "absolute", left: 0, right: 0, bottom: `${avg * 100}%`, borderTop: "1px dashed var(--accent)" }} />
@@ -67,7 +67,7 @@ export function WinByDay({ days, avg, fmt = money }: { days: WinDay[]; avg: numb
       {days.map((d) => (
         <div key={d.date} title={`${d.date}: ${pct(d.winRate)} · ${d.wins}W/${d.losses}L · ${fmt(d.value)}`}
           style={{
-            flex: "1 1 0", minWidth: 2, height: `${Math.max(1, (d.winRate ?? 0) * 100)}%`,
+            flex: "1 1 0", minWidth: 0, height: `${Math.max(1, (d.winRate ?? 0) * 100)}%`,
             background: d.winRate === null ? "var(--border)" : avg !== null && d.winRate >= avg ? "var(--gain)" : "var(--border-strong)",
           }} />
       ))}
