@@ -94,6 +94,13 @@ describe("vite build output", () => {
     for (const s of [REVIEW_NAME, REVIEW_TEXT, IMAGE_NAME, IMAGE_BYTES]) expect(text).not.toContain(s);
   });
 
+  it("has no OPEN DEMO button or demo passphrase (only npm run preview:demo builds them in)", async () => {
+    const { DEMO_PASSPHRASE } = await import("../build/preview-demo-passphrase");
+    const text = allText(outDir);
+    expect(text).not.toContain(DEMO_PASSPHRASE);
+    expect(text).not.toContain("OPEN DEMO");
+  });
+
   it("does not contain the dev data or image loaders at all", () => {
     expect(allText(outDir)).not.toContain("__data");
   });

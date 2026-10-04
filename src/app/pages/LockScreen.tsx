@@ -18,18 +18,23 @@ export function LockScreen({ notice, unlock }: { notice: string | null; unlock: 
     }
   }, [error, busy]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passphrase || busy) return;
+  const open = async (p: string) => {
+    if (!p || busy) return;
     setBusy(true);
     setError(null);
-    const err = await unlock(passphrase, remember);
+    const err = await unlock(p, remember);
     // On success the app re-renders unlocked and this component unmounts.
     if (err) {
       setError(err);
       setBusy(false);
     }
   };
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void open(passphrase);
+  };
+  // Demo build only (npm run preview:demo); null, and the button compiled away, in every real build.
+  const demo = __TJ_DEMO_PASSPHRASE__;
 
   return (
     <main className="lock">
@@ -65,6 +70,12 @@ export function LockScreen({ notice, unlock }: { notice: string | null; unlock: 
         <button type="submit" className="btn primary lock-btn" disabled={!passphrase || busy}>
           {busy ? "DERIVING KEY…" : "UNLOCK"}
         </button>
+        {demo && (
+          <>
+            <button type="button" className="btn lock-btn" disabled={busy} onClick={() => void open(demo)}>OPEN DEMO</button>
+            <p className="dim small">Demo build: synthetic fixture data, unlocked with the public demo passphrase.</p>
+          </>
+        )}
       </form>
     </main>
   );

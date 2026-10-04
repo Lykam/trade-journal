@@ -1096,7 +1096,11 @@ All of this lives in the reusable `build-deploy.yml`; `deploy.yml` and
 
 **Local checks:** `npm run preview:demo` builds the production site on the
 synthetic fixtures, encrypts it with a demo passphrase, runs the encrypted
-checks and serves it with `vite preview`, for trying the lock screen.
+checks and serves it with `vite preview`, for trying the lock screen. Only
+that build has an **OPEN DEMO** button on the lock screen (the public demo
+passphrase is compiled in with a Vite `define`); every real build has neither
+the button nor the passphrase, which `test/build-leak.test.ts` checks, and the
+demo passphrase can't open the real `data.enc` anyway.
 
 ### Data-repo dispatch (`notify-journal.yml`)
 

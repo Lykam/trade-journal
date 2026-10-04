@@ -12,7 +12,7 @@ import { bundleData } from "./bundle-data";
 import { checkEncrypted } from "./check-dist";
 import { encryptBundle } from "./encrypt";
 
-export const DEMO_PASSPHRASE = "demo passphrase for fixtures";
+import { DEMO_PASSPHRASE } from "./preview-demo-passphrase";
 
 const fixtures = join(REPO_ROOT, "test", "fixtures");
 const dir = mkdtempSync(join(tmpdir(), "tj-preview-"));
@@ -26,7 +26,14 @@ const quotesFile = join(dir, "quotes.json");
 writeFileSync(quotesFile, JSON.stringify({ asOf: "2025-03-20T19:45:00Z", quotes: { OPSW: { price: 12.5, time: "2025-03-20T19:45:00Z", marketState: "REGULAR" } } }));
 
 const outDir = join(dir, "dist");
-await build({ root: REPO_ROOT, mode: "production", logLevel: "warn", build: { outDir, emptyOutDir: true } });
+// Only this build gets the OPEN DEMO button: the passphrase is public and opens nothing but the fixture bundle.
+await build({
+  root: REPO_ROOT,
+  mode: "production",
+  logLevel: "warn",
+  define: { __TJ_DEMO_PASSPHRASE__: JSON.stringify(DEMO_PASSPHRASE) },
+  build: { outDir, emptyOutDir: true },
+});
 const { bundle, images } = bundleData({ historyDir: history, quotesFile, playbookDir: join(fixtures, "playbook") });
 encryptBundle(bundle, images, DEMO_PASSPHRASE, outDir);
 const problems = checkEncrypted(outDir);
