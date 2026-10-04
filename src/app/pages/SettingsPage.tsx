@@ -67,7 +67,11 @@ function TokenPanel() {
             <dl className="kv">
               <dt>Writes to</dt><dd>{record.repo}</dd>
               <dt>Refresh prices</dt><dd>{record.actions ? (record.actionsToken ? "yes (separate Actions token)" : "yes") : "no (no Actions token)"}</dd>
-              <dt>Expires</dt><dd>{record.expiresAt ?? "never / unknown"}</dd>
+              <dt>Expires</dt>
+              <dd>
+                {/* GitHub doesn't expose github-authentication-token-expiration to browsers (CORS), so this is usually unknown here. */}
+                {record.expiresAt ?? <>see the <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener noreferrer">token page ↗</a> (GitHub doesn't show it to browsers)</>}
+              </dd>
               <dt>Checked</dt><dd>{dateTimeOf(record.checkedAt)}</dd>
             </dl>
             {record.mainReachesApp && (
