@@ -1,5 +1,5 @@
 import type { OpenRow, OpenTotals } from "../../core/dashboard/dashboard";
-import type { TradeEvent } from "../../core/types";
+import type { Trade, TradeEvent } from "../../core/types";
 import { dateOf, mmdd, money, pnlClass, price, qty, signedPct, timeOf, underlyingTag } from "../format";
 
 export const tradeHref = (id: string) => `#/trade/${id}`;
@@ -87,18 +87,19 @@ export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
 
 const KIND_LABEL: Record<TradeEvent["kind"], string> = { open: "OPEN", add: "ADD", trim: "TRIM", close: "CLOSE" };
 
-export function Timeline({ r }: { r: OpenRow }) {
+/** OPEN / ADD / TRIM / CLOSE events, plus a NOW card while the position is open (Open Positions, Trade detail). */
+export function Timeline({ trade, now, times }: { trade: Trade; now?: { shares: number; last: number | null; stale?: boolean }; times?: boolean }) {
   return (
     <div className="timeline">
-      {r.trade.events.map((e, i) => (
+      {trade.events.map((e, i) => (
         <div className="ev" key={i}>
           <span className={`ev-${e.kind}`}>{KIND_LABEL[e.kind]}</span>
-          <span style={{ color: "var(--text-2)" }}>{dateOf(e.at)}</span>
+          <span style={{ color: "var(--text-2)" }}>{dateOf(e.at)}{times ? ` ${timeOf(e.at)}` : ""}</span>
           <span>{e.kind === "open" || e.kind === "add" ? "BUY" : "SELL"} {qty(e.qty)} @ {price(e.price)}</span>
           {e.realized !== undefined && <span className={pnlClass(e.realized)}>{money(e.realized)}</span>}
         </div>
       ))}
-      <div className="ev now">NOW {qty(r.shares)} sh @ {price(r.last)}{r.quote?.isStale ? " (stale)" : ""}</div>
+      {now && <div className="ev now">NOW {qty(now.shares)} sh @ {price(now.last)}{now.stale ? " (stale)" : ""}</div>}
     </div>
   );
 }
@@ -134,7 +135,7 @@ export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
               <td className={`num b ${pnlClass(r.total)}`}>{money(r.total)}</td>
             </tr>
             <tr style={{ borderTop: 0 }}>
-              <td colSpan={12} style={{ padding: "0 14px 12px", whiteSpace: "normal" }}><Timeline r={r} /></td>
+              <td colSpan={12} style={{ padding: "0 14px 12px", whiteSpace: "normal" }}><Timeline trade={r.trade} now={{ shares: r.shares, last: r.last, stale: r.quote?.isStale }} /></td>
             </tr>
           </tbody>
         ))}

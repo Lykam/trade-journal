@@ -1,9 +1,16 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { parseView } from "../core/journal/filter";
+import { buildJournal } from "../core/journal/journal";
+import { etDate } from "../core/normalize/util";
 import { appNow, useBundle, useRoute } from "./data";
 import { timeOf } from "./format";
+import { CalendarPage } from "./pages/CalendarPage";
 import { Dashboard } from "./pages/Dashboard";
+import { JournalPage, ReviewPage } from "./pages/JournalPage";
 import { OpenPage } from "./pages/OpenPage";
-import { Stub, TradeStub } from "./pages/Stub";
+import { Stub } from "./pages/Stub";
+import { TradeDetail } from "./pages/TradeDetail";
+import { TradesPage } from "./pages/TradesPage";
 
 const NAV = [
   { path: "/", label: "DASH" },
@@ -16,9 +23,6 @@ const NAV = [
 ];
 
 const STUBS: Record<string, { title: string; milestone: number }> = {
-  "/cal": { title: "CALENDAR", milestone: 3 },
-  "/trades": { title: "TRADES", milestone: 3 },
-  "/journal": { title: "JOURNAL", milestone: 3 },
   "/reports": { title: "REPORTS", milestone: 7 },
   "/settings": { title: "SETTINGS", milestone: 4 },
   "/import": { title: "IMPORT", milestone: 5 },
@@ -29,6 +33,11 @@ export function App() {
   const { path, params } = useRoute();
   const now = useMemo(appNow, []);
   const asOf = load.status === "ready" ? load.data.quotes?.asOf : undefined;
+  const journal = useMemo(() => (load.status === "ready" ? buildJournal(load.data, etDate(now)) : null), [load, now]);
+  const view = useMemo(() => parseView(params), [params]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [path]);
   const pinned = new URLSearchParams(window.location.search).has("now");
 
   let page: React.ReactNode;
@@ -40,12 +49,16 @@ export function App() {
         <pre>{load.message}</pre>
       </div>
     );
-  else if (path === "/") page = <Dashboard data={load.data} now={now} />;
+  else if (path === "/") page = <Dashboard data={load.data} journal={journal!} now={now} />;
   else if (path === "/open") page = <OpenPage data={load.data} now={now} />;
-  else if (path.startsWith("/trade/")) page = <TradeStub data={load.data} id={path.slice(7)} />;
+  else if (path === "/trades") page = <TradesPage data={load.data} journal={journal!} view={view} />;
+  else if (path.startsWith("/trade/")) page = <TradeDetail key={path} data={load.data} journal={journal!} id={decodeURIComponent(path.slice(7))} view={view} now={now} />;
+  else if (path === "/cal") page = <CalendarPage journal={journal!} view={view} params={params} />;
+  else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
+  else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
   else page = <Stub {...(STUBS[path] ?? { title: "NOT FOUND", milestone: 3 })} params={params} />;
 
-  const active = path.startsWith("/trade/") ? "/trades" : path;
+  const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path;
   return (
     <>
       <nav className="nav" aria-label="Main">

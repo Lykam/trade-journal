@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { weekStart } from "../../core/calendar";
 import { needsAttention, openPositions, openTotals, rangeStats, recentTrades } from "../../core/dashboard/dashboard";
 import { computeGauges } from "../../core/gauge/gauge";
+import { reviewAttention, reviewDates, type Journal } from "../../core/journal/journal";
 import { etDate } from "../../core/normalize/util";
 import type { DataBundle } from "../../core/types";
 import { GaugeCard } from "../components/Gauge";
@@ -13,7 +14,7 @@ import { usePersisted } from "../data";
 
 const RANGES = ["30", "60", "90"] as const;
 
-export function Dashboard({ data, now }: { data: DataBundle; now: string }) {
+export function Dashboard({ data, journal, now }: { data: DataBundle; journal: Journal; now: string }) {
   const trades = data.derived.trades;
   const quotes = data.quotes?.quotes ?? {};
   const [range, setRange] = usePersisted("tj.range", "30", RANGES);
@@ -25,6 +26,7 @@ export function Dashboard({ data, now }: { data: DataBundle; now: string }) {
   const recent = useMemo(() => ({ day: recentTrades(trades, "day"), swing: recentTrades(trades, "swing") }), [trades]);
   const stats = useMemo(() => rangeStats(trades, Number(range), now), [trades, range, now]);
   const attention = useMemo(() => needsAttention(trades, rows, now), [trades, rows, now]);
+  const reviews = useMemo(() => ({ attention: reviewAttention(journal), dates: reviewDates(journal) }), [journal]);
   const wk = gauges.day.week;
 
   return (
@@ -38,9 +40,9 @@ export function Dashboard({ data, now }: { data: DataBundle; now: string }) {
         <GaugeCard g={gauges.swing} config={data.config} />
       </div>
       <OpenQuick rows={rows} totals={totals} />
-      <RecentTen day={recent.day} swing={recent.swing} />
+      <RecentTen day={recent.day} swing={recent.swing} journal={journal} />
 
-      <WeekStrip trades={trades} today={today} startsOn={data.config.weekStartsOn} key={weekStart(today)} />
+      <WeekStrip trades={trades} today={today} startsOn={data.config.weekStartsOn} reviewDates={reviews.dates} key={weekStart(today)} />
 
       <header className="page-head" style={{ marginTop: 8 }}>
         <h2 className="label">Last {range} days</h2>
@@ -50,7 +52,7 @@ export function Dashboard({ data, now }: { data: DataBundle; now: string }) {
           ))}
         </div>
       </header>
-      <WidgetGrid r={stats} attention={attention} />
+      <WidgetGrid r={stats} attention={attention} reviews={reviews.attention} journal={journal} />
     </main>
   );
 }

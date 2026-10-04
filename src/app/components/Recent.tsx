@@ -1,8 +1,9 @@
 import { holdLabel, type Recent } from "../../core/dashboard/dashboard";
+import { reviewsOf, type Journal } from "../../core/journal/journal";
 import { dateOf, mmdd, money, pct, pnlClass, underlyingTag } from "../format";
 import { tradeHref } from "./OpenPositions";
 
-function Column({ r }: { r: Recent }) {
+function Column({ r, journal }: { r: Recent; journal: Journal }) {
   const s = r.summary;
   const pad = Array.from({ length: Math.max(0, 10 - r.streak.length) });
   return (
@@ -33,7 +34,11 @@ function Column({ r }: { r: Recent }) {
                   <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> <span className="tag">{underlyingTag(t)}</span>
                 </td>
                 <td className="muted">{holdLabel(t)}</td>
-                <td className="accent" title="Reviews arrive in milestone 3"></td>
+                <td className="accent" style={{ width: 14 }}>
+                  {reviewsOf(journal, t)[0] && (
+                    <a href={`#/journal/${encodeURIComponent(reviewsOf(journal, t)[0]!.id)}`} title="Reviewed: open the review" aria-label="Reviewed" onClick={(e) => e.stopPropagation()}>R</a>
+                  )}
+                </td>
                 <td className={`num b ${pnlClass(t.netPnl)}`}>{money(t.netPnl)}</td>
               </tr>
             ))}
@@ -45,11 +50,11 @@ function Column({ r }: { r: Recent }) {
 }
 
 /** Dashboard block 3 (SPEC §6.1 item 3). Counts trades, ignores the range selector. */
-export function RecentTen({ day, swing }: { day: Recent; swing: Recent }) {
+export function RecentTen({ day, swing, journal }: { day: Recent; swing: Recent; journal: Journal }) {
   return (
     <div className="two-col">
-      <Column r={day} />
-      <Column r={swing} />
+      <Column r={day} journal={journal} />
+      <Column r={swing} journal={journal} />
     </div>
   );
 }

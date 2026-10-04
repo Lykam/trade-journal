@@ -6,7 +6,7 @@ import { dailyTotals, monthGrid, yearView } from "../src/core/journal/calendar-v
 import {
   dateRange, defaultView, emptyFilter, parseView, queryOf, tradeMatcher, viewToParams, type TradeFilter, type ViewState,
 } from "../src/core/journal/filter";
-import { buildJournal, filterTrades, reviewAttention, type Journal } from "../src/core/journal/journal";
+import { buildJournal, filterReviews, filterTrades, reviewAttention, type Journal } from "../src/core/journal/journal";
 import { applyBulkAction, changedOverrideIds, previewOverrides } from "../src/core/journal/overrides";
 import { buildRows, neighbors, pageOf, paginate, sortRows, summarizeRows, tradeOrder, viewRows } from "../src/core/journal/rows";
 import type { DerivedTrades, Fill, Idea, ReviewFile, Trade } from "../src/core/types";
@@ -351,6 +351,25 @@ describe("tags and review checks", () => {
     expect(a.openButClosed.map((r) => r.id)).toEqual(["2025-03-14-SDAY"]); // OPSW is still open
     expect(a.unmatched.map((r) => r.id)).toEqual(["2025-03-18-NOPE"]);
     expect(a.multiple.map((m) => m.reviews.length)).toEqual([2]);
+  });
+});
+
+describe("journal list filter", () => {
+  const fixtures = JSON.parse(readFileSync(join(FIXTURES, "expected", "trades.json"), "utf8")) as DerivedTrades;
+  const dir = join(FIXTURES, "playbook", "Reviews");
+  const names = ["2025-03-13-FAKU.md", "2025-03-12-FAKU.md", "2025-03-18-NOPE.md", "2025-03-10-ZZTA.md"];
+  const reviews = names.map((n) => ({ path: `Reviews/${n}`, markdown: readFileSync(join(dir, n), "utf8") }));
+  const j = buildJournal({ derived: fixtures, symbols, config, playbook: { reviews, images: [] } }, "2025-03-20");
+  const ids = (f: Partial<TradeFilter>) => filterReviews(j, { ...emptyFilter(), ...f }).map((r) => r.id);
+
+  it("shows a review when any trade in its idea passes; unmatched reviews only for symbol/date filters", () => {
+    expect(ids({})).toEqual(["2025-03-18-NOPE", "2025-03-13-FAKU", "2025-03-12-FAKU", "2025-03-10-ZZTA"]);
+    expect(ids({ symbols: ["FAKE"] })).toEqual(["2025-03-13-FAKU", "2025-03-12-FAKU"]);
+    expect(ids({ style: "swing" })).toEqual(["2025-03-13-FAKU"]);
+    expect(ids({ instrument: "stock", symbols: ["FAKE"] })).toEqual(["2025-03-12-FAKU"]); // the day idea also traded the stock
+    expect(ids({ symbols: ["NOPE"] })).toEqual(["2025-03-18-NOPE"]);
+    expect(ids({ from: "2025-03-18", to: "2025-03-18" })).toEqual(["2025-03-18-NOPE"]);
+    expect(ids({ results: ["win"], symbols: ["NOPE"] })).toEqual([]);
   });
 });
 

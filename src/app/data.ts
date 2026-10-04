@@ -70,3 +70,26 @@ export function usePersisted<T extends string>(key: string, initial: T, allowed:
   };
   return [v, set];
 }
+
+/**
+ * URL of a Playbook image. Dev only for now: the dev server serves the file
+ * (build/dev-data-plugin.ts). The branch is dropped from `vite build`; milestone 4
+ * serves decrypted images instead. null means "not available".
+ */
+export function playbookImageUrl(path: string): string | null {
+  if (import.meta.env.DEV) return `${import.meta.env.BASE_URL}__data/playbook/${path.split("/").map(encodeURIComponent).join("/")}`;
+  return null;
+}
+
+export function go(hash: string) {
+  window.location.hash = hash;
+}
+
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -2,7 +2,7 @@
 import { heldOvernightDayTrades } from "../trades/stats";
 import { joinReviews, readReviews, type Review, type ReviewJoin } from "../reviews/join";
 import type { DataBundle, Fill, Idea, Trade } from "../types";
-import { tradeMatcher, type MatchContext, type TradeFilter } from "./filter";
+import { activeFilterCount, dateRange, tradeMatcher, type MatchContext, type TradeFilter } from "./filter";
 import { tradeTags, type TradeTags } from "./tags";
 
 export interface Journal {
@@ -84,4 +84,24 @@ export function reviewAttention(j: Journal): ReviewAttention {
     unmatched: j.reviews.unmatched,
     multiple: j.reviews.multiple,
   };
+}
+
+/**
+ * Reviews for the Journal list under the global filter (SPEC §6.7): a linked
+ * review shows when any trade in its idea passes the filter. A review that
+ * matches no idea has no trades to test, so it shows only when the active
+ * filters are ones its own fields can answer (symbol, date range).
+ */
+export function filterReviews(j: Journal, f: TradeFilter): Review[] {
+  const match = tradeMatcher(f, matchContext(j));
+  const { from, to } = dateRange(f, j.today, j.startsOn);
+  const tradeOnly = activeFilterCount({ ...f, symbols: [], preset: null, from: null, to: null }) > 0;
+  return j.reviews.reviews.filter((r) => {
+    const idea = j.ideaById.get(j.reviews.ideaOf.get(r.id) ?? "");
+    if (idea) return idea.tradeIds.some((id) => { const t = j.tradeById.get(id); return t !== undefined && match(t); });
+    if (tradeOnly) return false;
+    if (f.symbols.length && !f.symbols.some((s) => s === r.ticker || s === r.underlying)) return false;
+    if ((from || to) && (!r.date || (from && r.date < from) || (to && r.date > to))) return false;
+    return true;
+  });
 }

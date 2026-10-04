@@ -53,3 +53,23 @@ export function minutes(m: number | null): string {
 export const days = (d: number | null) => (d === null ? "—" : `${d.toFixed(1)}d`);
 
 export const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const MONTH_NAMES = MONTHS;
+
+/** "2026-01-15" → "Jan 15, 2026". */
+export const longDate = (date: string) => `${MONTHS[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}, ${date.slice(0, 4)}`;
+
+/** "2026-09" → "SEP 2026". */
+export const monthLabel = (month: string) => `${MONTHS[Number(month.slice(5, 7)) - 1]!.toUpperCase()} ${month.slice(0, 4)}`;
+
+/** ET date plus time for second-precision fills; the date only for Schwab's day precision. */
+export const whenOf = (iso: string, precision: "second" | "day" = "second") =>
+  precision === "day" ? dateOf(iso) : `${dateOf(iso)} ${etTime(iso)}`;
+
+/** Short P&L for small calendar cells: "+12.6", "−126", "+1.2k". */
+export function compactMoney(n: number): string {
+  const a = Math.abs(n);
+  const body = a >= 1000 ? `${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : a >= 100 ? a.toFixed(0) : a.toFixed(a >= 10 ? 1 : 2);
+  return n < 0 ? `${MINUS}${body}` : n > 0 ? `+${body}` : body;
+}

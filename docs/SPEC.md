@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.5)
+# Trade Journal — Spec (v0.6)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -646,9 +646,21 @@ candlestick charts in v1 (see §11).
   - **Result:** Win / Loss / Breakeven.
   - **Has review.**
   - **Date range:** From – To, with presets.
-- **Gross / Net toggle:** applies everywhere P&L is shown. The default is Net.
-- **Count by Trade / Idea toggle** on the Trades table and the Reports stats
-  grid. Gauges always count trades (§5).
+- **Gross / Net toggle:** on Trades, Trade detail, Calendar and Journal, kept
+  in the URL (`pnl=gross`). The default is Net. Results (win / loss /
+  breakeven) and win rates always use net P&L, in both modes (Q2). The
+  dashboard stays Net, because the gauges are defined on net (Q27).
+- **Count by Trade / Idea toggle** on the Trades table, the Calendar and the
+  Reports stats grid, kept in the URL (`count=idea`). Gauges always count
+  trades (§5). An idea row is built from those of its trades that pass the
+  filter, and scores as a win or loss on their combined net P&L (Q28).
+- **URL form:** `#/trades?symbol=ABC,XYZ&tags=…&tagmode=all&style=day&
+  instrument=leveraged_etf&broker=webull&duration=intraday&result=win,loss&
+  review=yes&range=lastweek|from=…&to=…|date=…&flag=overnight&pnl=gross&
+  count=idea&sort=-pnl&page=2`. Defaults are left out. Trade detail and review
+  pages carry the same query, so Back / Previous / Next follow it.
+- **Trade date** for the date filter, the calendar and the week strip is the
+  ET close date, or the open date while a trade is open (Q26).
 
 ### 6.1 Dashboard
 
@@ -711,7 +723,8 @@ everything else, and are never hidden.
      open positions (and stale quotes), day trades held overnight, and OPEN
      swing reviews whose position has closed. Unmapped ETFs need the broker's
      name column, which fills don't store, so they surface in the import
-     preview; review checks arrive with reviews in milestone 3.
+     preview. Review checks: OPEN swing reviews whose idea has closed,
+     reviews that match no idea, and ideas with more than one review.
 7. **Edit Layout** (show, hide and reorder widgets, saved per browser) is a
    v1.1 nice-to-have, not v1. Blocks 1–3 stay pinned at the top regardless.
 
@@ -790,7 +803,7 @@ Schwab trades show the date only). Below it are the tag chips, with an
     HTML comments hidden. An **Open full review** link goes to the Journal.
   - If there is no review, the panel shows a short **quick note**, editable
     and saved to `overrides.json` (one or two lines, like Tradervue's notes
-    field). It also has a **Start review** button that copies
+    field). Until milestone 5 the edit is staged and previewed only (Q32). It also has a **Start review** button that copies
     `/playbook-review <TICKER> <DATE>` to the clipboard to paste into Claude.
     This replaces Tradervue's "Insert template".
 - **Charts section, from your Playbook images:** a gallery of
@@ -913,11 +926,18 @@ Reviews attach to **ideas**, not individual trades.
   Hash routes (`#/`, `#/open`, …) so GitHub Pages needs no rewrites.
 - **Local data (`npm run dev`):** a dev-only Vite plugin
   (`build/dev-data-plugin.ts`, `apply: "serve"`) serves `$TRADE_HISTORY_DIR`
-  (`config.json`, `symbols.json`, `derived/trades.json`) plus the local
-  `quotes.json` at `<base>__data/bundle.json`, and reloads the page when they
-  change. The app fetches it only behind `import.meta.env.DEV`, so `vite build`
+  (`config.json`, `symbols.json`, `overrides.json`, `fills/` without source
+  file names, `derived/trades.json`), `$PLAYBOOK_DIR` (`Reviews/*.md` and the
+  image list) and the local `quotes.json` at `<base>__data/bundle.json`, serves
+  Playbook images at `<base>__data/playbook/<path>` (only files in the image
+  list), and reloads the page when any of them change. The app fetches it only behind `import.meta.env.DEV`, so `vite build`
   contains neither the data nor the loader (`test/build-leak.test.ts`).
   `?now=<ISO>` pins the app's clock for checking past weeks.
+  `npm run dev:demo` runs the same server on the synthetic fixtures
+  (`test/fixtures/{history,expected,playbook}`).
+- **Before each commit:** `npm run scan [-- --message "…"]` checks the lines a
+  commit adds (and the message) for real traded symbols and review / image
+  names, read from the sibling checkouts. Local only.
 - **Shared logic:** pure TS in `src/core/`, imported by both the app and the
   CLI. Hashing uses `@noble/hashes` (synchronous, identical in browser and
   Node).
@@ -947,11 +967,14 @@ trade-journal/
     core/dashboard/    dashboard.ts (open positions, recent 10, week strip, range widgets)
     core/calendar.ts   ET dates, weeks, trading sessions
     core/quotes.ts     quotes.json merge rules
-    core/reviews/      parse-header.ts, join.ts
+    core/reviews/      parse-header.ts, join.ts, images.ts
+    core/journal/      filter.ts (URL state, matching), rows.ts (table rows, sort, prev/next),
+                       calendar-view.ts, tags.ts, overrides.ts (bulk actions), journal.ts
     app/               React pages and components
-  cli/                 import.ts, trades.ts, verify.ts, lib/ (Node I/O + report printing)
+  cli/                 import.ts, trades.ts, verify.ts, scan-public.ts, lib/ (Node I/O + report printing)
   schema/              canonical JSON Schemas (copied into trade-history)
-  build/               fetch-quotes.ts, load-bundle.ts, dev-data-plugin.ts, check-dist.ts
+  build/               fetch-quotes.ts, load-bundle.ts, playbook.ts, dev-data-plugin.ts,
+                       dev-demo.ts, check-dist.ts
                        (bundle-data.ts, encrypt.ts in milestone 4)
   test/fixtures/       synthetic CSVs + expected JSON
   .github/workflows/
@@ -976,7 +999,8 @@ Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
    `build/encrypt.ts` writes
    `data.enc` and `img/<hash>.enc`.
 5. **Leak guard:** fail the deploy if `dist/` contains any symbol from the
-   fills or any review file name in plaintext. `build/check-dist.ts` runs at
+   fills, any review ticker, or any review file name or image name in
+   plaintext. `build/check-dist.ts` runs at
    the end of `npm run build`; it prints counts only, and skips a symbol that
    is also a word in the app's own source (e.g. a UI label), since the source
    is public and ticker-scanned before every commit (Q24).
@@ -1049,13 +1073,19 @@ Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
 | Q23 | Gauge "now" | Gauges are computed as of `now`: later closes are ignored and open positions are rebuilt from their events, so past weeks (sparkline, tests, `?now=`) are reproducible. Historical marks use whatever quotes are passed in. (2026-10-04, milestone 2) |
 | Q24 | Dev data and leak guard | Dev data comes from a serve-only Vite plugin behind `import.meta.env.DEV`; a build test plants a canary symbol and checks `dist/`. `check-dist` skips symbols that are also words in the public source. (2026-10-04, milestone 2) |
 | Q25 | Swing mark basis | Open swing positions are marked on the **current average cost** (`avgCost`) plus realized P&L from trims, the same numbers as the Open Positions page, rather than `avgEntry`. (2026-10-04, milestone 2) |
+| Q26 | Trade date | A trade belongs to its **ET close date** (the open date while open) for the Trades date column and date filter, the calendar and the week strip, so a day card and the trades it links to always agree. The calendar sums scored trades only (closed, matched, not excluded). (2026-10-04, milestone 3) |
+| Q27 | Gross / Net | Resolves the open item: a URL parameter (`pnl=gross`, default Net) on Trades, Trade detail, Calendar and Journal. Win / loss / breakeven always come from net P&L (Q2), so a trade that is green gross but red after fees is a loss in both modes. The dashboard stays Net. (2026-10-04, milestone 3) |
+| Q28 | Idea view | An idea row is made of those of its trades that pass the filter; its result is the sign of their combined net P&L (scored trades only), and the summary counts ideas. Previous / Next in the Idea view walk each idea's trades oldest first. (2026-10-04, milestone 3) |
+| Q29 | Review join details | Header fields win over the file name (`<DATE>-<TICKER>[-suffix].md`). A ticker matches the idea's underlying (through `symbols.json`) or any symbol traded in the idea. If a day and a swing idea share the underlying and date, the review's Trade Type picks one. A swing review dated a re-entry trade's open date links to the idea that trade joined. An Idea ID that no longer exists falls back to date + ticker. Unmatched reviews and ideas with several reviews appear under Needs attention. (2026-10-04, milestone 3) |
+| Q30 | Category tag | The automatic Category tag is the first clause of the review's `## Category` section (up to `.`, `,`, `;`, `:` or a dash), capitalized, and only if it is at most 32 characters. Free-form sentences add no tag. (2026-10-04, milestone 3) |
+| Q31 | Filters | Symbol accepts a comma list and matches the symbol or underlying exactly. Tags match **any** selected tag by default, with an ALL switch. Result is multi-select. Date presets (today, this / last week, this / last month, 30D, 90D, YTD) stay relative in the URL (`range=`). The calendar ignores the date filter, since its month arrows choose the dates. (2026-10-04, milestone 3) |
+| Q32 | Edits before milestone 5 | Bulk actions (add / remove tag, set style, exclude / include), Add tags on Trade detail and the quick note are built and **staged**: the app applies them to `overrides.json` in memory and re-derives the trades from the fills to preview what changes (including ideas a style change regroups). The Commit button stays disabled until milestone 5. Nothing writes to trade-history. (2026-10-04, milestone 3) |
+| Q33 | Charts and images | The Trade detail gallery shows `Images/<date>/<SYMBOL>-daily*` / `-intraday*` for the idea date and every open / close date of the idea's trades, for the underlying and every symbol traded. Images embedded in a review resolve relative to the review file. Start review copies `/playbook-review <UNDERLYING> <IDEA DATE>`. The markdown renderer is code-split and loads only when a review is shown. (2026-10-04, milestone 3) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open
 
-- Gross/Net toggle (§6.0) arrives with the Trades page in milestone 3; the
-  dashboard shows net P&L.
-- Nothing blocks milestone 3.
+- Nothing blocks milestone 4. (Gross/Net was settled in Q27.)
 
 ## 11. Future
 

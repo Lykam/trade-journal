@@ -14,7 +14,8 @@
     "trades": "tsx cli/trades.ts",
     "verify": "tsx cli/verify.ts",
     "quotes": "tsx build/fetch-quotes.ts",
-    "scan": "tsx cli/scan-public.ts"
+    "scan": "tsx cli/scan-public.ts",
+    "dev:demo": "tsx build/dev-demo.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",

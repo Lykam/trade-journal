@@ -2,6 +2,7 @@
 // Gain/loss are green/red by decision (Q10); every value also carries its sign and
 // a direct label, so nothing relies on color alone (red↔green is weak under CVD).
 import type { Attention, RangeStats } from "../../core/dashboard/dashboard";
+import type { Journal, ReviewAttention } from "../../core/journal/journal";
 import type { Trade } from "../../core/types";
 import { dateOf, days, DOW, minutes, mmdd, money, pct, pnlClass, underlyingTag } from "../format";
 import { tradeHref } from "./OpenPositions";
@@ -220,7 +221,9 @@ export function StatRow({ r }: { r: RangeStats }) {
   );
 }
 
-function AttentionList({ a }: { a: Attention }) {
+const reviewHref = (id: string) => `#/journal/${encodeURIComponent(id)}`;
+
+function AttentionList({ a, reviews, journal }: { a: Attention; reviews: ReviewAttention; journal: Journal }) {
   const rows: React.ReactNode[] = [];
   for (const t of a.unpriced) rows.push(<div key={`u${t.id}`}><span className="half">!</span> <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> open position not priced (run <code>npm run quotes</code>)</div>);
   for (const t of a.stale) rows.push(<div key={`s${t.id}`}><span className="half">!</span> <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> quote is stale</div>);
@@ -228,15 +231,25 @@ function AttentionList({ a }: { a: Attention }) {
   if (a.heldOvernight.length) {
     rows.push(<div key="ho"><span className="accent">i</span> {a.heldOvernight.length} day trade{a.heldOvernight.length === 1 ? "" : "s"} held overnight: still day trades? <a href="#/trades?flag=overnight">REVIEW ›</a></div>);
   }
+  for (const r of reviews.openButClosed) {
+    rows.push(<div key={`ro${r.id}`}><span className="half">!</span> <a className="sym" href={reviewHref(r.id)}>{r.ticker}</a> {r.date} swing review still OPEN, but the position has closed: finish the exit sections (<code>/playbook-review {r.ticker}</code>)</div>);
+  }
+  for (const r of reviews.unmatched) {
+    rows.push(<div key={`ru${r.id}`}><span className="half">!</span> <a className="sym" href={reviewHref(r.id)}>{r.ticker ?? r.id}</a> {r.date ?? ""} review matches no idea: check its date and ticker</div>);
+  }
+  for (const m of reviews.multiple) {
+    const idea = journal.ideaById.get(m.ideaId);
+    rows.push(<div key={`rm${m.ideaId}`}><span className="accent">i</span> {idea?.underlying} {idea?.date} idea has {m.reviews.length} reviews: {m.reviews.map((r, i) => <span key={r.id}>{i ? ", " : ""}<a href={reviewHref(r.id)}>{r.id}</a></span>)}</div>);
+  }
   return (
     <div className="attention">
       {rows.length ? rows : <div className="muted">Nothing needs attention.</div>}
-      <div className="dim small">Unmapped ETF symbols are flagged by the import preview; review links arrive in milestone 3.</div>
+      <div className="dim small">Unmapped ETF symbols are flagged by the import preview.</div>
     </div>
   );
 }
 
-export function WidgetGrid({ r, attention }: { r: RangeStats; attention: Attention }) {
+export function WidgetGrid({ r, attention, reviews, journal }: { r: RangeStats; attention: Attention; reviews: ReviewAttention; journal: Journal }) {
   const dowBars: Bar[] = r.byDayOfWeek.map((b) => ({
     key: String(b.dow), label: DOW[b.dow], value: b.net, cls: pnlBar(b.net),
     text: `${money(b.net)}  ${(b.share * 100).toFixed(0).padStart(3)}%`, title: `${b.trades} trades · ${pct(b.winRate)} win`,
@@ -268,7 +281,7 @@ export function WidgetGrid({ r, attention }: { r: RangeStats; attention: Attenti
         <Widget title="Performance by duration (P&L · trades)">
           {durBars.length ? <HBars bars={durBars} /> : <div className="empty">No closed trades in range</div>}
         </Widget>
-        <Widget title="Needs attention" wide><AttentionList a={attention} /></Widget>
+        <Widget title="Needs attention" wide><AttentionList a={attention} reviews={reviews} journal={journal} /></Widget>
       </div>
     </>
   );
