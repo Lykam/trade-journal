@@ -25,8 +25,6 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    env:
-      TJ_PUBLIC_LOG: "1"
     steps:
       - name: Check secrets
         env:
@@ -80,6 +78,8 @@ jobs:
 
       - name: Build, price, encrypt, check
         env:
+          # Public logs: scripts print outcomes only, no counts (Q35).
+          TJ_PUBLIC_LOG: "1"
           TRADE_HISTORY_DIR: ${{ github.workspace }}/_data/trade-history
           PLAYBOOK_DIR: ${{ github.workspace }}/_data/Playbook
           QUOTES_FILE: ${{ github.workspace }}/_data/quotes.json

@@ -90,7 +90,7 @@ describe("npm run quotes", () => {
         return { FAKU: quote(11, T1), SWGA: quote(12, T1) };
       },
     };
-    expect(await runFetchQuotes(args(), { provider, now: T1, log })).toBe(0);
+    expect(await runFetchQuotes(args(), { provider, now: T1, log, publicLog: false })).toBe(0);
     expect(asked).toEqual(SYMBOLS);
     expect(Object.keys(read().quotes)).toEqual(["FAKU", "SWGA"]);
     expect(logs.join("\n")).toContain("3 open symbols · 2 priced · 0 stale · 1 missing");
@@ -117,5 +117,13 @@ describe("npm run quotes", () => {
     await runFetchQuotes(args(), { provider: { name: "fake", fetch: async () => ({ SWGA: quote(1) }) }, now: T1, log });
     const text = logs.join("\n");
     for (const s of [...SYMBOLS, "FAKE", "ZZTA"]) expect(text).not.toContain(s);
+  });
+
+  it("prints no counts in public-log mode (the workflows, Q35)", async () => {
+    const provider: QuoteProvider = { name: "fake", fetch: async () => ({ FAKU: quote(11, T1) }) };
+    expect(await runFetchQuotes(args(), { provider, now: T1, log, publicLog: true })).toBe(0);
+    const text = logs.join("\n");
+    expect(text).toContain("some open positions not freshly priced");
+    expect(text).not.toMatch(/\d/);
   });
 });
