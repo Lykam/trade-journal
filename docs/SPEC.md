@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.8)
+# Trade Journal — Spec (v0.9)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -46,7 +46,7 @@ There are three repos, each with one job:
 |---|---|---|---|
 | `Lykam/trade-journal` | **Public** | App source code, shared TS logic (parsers, grouping, gauge), import CLI, deploy workflow. **No data.** It serves GitHub Pages. | You and Claude (code) |
 | `Lykam/trade-history` | Private | Normalized fills, overrides, config, derived trades, JSON Schema. The source of truth for "what I traded". | The import CLI (via Claude) or the web app's Import page |
-| `Lykam/Playbook` | Private | `Reviews/*.md`, `Images/`, `Template.md`, the review skills. **Unchanged.** | The `playbook-review` skill |
+| `Lykam/Playbook` | Private | `Reviews/*.md`, `Images/`, `Template.md`, the review skills (which read `trade-history/derived/trades.json`, §4.6). | The `playbook-review` skill |
 
 ```
  trade-history (private)          Playbook (private)
@@ -513,17 +513,34 @@ commit path can be tried on a throwaway repo; a commit there never appears in
   approve does it write, commit and push `trade-history`, because the push
   publishes to the site.
 
-### 4.6 Changes to the Playbook repo (small, optional, milestone 6)
+### 4.6 Changes to the Playbook repo (milestone 6, Q41)
 
 - The `playbook-review` skill reads `../trade-history/derived/trades.json`
-  (path configurable) instead of parsing `~/Downloads`. This gives Schwab
-  swing trades the importer they don't have today, and `import_webull.py` is
-  retired.
-- Add `notify-journal.yml` so a pushed review triggers a redeploy.
-- Optionally add an `**Idea ID:**` header line to `Template.md`, so a review
-  pins its exact idea instead of relying on date and ticker matching.
+  (`$TRADE_HISTORY_DIR` or `--history-dir` to override) through
+  `scripts/trade_ideas.py`, instead of parsing `~/Downloads`. Schwab swing
+  trades now have an importer, and `import_webull.py` is retired. The skill
+  pulls `trade-history` first (`git pull --ff-only`), since imports from the
+  site commit on GitHub. It never imports: with no ideas for the date, it
+  tells you to import through the journal first.
 - The skill presents **ideas** (e.g. "MU: 3 trades, +$85") as the things to
-  review, which replaces the 30-minute-gap clustering in `import_webull.py`.
+  review, replacing the 30-minute-gap clustering. An idea is listed for a date
+  when it opened that day or one of its trades opened or closed that day (a
+  swing exit or re-entry), with its Idea ID, its trades and its review file if
+  one exists.
+- Reviews are named `Reviews/<IDEA DATE>-<UNDERLYING>.md`: the idea's open date
+  and its underlying, even for ETF trades. An OPEN swing review on an idea that
+  has since closed is resumed for the exit phase.
+- `Template.md` has an `**Idea ID:** {{IDEA ID}}` header line, which the skill
+  fills in, so a review pins its exact idea (§6.11). A manual review keeps the
+  placeholder and is matched on date and ticker.
+- `sync_review.py` also embeds charts saved under any symbol traded in a pinned
+  idea (e.g. the ETF), as the journal's gallery does (Q33).
+- `notify-journal.yml` makes a pushed review trigger a redeploy.
+- The skill scripts are plain Python with `unittest` tests in Playbook
+  (`.claude/skills/playbook-review/tests`). The skill's review matcher mirrors
+  `src/core/reviews/join.ts`, and checks itself against
+  `test/fixtures/expected/review-join.json`, a golden file the journal's tests
+  generate from the synthetic fixtures.
 
 ---
 
@@ -982,6 +999,10 @@ Reviews attach to **ideas**, not individual trades.
    their date is the open date. Day ideas are one per ticker per day, so this
    is normally an exact 1:1 match.
 
+The `playbook-review` skill uses the same rules (in Python) to show whether an
+idea already has a review; `test/fixtures/expected/review-join.json` keeps the
+two in step (§4.6).
+
 ---
 
 ## 7. `trade-journal` repo: tech and layout
@@ -1144,8 +1165,8 @@ the commit leaves the private repo.
 4. **Encrypted deploy:** secrets, the `build-deploy` / `deploy` / `prices`
    workflows, and dispatch workflows in both data repos.
 5. **In-browser import and override editing** through the GitHub API.
-6. **Playbook integration:** update the review skill to read
-   `derived/trades.json`; optionally add `Idea ID` to the template.
+6. **Playbook integration:** the review skill reads `derived/trades.json` and
+   lists ideas; `Idea ID` in the template (§4.6).
 7. **Reports** (§6.5: Overview, Detailed grid, breakdowns, Win vs Loss Days, Drawdown, Compare, Tag Breakdown).
 
 ---
@@ -1193,6 +1214,7 @@ the commit leaves the private repo.
 | Q38 | Browser tokens | A fine-grained token's permissions apply to **every** repo it selects, so one token with Contents on `trade-history` and Actions on `trade-journal` would also get Contents: write on the public app repo, which deploys the site. "Refresh prices" therefore uses an optional **second** token (Actions: read & write on `trade-journal` only). Both are sealed together under an HKDF subkey of the site key in `localStorage`; Settings warns if the main token reaches `trade-journal`. The data repo is a setting, for testing on a throwaway repo. (2026-10-04, milestone 5) |
 | Q39 | Leak guard vs. libraries | `check-dist` also skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`, now Ajv, whose code generator has short uppercase operator names that match a traded symbol). Ajv loads only with the import / commit chunk. (2026-10-04, milestone 5) |
 | Q40 | Commit safety | Commits are computed from `trade-history` read fresh through the API, never from `data.enc`. On a moved `main` the app re-reads and recomputes (up to 3 tries) and commits only if the result matches the approved preview (new fill ids, ETF mappings and trade counts for an import; the changed override entries for an edit); otherwise it shows the new preview. Unchanged files are skipped by git blob id, so an import that adds nothing archives only new CSVs, and an edit already on `main` commits nothing. "Deploying…" resolves when a new `data.enc` was built from that commit or a later one (`history` in the bundle). (2026-10-04, milestone 5) |
+| Q41 | Playbook skill | The `playbook-review` skill lists **ideas** from `derived/trades.json` (Python, no Node dependency) and names reviews `<IDEA DATE>-<UNDERLYING>.md`, filling in `**Idea ID:**` from the listing. Grouping stays in the journal; the skill only reads it. Its review matcher mirrors `join.ts` and is checked against a golden file from the journal's synthetic fixtures. The skill never imports trades itself, so imports keep their preview-and-OK step. `sync_review.py` embeds charts for every symbol traded in a pinned idea. (2026-10-04, milestone 6) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open
