@@ -1243,7 +1243,7 @@ the commit leaves the private repo.
 
 ### Still open
 
-- Milestone 7 (Reports) is built and tested on the synthetic fixtures; the live check against real data is next.
+- Milestone 7 (Reports) was checked live on 2026-10-04 against the real data at desktop and phone width: the Overview, Detailed (month by month), Compare (Stock vs ETF), Tag Breakdown and Idea-view totals match `npm run verify`, and the ↗ trade and streak links land on the right trade and dates. The milestone-5 placeholder tag `test-tag` was removed from trade-history.
 - Milestone 5 was checked live on 2026-10-04: token save, two fixture imports and an override edit committed to a throwaway repo (byte-identical to the CLI), "Deploying…" resolving, and one override edit on trade-history.
 - Milestone 6 was checked live on 2026-10-04 with a placeholder test review (written from the template with the skill's scripts, then removed): the push dispatched a redeploy, the review linked to its idea by Idea ID in the Journal, Trades and Trade detail at desktop and phone width, and the deploy log was clean. The first real review with the updated skill is still to come.
 

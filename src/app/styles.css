@@ -404,6 +404,7 @@ table.grid tr.selected { background: var(--inset); }
 table.grid tr.sub td { border-top-color: var(--rule-faint); }
 @media (max-width: 640px) {
   /* Side-by-side stat columns wrap instead of pushing B off screen. */
-  table.grid.cols td { white-space: normal; overflow-wrap: anywhere; }
+  table.grid.cols td { white-space: normal; overflow-wrap: break-word; }
   table.grid.cols td:first-child { width: 38%; }
 }
+.nowrap { white-space: nowrap; }

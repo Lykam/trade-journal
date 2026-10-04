@@ -34,7 +34,7 @@ export function streakHref(s: StreakRef, view: ViewState): string {
 function UnitLink({ u, f }: { u: Unit; f: Fmt }) {
   return (
     <a href={tradeLink(u.trades[0]!.id, f.view)} title={`Open ${u.symbol} ${u.date}`}>
-      {u.kind === "idea" ? u.underlying : u.symbol} {mmdd(u.date)} ↗
+      {u.kind === "idea" ? u.underlying : u.symbol} <span className="nowrap">{mmdd(u.date)} ↗</span>
     </a>
   );
 }
@@ -46,7 +46,7 @@ function StreakLink({ s, f }: { s: StreakRef | null; f: Fmt }) {
     <>
       {s.length}{" "}
       <a className="small" href={streakHref(s, f.view)} title={`${s.length} in a row, ${first} → ${last}: open on Trades`}>
-        {mmdd(first)}{first !== last ? `→${mmdd(last)}` : ""} ↗
+        <span className="nowrap">{mmdd(first)}{first !== last ? `→${mmdd(last)}` : ""} ↗</span>
       </a>
     </>
   );
@@ -78,7 +78,7 @@ export function gridCells(g: Grid, f: Fmt): Cell[] {
     { key: "sd", label: `${f.unit === "IDEA" ? "Idea" : "Trade"} P&L std dev`, value: f.v(g.stdDev).replace("+", "") },
     { key: "sqn", label: "SQN", value: num(g.sqn), title: "√n × mean ÷ std dev" },
     { key: "p", label: "Probability of random chance", value: pct(g.randomChance, 1), title: "Two-sided t-test of mean P&L ≠ 0; lower is better" },
-    { key: "k", label: "Kelly %", value: pct(g.kelly, 1), title: "W − (1 − W) ÷ (avg win ÷ |avg loss|)" },
+    { key: "k", label: "Kelly %", value: pct(g.kelly, 1).replace("-", "−"), title: "W − (1 − W) ÷ (avg win ÷ |avg loss|)" },
     { key: "kr", label: "K-ratio", value: num(g.kRatio), title: "Kestner 2003 on daily cumulative P&L" },
     { key: "pf", label: "Profit factor", value: g.profitFactor === null ? (g.wins ? "∞" : "—") : num(g.profitFactor) },
     { key: "fees", label: "Fees & commissions", value: money(g.fees, { sign: false }), title: "Brokers report one combined figure" },
