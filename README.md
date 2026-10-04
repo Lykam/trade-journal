@@ -13,7 +13,7 @@ the rolling 90-day average.
 See [`docs/SPEC.md`](docs/SPEC.md) for the full specification and the
 decisions log (§10).
 
-Status: milestone 3 (trades, trade detail, calendar, Playbook reviews, local) complete. Next: milestone 4, encrypted deploy.
+Status: milestone 4 (encrypted deploy to GitHub Pages) in progress. Site: https://lykam.github.io/trade-journal/
 
 ## Development
 
@@ -28,6 +28,9 @@ npm run dev              # app at http://localhost:5173/trade-journal/ with loca
 npm run dev:demo         # the same on synthetic fixtures (port 5174), no real data needed
 npm run scan             # before committing: check added lines for real tickers / review names
 npm run build            # production build + leak guard (no data in dist/)
+SITE_PASSPHRASE=… npm run encrypt   # bundle + encrypt into dist/data.enc, dist/img/*.enc
+npm run check:dist -- --encrypted   # leak guard on the encrypted dist
+npm run preview:demo     # encrypted production site on fixtures (port 4174), demo passphrase printed
 ```
 
 `npm run dev` serves plaintext data from `$TRADE_HISTORY_DIR` and Playbook
@@ -37,3 +40,12 @@ dev-only endpoints that are never part of `vite build`. Add
 another time.
 
 The CLI reads and writes `$TRADE_HISTORY_DIR` (default `../trade-history`).
+
+## Deploy
+
+`.github/workflows/deploy.yml` (push to main, `repository_dispatch: data-updated`
+from the data repos, manual) and `prices.yml` (every 15 min in market hours plus
+~16:20 ET) both call `build-deploy.yml`: test → check out the private repos →
+build → quotes → encrypt → leak guard → GitHub Pages. Secrets: `DATA_READ_TOKEN`
+and `SITE_PASSPHRASE` here, `DISPATCH_TOKEN` in `trade-history` and `Playbook`
+(SPEC §2, §7).

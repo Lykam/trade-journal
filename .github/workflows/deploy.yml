@@ -1,0 +1,24 @@
+# Deploy the encrypted site (SPEC §7): on pushes to main, when trade-history or
+# Playbook change (their notify-journal.yml sends repository_dispatch
+# data-updated), and by hand. Never on pull_request: secrets must not reach PR
+# code in a public repo (SPEC §8).
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [data-updated]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/build-deploy.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

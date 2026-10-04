@@ -13,6 +13,13 @@ export interface ChartImage {
 const CHART_RE = /^Images\/(\d{4}-\d{2}-\d{2})\/([^/]+?)-(daily|intraday)[^/]*\.(png|jpe?g|gif|webp|bmp)$/i;
 export const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|bmp)$/i;
 
+const IMAGE_TYPES: Record<string, string> = {
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", bmp: "image/bmp",
+};
+
+/** Content type by extension, for the dev server and for decrypted blob URLs. */
+export const imageType = (path: string) => IMAGE_TYPES[path.split(".").pop()!.toLowerCase()] ?? "application/octet-stream";
+
 export function parseChartPath(path: string): ChartImage | null {
   const m = CHART_RE.exec(path);
   if (!m) return null;

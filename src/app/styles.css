@@ -319,6 +319,30 @@ a.cal-cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; color
 .ycell { background: var(--rule-faint); border: 1px solid var(--rule); }
 a.ycell[href]:hover { outline: 1px solid var(--accent); }
 
+/* Lock screen and Settings (milestone 4) */
+.lock { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.lock-box { width: 100%; max-width: 420px; padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--accent); }
+.lock-box h1 { margin: 0; font-size: 15px; letter-spacing: 0.12em; }
+.lock-box p { margin: 0; }
+.lock-brand { color: var(--accent); font-weight: 700; letter-spacing: 0.06em; }
+.lock-field { display: flex; flex-direction: column; gap: 6px; }
+.lock-field input { min-height: 38px; padding: 0 10px; border: 1px solid var(--border-strong); background: var(--inset); color: var(--text); font: inherit; font-size: 14px; }
+.lock-field input:focus { border-color: var(--accent); outline: none; }
+.lock-field input[aria-invalid="true"] { border-color: var(--loss); }
+.lock-box .check { padding: 4px 0; white-space: normal; }
+.lock-box .check:hover { background: none; }
+.lock-btn { min-height: 38px; }
+.thumb-wait { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 16 / 10; background: var(--rule-faint); }
+.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
+.settings .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.settings .body p { margin: 0; }
+.settings .check { padding: 4px 0; white-space: normal; }
+.settings .check:hover { background: none; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+pre.json { margin: 0; padding: 10px 14px; max-height: 420px; overflow: auto; color: var(--text-2); background: var(--inset); font-size: 12px; }
+
 @media (max-width: 900px) {
   .detail { grid-template-columns: minmax(0, 1fr); }
 }

@@ -1,0 +1,109 @@
+# Reusable: build, price, bundle, ENCRYPT and deploy to GitHub Pages (SPEC §7).
+# Called by deploy.yml and prices.yml only. This repo is public, so its logs are
+# public: no step prints data, symbols or counts (Q35), and nothing from _data/
+# or quotes.json is ever uploaded except inside the encrypted dist.
+name: build-deploy
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Back-to-back imports and price runs queue here; a newer pending run replaces an older pending one.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    env:
+      TJ_PUBLIC_LOG: "1"
+    steps:
+      - name: Check secrets
+        env:
+          DATA_READ_TOKEN: ${{ secrets.DATA_READ_TOKEN }}
+          SITE_PASSPHRASE: ${{ secrets.SITE_PASSPHRASE }}
+        run: |
+          missing=""
+          [ -n "$DATA_READ_TOKEN" ] || missing="$missing DATA_READ_TOKEN"
+          [ -n "$SITE_PASSPHRASE" ] || missing="$missing SITE_PASSPHRASE"
+          if [ -n "$missing" ]; then echo "::error::Missing Actions secret(s):$missing"; exit 1; fi
+
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Tests run on synthetic fixtures before any private data is checked out.
+      - run: npm test
+
+      - name: Check out trade-history (read-only)
+        uses: actions/checkout@v7
+        with:
+          repository: Lykam/trade-history
+          token: ${{ secrets.DATA_READ_TOKEN }}
+          path: _data/trade-history
+          persist-credentials: false
+
+      - name: Check out Playbook (read-only)
+        uses: actions/checkout@v7
+        with:
+          repository: Lykam/Playbook
+          token: ${{ secrets.DATA_READ_TOKEN }}
+          path: _data/Playbook
+          persist-credentials: false
+
+      - name: Restore previous quotes (encrypted cache)
+        uses: actions/cache/restore@v6
+        with:
+          path: _cache/quotes-cache.enc
+          key: quotes-${{ github.run_id }}
+          restore-keys: quotes-
+
+      - name: Build, price, encrypt, check
+        env:
+          TRADE_HISTORY_DIR: ${{ github.workspace }}/_data/trade-history
+          PLAYBOOK_DIR: ${{ github.workspace }}/_data/Playbook
+          QUOTES_FILE: ${{ github.workspace }}/_data/quotes.json
+          SITE_PASSPHRASE: ${{ secrets.SITE_PASSPHRASE }}
+        run: |
+          mkdir -p _cache
+          npm run quotes:cache -- restore --cache _cache/quotes-cache.enc
+          npm run build
+          # A failed fetch keeps the previous quotes, marked stale; it never blocks the deploy.
+          npm run quotes || echo "quotes: fetch failed; deploying without fresh prices"
+          npm run quotes:cache -- save --cache _cache/quotes-cache.enc
+          npm run encrypt
+          npm run check:dist -- --encrypted
+          rm -rf _data
+
+      - name: Save quotes (encrypted cache)
+        if: hashFiles('_cache/quotes-cache.enc') != ''
+        uses: actions/cache/save@v6
+        with:
+          path: _cache/quotes-cache.enc
+          key: quotes-${{ github.run_id }}
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -173,7 +173,7 @@ export interface PlaybookData {
   images: string[];
 }
 
-/** Everything the app reads: served by the dev plugin now, decrypted from data.enc later (milestone 4). */
+/** Everything the app reads: served by the dev plugin in dev, decrypted from data.enc in production. */
 export interface DataBundle {
   config: Config;
   symbols: SymbolsMap;
@@ -184,5 +184,7 @@ export interface DataBundle {
   quotes: QuotesFile | null;
   /** null when no Playbook checkout is available. */
   playbook: PlaybookData | null;
+  /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */
+  imageFiles?: Record<string, string>;
   loadedAt: string;
 }

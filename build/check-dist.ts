@@ -9,7 +9,10 @@ import { join, relative, resolve } from "node:path";
 import { loadHistory, REPO_ROOT, resolveHistoryDir } from "../cli/lib/history";
 import { parseReviewHeader } from "../src/core/reviews/parse-header";
 import { reviewIdOf } from "../src/core/reviews/join";
-import { readQuotes, resolveQuotesFile } from "./fetch-quotes";
+import {
+  DATA_BUCKET, decodeHeader, HEADER_BYTES, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, IMAGE_NAME_RE, KIND_DATA, KIND_IMAGE, TAG_BYTES,
+} from "../src/core/crypto";
+import { isPublicLog, readQuotes, resolveQuotesFile } from "./fetch-quotes";
 import { loadPlaybook, resolvePlaybookDir } from "./playbook";
 
 function files(dir: string): string[] {
@@ -58,37 +61,110 @@ export function playbookNames(playbook: { reviews: Array<{ path: string }>; imag
   return names;
 }
 
+/** Shannon entropy in bits per byte (8.0 for uniformly random bytes). */
+export function entropy(bytes: Uint8Array): number {
+  const counts = new Array<number>(256).fill(0);
+  for (const b of bytes) counts[b]!++;
+  let h = 0;
+  for (const c of counts) if (c) h -= (c / bytes.length) * Math.log2(c / bytes.length);
+  return h;
+}
+
+/** Problems with one encrypted file, or [] if it looks like a proper ciphertext of the expected kind. */
+export function checkEncFile(bytes: Uint8Array, kind: number): string[] {
+  try {
+    const h = decodeHeader(bytes);
+    const body = bytes.length - HEADER_BYTES - TAG_BYTES;
+    const bucket = kind === KIND_DATA ? DATA_BUCKET : IMAGE_BUCKET;
+    const out: string[] = [];
+    if (h.kind !== kind) out.push("wrong kind");
+    if (body <= 0 || body % bucket !== 0) out.push("not padded to its size bucket");
+    if (entropy(bytes.subarray(HEADER_BYTES)) < 7.9) out.push("low entropy (not ciphertext?)");
+    return out;
+  } catch {
+    return ["not an encrypted journal file"];
+  }
+}
+
+/** App-shell files vite emits; anything else in an encrypted dist (a .json, .md, image…) is a leak. */
+const SHELL_RE = /^(index\.html|favicon\.(ico|svg)|assets\/[\w.-]+\.(js|css|svg|woff2?))$/;
+
+/** Structure of an encrypted dist (Q34). Returns problems as "<file>: <what>". */
+export function checkEncrypted(distDir: string): string[] {
+  const problems: string[] = [];
+  if (!existsSync(join(distDir, "data.enc"))) problems.push("data.enc: missing (run npm run encrypt)");
+  let imgs = 0;
+  for (const f of files(distDir)) {
+    const rel = relative(distDir, f).replace(/\\/g, "/");
+    if (rel === "data.enc") {
+      problems.push(...checkEncFile(readFileSync(f), KIND_DATA).map((p) => `${rel}: ${p}`));
+    } else if (rel.startsWith("img/")) {
+      imgs++;
+      const name = rel.slice(4).replace(/\.enc$/, "");
+      if (!rel.endsWith(".enc") || !IMAGE_NAME_RE.test(name)) problems.push(`${rel}: image file not named <32 hex>.enc`);
+      problems.push(...checkEncFile(readFileSync(f), KIND_IMAGE).map((p) => `${rel}: ${p}`));
+    } else if (!SHELL_RE.test(rel)) {
+      problems.push(`${rel}: unexpected file in an encrypted dist`);
+    }
+  }
+  if (imgs % IMAGE_COUNT_BUCKET !== 0 || imgs === 0) problems.push(`img/: file count not padded to a multiple of ${IMAGE_COUNT_BUCKET}`);
+  return problems;
+}
+
 export function checkDist(
   distDir: string,
   allSymbols: Set<string>,
   log: (s: string) => void = console.log,
   sourceText = appSourceText(),
   names: Set<string> = new Set(),
+  opts: { encrypted?: boolean; publicLog?: boolean } = {},
 ): number {
+  const quiet = opts.publicLog ?? false;
   if (!existsSync(distDir)) {
     log(`check-dist: ${distDir} does not exist (run vite build)`);
     return 1;
   }
+  // A symbol that is also a token in the app's own source (a UI word such as a
+  // column label) can't be told apart from code, so it is skipped: dist/ can only
+  // leak data that is not already in the public source.
   const inSource = new Set(findLeaks(sourceText, allSymbols));
   const symbols = new Set([...allSymbols].filter((s) => !inSource.has(s)));
-  if (inSource.size) log(`check-dist: ${inSource.size} symbol(s) also appear as words in the app source; skipped`);
+  if (inSource.size && !quiet) log(`check-dist: ${inSource.size} symbol(s) also appear as words in the app source; skipped`);
   let leaks = 0;
   const list = files(distDir);
   for (const f of list) {
-    const text = readFileSync(f, "utf8");
-    const hits = findLeaks(text, symbols);
+    // latin1 keeps every byte, so names and symbols are found in binary files too.
+    const text = readFileSync(f, "latin1");
+    // Random ciphertext regularly contains short uppercase runs, so in .enc files
+    // only symbols of 6+ characters are searched; checkEncrypted proves the rest.
+    const hits = findLeaks(text, f.endsWith(".enc") ? [...symbols].filter((s) => s.length >= 6) : symbols);
     if (hits.length) {
       leaks += hits.length;
-      log(`check-dist: LEAK ${relative(distDir, f)} contains ${hits.length} traded symbol(s)`);
+      log(`check-dist: LEAK ${relative(distDir, f)} contains ${quiet ? "" : `${hits.length} `}traded symbol(s)`);
+    }
+    const rel = relative(distDir, f).replace(/\\/g, "/");
+    if (findLeaks(rel, symbols).length || [...names].some((n) => rel.includes(n))) {
+      leaks++;
+      log(`check-dist: LEAK a dist file name contains a traded symbol or review/image name`);
     }
     const named = [...names].filter((n) => text.includes(n)).length;
     if (named) {
       leaks += named;
-      log(`check-dist: LEAK ${relative(distDir, f)} contains ${named} review/image name(s)`);
+      log(`check-dist: LEAK ${relative(distDir, f)} contains ${quiet ? "" : `${named} `}review/image name(s)`);
     }
   }
+  const encrypted = opts.encrypted || existsSync(join(distDir, "data.enc"));
+  if (encrypted) {
+    for (const p of checkEncrypted(distDir)) {
+      leaks++;
+      log(`check-dist: BAD ${p}`);
+    }
+  }
+  const what = encrypted ? "encrypted dist" : "dist";
   log(
-    `check-dist: ${symbols.size} symbols and ${names.size} review/image names checked against ${list.length} files · ${leaks ? `${leaks} LEAKS` : "clean"}`,
+    quiet
+      ? `check-dist: ${what} ${leaks ? "FAILED" : "clean"}`
+      : `check-dist: ${symbols.size} symbols and ${names.size} review/image names checked against ${list.length} files (${what}) · ${leaks ? `${leaks} LEAKS` : "clean"}`,
   );
   return leaks ? 1 : 0;
 }
@@ -106,6 +182,9 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename
       ...Object.keys(readQuotes(resolveQuotesFile())?.quotes ?? {}),
       ...playbook.reviews.map((r) => parseReviewHeader(r.markdown).ticker).filter((t): t is string => t !== null),
     ]);
-    process.exitCode = checkDist(join(REPO_ROOT, "dist"), symbols, console.log, appSourceText(), playbookNames(playbook));
+    process.exitCode = checkDist(join(REPO_ROOT, "dist"), symbols, console.log, appSourceText(), playbookNames(playbook), {
+      encrypted: process.argv.includes("--encrypted"),
+      publicLog: isPublicLog(),
+    });
   }
 }

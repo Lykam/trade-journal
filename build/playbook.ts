@@ -33,7 +33,3 @@ export function loadPlaybook(dir: string): PlaybookData | null {
   const images = [...walk(dir, "Images"), ...walk(dir, "Reviews")].filter((p) => IMAGE_EXT_RE.test(p)).sort();
   return { reviews, images };
 }
-
-export const IMAGE_TYPES: Record<string, string> = {
-  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", bmp: "image/bmp",
-};

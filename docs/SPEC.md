@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.6)
+# Trade Journal — Spec (v0.7)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -105,9 +105,26 @@ in the app.
 - AES-256-GCM. The key is derived from a passphrase with PBKDF2-SHA256 at
   600k iterations and a random salt. Both steps use WebCrypto in the browser
   and Node `crypto` in the Action.
+- The salt is random but **fixed**, in `build/kdf.json` (salts are public), so
+  the key a browser remembers keeps working across the many deploys a day.
+  Editing `kdf.json` (or changing `SITE_PASSPHRASE`) makes every device ask
+  for the passphrase again (Q34).
+- File format (`src/core/crypto.ts`): `"TJE1"` | kind | iterations | salt | IV
+  | ciphertext + tag. The header is the GCM additional data, and an image also
+  binds its own file name, so files can't be swapped or altered. Plaintext is
+  length-prefixed and zero-padded to a size bucket (64 KiB for `data.enc`,
+  32 KiB per image); `data.enc` holds gzipped JSON.
+- Image files are named by an HMAC of path + content under a key derived
+  (HKDF) from the data key, and random decoys pad `img/` to a multiple of 16
+  files, so names and the image count stay hidden.
 - In the browser, the derived key (not the passphrase) is kept in
   `sessionStorage`. An optional "remember on this device" setting moves it to
-  `localStorage`.
+  `localStorage`. LOCK clears both and reloads, which drops the decrypted data
+  and image blob URLs from memory. A saved key that no longer opens the data
+  is cleared and the lock screen says why.
+- `SITE_PASSPHRASE` must be at least 16 characters; `data.enc` is public, so
+  it can be attacked offline. Use a long random passphrase (e.g. 6+ random
+  words).
 - The published site contains no plaintext tickers, dates, file names or
   counts. Image file names are hashes.
 
@@ -569,9 +586,18 @@ fully static.
      `deploy.yml`. Both workflows call one reusable workflow and share
      `concurrency: pages`.
 - **Quotes are never committed** to any repo, and symbols are never printed in
-  the logs (`npm run quotes` prints counts only, and error messages are
+  the logs (`npm run quotes` prints counts only locally and no counts at all
+  in the workflows (Q35), and error messages are
   reduced to their type because they can echo the request). They exist only inside the encrypted `data.enc`. The public repo
   doesn't reveal what you hold.
+- **Market check:** `build/market-open.ts` (`npm run market -- --mode
+  regular|post-close`) checks the ET clock, then Yahoo's `marketState` for a
+  broad index ETF (never a held symbol). Regular runs need `REGULAR`; the
+  post-close cron (`20 20,21 * * 1-5`, whichever slot is 16:20 ET) needs a
+  session today. If the lookup fails, the clock decides.
+- **Cached quotes are encrypted** (`npm run quotes:cache -- save|restore`)
+  under the site key before `actions/cache` stores them, because other
+  workflow runs in a public repo can restore caches (Q34).
 - **Freshness:** about 15 minutes in theory. GitHub often starts scheduled runs
   5–15 minutes late, and occasionally skips one under heavy load, so expect
   prices 15–30 minutes old. The dashboard always shows the `asOf` time, and
@@ -967,6 +993,8 @@ trade-journal/
     core/dashboard/    dashboard.ts (open positions, recent 10, week strip, range widgets)
     core/calendar.ts   ET dates, weeks, trading sessions
     core/quotes.ts     quotes.json merge rules
+    core/crypto.ts     encrypted file format + WebCrypto decrypt (shared with build/encrypt.ts)
+    core/market.ts     prices-workflow market window
     core/reviews/      parse-header.ts, join.ts, images.ts
     core/journal/      filter.ts (URL state, matching), rows.ts (table rows, sort, prev/next),
                        calendar-view.ts, tags.ts, overrides.ts (bulk actions), journal.ts
@@ -975,7 +1003,7 @@ trade-journal/
   schema/              canonical JSON Schemas (copied into trade-history)
   build/               fetch-quotes.ts, load-bundle.ts, playbook.ts, dev-data-plugin.ts,
                        dev-demo.ts, check-dist.ts
-                       (bundle-data.ts, encrypt.ts in milestone 4)
+                       bundle-data.ts, encrypt.ts, quotes-cache.ts, market-open.ts, preview-demo.ts, kdf.json
   test/fixtures/       synthetic CSVs + expected JSON
   .github/workflows/
     build-deploy.yml   reusable: checkout data → [quotes] → build → encrypt → deploy
@@ -988,26 +1016,51 @@ trade-journal/
 Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
 `workflow_dispatch`.
 
-1. Check out `trade-journal`, then `trade-history` and `Playbook` into
-   `./_data/` using `DATA_READ_TOKEN`.
-2. `npm ci`, `npm test`, `vite build`.
-3. `build/fetch-quotes.ts` prices the open positions (§5.4). This runs on
+All of this lives in the reusable `build-deploy.yml`; `deploy.yml` and
+`prices.yml` only call it.
+
+1. Check that `DATA_READ_TOKEN` and `SITE_PASSPHRASE` exist, check out
+   `trade-journal`, `npm ci`, `npm test` (synthetic fixtures only).
+2. Only then check out `trade-history` and `Playbook` into `./_data/` using
+   `DATA_READ_TOKEN` (`persist-credentials: false`), so neither the install
+   nor the tests ever have the private data on disk (Q36).
+3. Restore the encrypted quotes cache, `npm run build` (`tsc`, `vite build`,
+   `check-dist` on the plain build).
+4. `build/fetch-quotes.ts` prices the open positions (§5.4). This runs on
    every deploy, not only scheduled ones, so prices are never older than the
-   latest deploy.
-4. `build/bundle-data.ts` gathers fills, overrides, config, symbols, derived
+   latest deploy. A failed fetch never blocks the deploy.
+5. `build/bundle-data.ts` gathers fills, overrides, config, symbols, derived
    trades, quotes, review markdown and the image list, then
-   `build/encrypt.ts` writes
+   `build/encrypt.ts` (`npm run encrypt`) writes
    `data.enc` and `img/<hash>.enc`.
-5. **Leak guard:** fail the deploy if `dist/` contains any symbol from the
+6. **Leak guard:** fail the deploy if `dist/` contains any symbol from the
    fills, any review ticker, or any review file name or image name in
-   plaintext. `build/check-dist.ts` runs at
-   the end of `npm run build`; it prints counts only, and skips a symbol that
+   plaintext, in file contents or file names. `build/check-dist.ts` runs at
+   the end of `npm run build`, and again as `check:dist -- --encrypted` after
+   encryption, which also requires: only the app shell, `data.enc` and
+   `img/*.enc` exist; every `.enc` file is well-formed, padded to its bucket
+   and high-entropy; image files are `<32 hex>.enc` and their count is a
+   multiple of 16. In `.enc` files only symbols of 6+ characters are
+   token-searched, since random ciphertext often contains short uppercase
+   runs. It skips a symbol that
    is also a word in the app's own source (e.g. a UI label), since the source
    is public and ticker-scanned before every commit (Q24).
-6. `actions/upload-pages-artifact` → `actions/deploy-pages`.
-7. Use `concurrency: pages` so back-to-back imports and price runs collapse
-   into one deploy.
-8. Nothing from `_data/` or the quotes is ever echoed to the logs.
+7. `actions/upload-pages-artifact` → `actions/deploy-pages`.
+8. The job uses `concurrency: pages` (not cancelling), so back-to-back imports
+   and price runs queue and a newer pending run replaces an older one.
+9. Nothing from `_data/` or the quotes is ever echoed to the logs, and with
+   `TJ_PUBLIC_LOG=1` the scripts print no counts either (Q35).
+
+**Local checks:** `npm run preview:demo` builds the production site on the
+synthetic fixtures, encrypts it with a demo passphrase, runs the encrypted
+checks and serves it with `vite preview`, for trying the lock screen.
+
+### Data-repo dispatch (`notify-journal.yml`)
+
+`trade-history` and `Playbook` each run a one-step workflow on push to
+`main`: `gh api repos/Lykam/trade-journal/dispatches -f
+event_type=data-updated` with `DISPATCH_TOKEN`. No payload, so nothing about
+the commit leaves the private repo.
 
 ---
 
@@ -1023,6 +1076,11 @@ Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
   triggers, never on `pull_request`.
 - If the passphrase is forgotten, change the secret and redeploy. Nothing is
   lost, because the plaintext lives in the private repos.
+- **Public logs and artifacts.** Actions logs and the Pages artifact of a
+  public repo are visible to anyone, so neither may hold plaintext data or
+  counts (Q35). The `actions/cache` entry is encrypted (Q34). Fork pull
+  requests should need approval for **all** outside contributors
+  (Settings → Actions → General), so no fork workflow runs unreviewed.
 
 ---
 
@@ -1081,11 +1139,14 @@ Triggers: `push` to `main`, `repository_dispatch: [data-updated]`,
 | Q31 | Filters | Symbol accepts a comma list and matches the symbol or underlying exactly. Tags match **any** selected tag by default, with an ALL switch. Result is multi-select. Date presets (today, this / last week, this / last month, 30D, 90D, YTD) stay relative in the URL (`range=`). The calendar ignores the date filter, since its month arrows choose the dates. (2026-10-04, milestone 3) |
 | Q32 | Edits before milestone 5 | Bulk actions (add / remove tag, set style, exclude / include), Add tags on Trade detail and the quick note are built and **staged**: the app applies them to `overrides.json` in memory and re-derives the trades from the fills to preview what changes (including ideas a style change regroups). The Commit button stays disabled until milestone 5. Nothing writes to trade-history. (2026-10-04, milestone 3) |
 | Q33 | Charts and images | The Trade detail gallery shows `Images/<date>/<SYMBOL>-daily*` / `-intraday*` for the idea date and every open / close date of the idea's trades, for the underlying and every symbol traded. Images embedded in a review resolve relative to the review file. Start review copies `/playbook-review <UNDERLYING> <IDEA DATE>`. The markdown renderer is code-split and loads only when a review is shown. (2026-10-04, milestone 3) |
+| Q34 | Encryption details | The PBKDF2 salt is random but **fixed** in `build/kdf.json`, so a remembered key survives the many deploys a day (a per-build salt would force the passphrase after every price run); edit it to force re-entry. Plaintext is padded to size buckets (64 KiB data, 32 KiB images), `data.enc` is gzipped JSON, and image files are HMAC-named with random decoys padding `img/` to a multiple of 16, so dist reveals no names and no exact counts. The header (and an image's own name) is GCM additional data. `SITE_PASSPHRASE` must be at least 16 characters. The quotes cache is stored encrypted, because caches in a public repo can be restored by other workflow runs. (2026-10-04, milestone 4) |
+| Q35 | Public logs | Actions logs of a public repo are public, so with `TJ_PUBLIC_LOG=1` (set by `build-deploy.yml`) `fetch-quotes`, `check-dist` and `encrypt` print no counts (open positions, symbols, reviews, images), only outcomes. JSON parse errors, which quote their input, are replaced by a generic message. Locally the counts still print. (2026-10-04, milestone 4) |
+| Q36 | Deploy order | The private repos are checked out **after** `npm ci` and `npm test` (the user's list had them first), so dependency install scripts and the test suite never run with private data on disk. Everything after that is as in §7. (2026-10-04, milestone 4) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open
 
-- Nothing blocks milestone 4. (Gross/Net was settled in Q27.)
+- Nothing blocks milestone 5.
 
 ## 11. Future
 

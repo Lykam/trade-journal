@@ -1,13 +1,17 @@
 // The dev data plugin must never put trade data, review text, review file names
-// or chart images into `vite build` output (SPEC §2, §7).
+// or chart images into `vite build` output, and the encrypted dist must reveal
+// none of them either (SPEC §2, §7, Q34).
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { checkDist, findLeaks, playbookNames } from "../build/check-dist";
+import { bundleData } from "../build/bundle-data";
+import { checkDist, checkEncrypted, findLeaks, playbookNames } from "../build/check-dist";
+import { encryptBundle, readKdfParams } from "../build/encrypt";
 import { REPO_ROOT } from "../cli/lib/history";
-import type { DerivedTrades } from "../src/core/types";
+import { decryptData, decryptFile, deriveKeyBytes, importAesKey, KIND_IMAGE } from "../src/core/crypto";
+import type { DataBundle, DerivedTrades } from "../src/core/types";
 import { open } from "./factory";
 import { FIXTURES } from "./helpers";
 
@@ -16,14 +20,18 @@ const REVIEW_NAME = `2026-09-20-${CANARY}`;
 const REVIEW_TEXT = "canary review sentence 7f3a9c";
 const IMAGE_NAME = `${CANARY}-daily.png`;
 const IMAGE_BYTES = "canary-image-bytes-51e0d2";
+const PASS = "synthetic canary passphrase 42";
 let tmp: string;
 let outDir: string;
+let encDir: string;
+let sources: { historyDir: string; quotesFile: string; playbookDir: string };
 const saved = { history: process.env.TRADE_HISTORY_DIR, quotes: process.env.QUOTES_FILE, playbook: process.env.PLAYBOOK_DIR };
 
+/** Every file's bytes as latin1, so binary files are searched too. */
 function allText(dir: string): string {
   return readdirSync(dir)
     .map((n) => join(dir, n))
-    .map((p) => (statSync(p).isDirectory() ? allText(p) : readFileSync(p, "utf8")))
+    .map((p) => (statSync(p).isDirectory() ? allText(p) : readFileSync(p, "latin1")))
     .join("\n");
 }
 
@@ -60,6 +68,12 @@ ${REVIEW_TEXT}
   } finally {
     process.env.NODE_ENV = env;
   }
+  // The deploy's next steps: bundle the same data and encrypt it into a copy of dist/.
+  sources = { historyDir: history, quotesFile: join(tmp, "quotes.json"), playbookDir: playbook };
+  encDir = join(tmp, "dist-enc");
+  cpSync(outDir, encDir, { recursive: true });
+  const { bundle, images } = bundleData(sources);
+  encryptBundle(bundle, images, PASS, encDir);
 }, 120_000);
 
 afterAll(() => {
@@ -90,6 +104,69 @@ describe("vite build output", () => {
     writeFileSync(join(outDir, "planted.js"), `const s = "${CANARY}";`);
     expect(checkDist(outDir, new Set([CANARY]), (s) => logs.push(s))).toBe(1);
     expect(logs.join("\n")).not.toContain(CANARY);
+  });
+});
+
+describe("encrypted dist (canary bundle)", () => {
+  const names = () => playbookNames({ reviews: [{ path: `Reviews/${REVIEW_NAME}.md` }], images: [`Images/2026-09-20/${IMAGE_NAME}`] });
+
+  it("really contains the canary data, readable with the passphrase", async () => {
+    const kdf = readKdfParams();
+    const key = await importAesKey(await deriveKeyBytes(PASS, kdf.salt, kdf.iterations));
+    const data = await decryptData<DataBundle>(key, new Uint8Array(readFileSync(join(encDir, "data.enc"))));
+    expect(data.derived.trades[0]!.symbol).toBe(CANARY);
+    expect(data.playbook!.reviews[0]!.markdown).toContain(REVIEW_TEXT);
+    const name = data.imageFiles![`Images/2026-09-20/${IMAGE_NAME}`]!;
+    const img = await decryptFile(key, new Uint8Array(readFileSync(join(encDir, "img", `${name}.enc`))), KIND_IMAGE, name);
+    expect(new TextDecoder().decode(img)).toBe(IMAGE_BYTES);
+  });
+
+  it("shows no symbol, review name, review text, image name or image bytes anywhere", () => {
+    const text = allText(encDir);
+    for (const s of [CANARY, REVIEW_NAME, REVIEW_TEXT, IMAGE_NAME, IMAGE_BYTES, "2026-09-20"]) expect(text).not.toContain(s);
+    expect(text).not.toContain("__data");
+  });
+
+  it("passes the encrypted leak guard", () => {
+    const logs: string[] = [];
+    expect(checkEncrypted(encDir)).toEqual([]);
+    expect(checkDist(encDir, new Set([CANARY]), (s) => logs.push(s), undefined, names(), { encrypted: true })).toBe(0);
+  });
+
+  it("fails the guard on a plaintext file, an unhashed image or an unpadded image count, without printing values", () => {
+    const bad = join(tmp, "dist-bad");
+    cpSync(encDir, bad, { recursive: true });
+    writeFileSync(join(bad, "data.json"), "{}");
+    writeFileSync(join(bad, "img", `${CANARY}.enc`), readFileSync(join(bad, "data.enc")));
+    const problems = checkEncrypted(bad).join("\n");
+    expect(problems).toContain("data.json: unexpected file");
+    expect(problems).toContain("image file not named");
+    expect(problems).toContain("file count not padded");
+    const logs: string[] = [];
+    expect(checkDist(bad, new Set([CANARY]), (s) => logs.push(s), undefined, names(), { encrypted: true, publicLog: true })).toBe(1);
+    const out = logs.join("\n");
+    expect(out).toContain("LEAK");
+    expect(out).toContain("FAILED");
+    expect(out).not.toMatch(/\d+ (symbols|LEAKS)/);
+  });
+
+  it("requires data.enc in --encrypted mode", () => {
+    const logs: string[] = [];
+    expect(checkDist(outDir, new Set(), (s) => logs.push(s), undefined, new Set(), { encrypted: true })).toBe(1);
+    expect(logs.join("\n")).toContain("data.enc: missing");
+  });
+
+  it("handles a Playbook with no Reviews/ or Images/", () => {
+    const empty = join(tmp, "empty-playbook");
+    mkdirSync(empty);
+    const { bundle, images } = bundleData({ ...sources, playbookDir: empty });
+    expect(bundle.playbook).toEqual({ reviews: [], images: [] });
+    expect(images).toEqual([]);
+    const dir = join(tmp, "dist-empty");
+    cpSync(outDir, dir, { recursive: true });
+    rmSync(join(dir, "planted.js"), { force: true });
+    encryptBundle(bundle, images, PASS, dir);
+    expect(checkEncrypted(dir)).toEqual([]);
   });
 });
 

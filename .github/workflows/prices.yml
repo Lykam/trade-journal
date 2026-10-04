@@ -1,0 +1,51 @@
+# Refresh quotes for open positions and redeploy (SPEC §5.4): every 15 minutes
+# in market hours, plus one run at about 16:20 ET to capture the close. A run
+# outside the session, or on a holiday, exits after the market check. Manual
+# runs always deploy.
+name: prices
+
+on:
+  schedule:
+    # 13:00–21:45 UTC covers 09:30–16:00 ET in both EDT and EST; build/market-open.ts trims the rest.
+    - cron: "*/15 13-21 * * 1-5"
+    # 16:20 ET is 20:20 UTC in EDT and 21:20 UTC in EST; the other slot is skipped.
+    - cron: "20 20,21 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  market:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'schedule'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        if: github.event_name == 'schedule'
+        with:
+          node-version: 24
+          cache: npm
+      - if: github.event_name == 'schedule'
+        run: npm ci
+      - id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          MODE: ${{ github.event.schedule == '20 20,21 * * 1-5' && 'post-close' || 'regular' }}
+        run: |
+          if [ "$EVENT" = "schedule" ]; then npm run market -- --mode "$MODE"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
+
+  deploy:
+    needs: market
+    if: needs.market.outputs.run == 'true'
+    uses: ./.github/workflows/build-deploy.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

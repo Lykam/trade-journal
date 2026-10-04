@@ -36,6 +36,7 @@ export const qty = (n: number) => n.toLocaleString("en-US", { maximumFractionDig
 export const mmdd = (date: string) => date.slice(5);
 export const dateOf = (iso: string) => etDate(iso);
 export const timeOf = (iso: string) => `${etTime(iso)} ET`;
+export const dateTimeOf = (iso: string) => `${etDate(iso)} ${timeOf(iso)}`;
 
 /** "→FAKE 2x" style suffix for leveraged ETFs (inverse funds say so). */
 export function underlyingTag(t: Trade): string {

@@ -2,7 +2,8 @@
 //
 // Price the open positions from trade-history/derived/trades.json and write
 // quotes.json (SPEC §5.4). quotes.json is gitignored and never committed.
-// Output is counts only: symbols are never printed, so this is safe in CI logs.
+// Output is counts only: symbols are never printed. With TJ_PUBLIC_LOG=1 (the
+// workflows, whose logs are public) not even counts are printed (Q35).
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -38,6 +39,11 @@ export class YahooProvider implements QuoteProvider {
   }
 }
 
+/** True in the workflows: their logs are public, so scripts print no counts (Q35). */
+export function isPublicLog(): boolean {
+  return process.env.TJ_PUBLIC_LOG === "1";
+}
+
 export function resolveQuotesFile(flag?: string): string {
   return resolve(flag ?? process.env.QUOTES_FILE ?? join(REPO_ROOT, "quotes.json"));
 }
@@ -53,9 +59,10 @@ export function readQuotes(path: string): QuotesFile | null {
 
 export async function runFetchQuotes(
   argv: string[],
-  opts: { provider?: QuoteProvider; now?: string; log?: (s: string) => void } = {},
+  opts: { provider?: QuoteProvider; now?: string; log?: (s: string) => void; publicLog?: boolean } = {},
 ): Promise<number> {
   const log = opts.log ?? console.log;
+  const publicLog = opts.publicLog ?? isPublicLog();
   const { values } = parseArgs({ args: argv, options: { "history-dir": { type: "string" }, out: { type: "string" } } });
   const history = loadHistory(resolveHistoryDir(values["history-dir"]));
   if (!history.derived) {
@@ -81,7 +88,8 @@ export async function runFetchQuotes(
   const file = mergeQuotes(prev, fetched, symbols, now);
   writeFileSync(out, `${JSON.stringify(file, null, 2)}\n`);
   const c = quoteCounts(file, symbols);
-  log(`quotes: ${c.requested} open symbols · ${c.fresh} priced · ${c.stale} stale · ${c.missing} missing (${provider.name})`);
+  if (publicLog) log(`quotes: ${c.fresh === c.requested ? "all open positions priced" : "some open positions not freshly priced"} (${provider.name})`);
+  else log(`quotes: ${c.requested} open symbols · ${c.fresh} priced · ${c.stale} stale · ${c.missing} missing (${provider.name})`);
   return failed && c.requested > 0 && c.fresh + c.stale === 0 ? 1 : 0;
 }
 

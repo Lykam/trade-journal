@@ -4,10 +4,13 @@ import { buildJournal } from "../core/journal/journal";
 import { etDate } from "../core/normalize/util";
 import { appNow, useBundle, useRoute } from "./data";
 import { timeOf } from "./format";
+import { lock } from "./vault";
 import { CalendarPage } from "./pages/CalendarPage";
 import { Dashboard } from "./pages/Dashboard";
 import { JournalPage, ReviewPage } from "./pages/JournalPage";
+import { LockScreen } from "./pages/LockScreen";
 import { OpenPage } from "./pages/OpenPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { Stub } from "./pages/Stub";
 import { TradeDetail } from "./pages/TradeDetail";
 import { TradesPage } from "./pages/TradesPage";
@@ -24,7 +27,6 @@ const NAV = [
 
 const STUBS: Record<string, { title: string; milestone: number }> = {
   "/reports": { title: "REPORTS", milestone: 7 },
-  "/settings": { title: "SETTINGS", milestone: 4 },
   "/import": { title: "IMPORT", milestone: 5 },
 };
 
@@ -39,6 +41,9 @@ export function App() {
     window.scrollTo(0, 0);
   }, [path]);
   const pinned = new URLSearchParams(window.location.search).has("now");
+
+  // The encrypted site shows nothing but the passphrase screen until unlocked.
+  if (load.status === "locked") return <LockScreen notice={load.notice} unlock={load.unlock} />;
 
   let page: React.ReactNode;
   if (load.status === "loading") page = <div className="center-msg">LOADING…</div>;
@@ -56,6 +61,7 @@ export function App() {
   else if (path === "/cal") page = <CalendarPage journal={journal!} view={view} params={params} />;
   else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
   else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
+  else if (path === "/settings") page = <SettingsPage data={load.data} />;
   else page = <Stub {...(STUBS[path] ?? { title: "NOT FOUND", milestone: 3 })} params={params} />;
 
   const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path;
@@ -72,7 +78,11 @@ export function App() {
         {pinned && <span className="half">NOW PINNED {now.slice(0, 16)}Z</span>}
         <span className="muted">{asOf ? `QUOTES ${timeOf(asOf)}` : "NO QUOTES"}</span>
         <a className="btn primary" href="#/import">IMPORT</a>
-        <button type="button" className="btn" disabled title="Encryption arrives in milestone 4">LOCK</button>
+        {import.meta.env.DEV ? (
+          <button type="button" className="btn" disabled title="Dev mode reads local plaintext; the deployed site locks">LOCK</button>
+        ) : (
+          <button type="button" className="btn" onClick={lock} disabled={load.status !== "ready"} title="Forget the key in this browser">LOCK</button>
+        )}
       </nav>
       {page}
     </>

@@ -1,14 +1,14 @@
 // Renders a Playbook review (SPEC §6.4 Notes, §6.7). Raw HTML is parsed so the
 // Finviz <details> block works, then sanitized: scripts, event handlers and the
 // template's HTML comments are dropped. Image paths are resolved relative to the
-// review file and served from the Playbook.
+// review file; encrypted images decrypt on demand (data.ts useImageSrcs).
 import { useMemo, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import { reviewIdOf } from "../../core/reviews/join";
 import { resolvePlaybookPath } from "../../core/reviews/images";
-import { playbookImageUrl } from "../data";
+import { useImageSrcs } from "../data";
 import { Lightbox, type LightboxImage } from "./Lightbox";
 
 /** Image paths a review embeds, resolved to Playbook-relative paths, in order. */
@@ -34,20 +34,18 @@ export function withHeaderBreaks(markdown: string): string {
 
 export function ReviewMarkdown({ path, markdown, journalLinks = true }: { path: string; markdown: string; journalLinks?: boolean }) {
   const [lightbox, setLightbox] = useState<number | null>(null);
-  const images = useMemo<LightboxImage[]>(
-    () => embeddedImages(path, markdown).flatMap((p) => {
-      const src = playbookImageUrl(p);
-      return src ? [{ src, caption: p.split("/").pop()! }] : [];
-    }),
-    [path, markdown],
-  );
+  const paths = useMemo(() => embeddedImages(path, markdown), [path, markdown]);
+  const srcs = useImageSrcs(paths);
+  const shown = paths.filter((p) => typeof srcs.get(p) === "string");
+  const images: LightboxImage[] = shown.map((p) => ({ src: srcs.get(p)!, caption: p.split("/").pop()! }));
 
   const components: Components = {
     img({ src, alt }) {
       const resolved = typeof src === "string" ? resolvePlaybookPath(path, src) : null;
-      const url = resolved ? playbookImageUrl(resolved) : null;
+      const url = resolved ? srcs.get(resolved) : null;
+      if (url === undefined) return <span className="dim">[decrypting image…]</span>;
       if (!url) return <span className="dim">[image: {alt || "chart"}]</span>;
-      const i = images.findIndex((x) => x.src === url);
+      const i = shown.indexOf(resolved!);
       return (
         <button type="button" className="md-img" onClick={() => setLightbox(i < 0 ? null : i)} aria-label={`Open ${alt || "image"} full size`}>
           <img src={url} alt={alt ?? ""} loading="lazy" />

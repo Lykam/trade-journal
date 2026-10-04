@@ -10,7 +10,8 @@ import type { Plugin } from "vite";
 import { resolveHistoryDir } from "../cli/lib/history";
 import { resolveQuotesFile } from "./fetch-quotes";
 import { loadBundle } from "./load-bundle";
-import { IMAGE_TYPES, loadPlaybook, resolvePlaybookDir } from "./playbook";
+import { imageType } from "../src/core/reviews/images";
+import { loadPlaybook, resolvePlaybookDir } from "./playbook";
 
 export const DEV_DATA_PATH = "__data/bundle.json";
 export const DEV_PLAYBOOK_PATH = "__data/playbook/";
@@ -69,7 +70,7 @@ export function devDataPlugin(): Plugin {
             res.end();
             return;
           }
-          res.setHeader("Content-Type", IMAGE_TYPES[rel.split(".").pop()!.toLowerCase()] ?? "application/octet-stream");
+          res.setHeader("Content-Type", imageType(rel));
           res.setHeader("Cache-Control", "no-store");
           res.end(readFileSync(join(playbookDir, rel)));
           return;

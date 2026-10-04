@@ -16,7 +16,7 @@ import { viewHref } from "../components/FilterBar";
 import { Lightbox, type LightboxImage } from "../components/Lightbox";
 import { Timeline } from "../components/OpenPositions";
 import { LazyReview } from "../components/LazyReview";
-import { copyText, playbookImageUrl } from "../data";
+import { copyText, useImageSrcs } from "../data";
 import { dateOf, longDate, money, pnlClass, price, qty, signedPct, timeOf, whenOf } from "../format";
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
 
@@ -275,9 +275,10 @@ function Charts({ data, journal: j, t }: { data: DataBundle; journal: Journal; t
   const trades = (idea?.tradeIds ?? [t.id]).map((id) => j.tradeById.get(id)).filter((x) => x !== undefined);
   const dates = new Set([...(idea ? [idea.date] : []), ...trades.flatMap((x) => [etDate(x.openedAt), ...(x.closedAt ? [etDate(x.closedAt)] : [])])]);
   const charts = chartsFor(data.playbook?.images ?? [], dates, [t.underlying, ...(idea?.symbolsTraded ?? [t.symbol])]);
+  const srcs = useImageSrcs(charts.map((c) => c.path));
   const images: Array<LightboxImage & { kind: string; date: string }> = charts.flatMap((c) => {
-    const src = playbookImageUrl(c.path);
-    return src ? [{ src, caption: `${c.name} · ${c.date}`, kind: c.kind, date: c.date }] : [];
+    const src = srcs.get(c.path);
+    return src === null ? [] : [{ src: src ?? "", caption: `${c.name} · ${c.date}`, kind: c.kind, date: c.date }];
   });
   const [open, setOpen] = useState<number | null>(null);
   return (
@@ -288,8 +289,8 @@ function Charts({ data, journal: j, t }: { data: DataBundle; journal: Journal; t
       ) : (
         <div className="gallery">
           {images.map((img, i) => (
-            <button type="button" key={img.src} className="thumb" onClick={() => setOpen(i)} aria-label={`Open ${img.caption}`}>
-              <img src={img.src} alt={img.caption} loading="lazy" />
+            <button type="button" key={img.caption} className="thumb" disabled={!img.src} onClick={() => setOpen(i)} aria-label={`Open ${img.caption}`}>
+              {img.src ? <img src={img.src} alt={img.caption} loading="lazy" /> : <span className="thumb-wait dim small">DECRYPTING…</span>}
               <span className="small"><b>{img.kind.toUpperCase()}</b> <span className="muted">{img.date}</span></span>
             </button>
           ))}
