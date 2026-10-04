@@ -159,11 +159,30 @@ export interface QuotesFile {
   quotes: Record<string, Quote>;
 }
 
+/** One Playbook review as read from disk (SPEC §6.7, §6.11). */
+export interface ReviewFile {
+  /** Path relative to the Playbook root, e.g. "Reviews/2026-07-27-ABC.md". */
+  path: string;
+  markdown: string;
+}
+
+/** Playbook content the app reads: review markdown plus the list of chart images. */
+export interface PlaybookData {
+  reviews: ReviewFile[];
+  /** Image paths relative to the Playbook root, e.g. "Images/2026-07-27/ABC-daily.png". */
+  images: string[];
+}
+
 /** Everything the app reads: served by the dev plugin now, decrypted from data.enc later (milestone 4). */
 export interface DataBundle {
   config: Config;
   symbols: SymbolsMap;
   derived: DerivedTrades;
+  /** Broker fills (without source file names), for Trade detail executions and override previews. */
+  fills: Fill[];
+  overrides: Overrides;
   quotes: QuotesFile | null;
+  /** null when no Playbook checkout is available. */
+  playbook: PlaybookData | null;
   loadedAt: string;
 }

@@ -1,19 +1,24 @@
-// The dev data plugin must never put trade data into `vite build` output (SPEC §2, §7).
+// The dev data plugin must never put trade data, review text, review file names
+// or chart images into `vite build` output (SPEC §2, §7).
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { checkDist, findLeaks } from "../build/check-dist";
+import { checkDist, findLeaks, playbookNames } from "../build/check-dist";
 import { REPO_ROOT } from "../cli/lib/history";
 import type { DerivedTrades } from "../src/core/types";
 import { open } from "./factory";
 import { FIXTURES } from "./helpers";
 
 const CANARY = "CNRYQX";
+const REVIEW_NAME = `2026-09-20-${CANARY}`;
+const REVIEW_TEXT = "canary review sentence 7f3a9c";
+const IMAGE_NAME = `${CANARY}-daily.png`;
+const IMAGE_BYTES = "canary-image-bytes-51e0d2";
 let tmp: string;
 let outDir: string;
-const saved = { history: process.env.TRADE_HISTORY_DIR, quotes: process.env.QUOTES_FILE };
+const saved = { history: process.env.TRADE_HISTORY_DIR, quotes: process.env.QUOTES_FILE, playbook: process.env.PLAYBOOK_DIR };
 
 function allText(dir: string): string {
   return readdirSync(dir)
@@ -32,6 +37,18 @@ beforeAll(async () => {
   };
   writeFileSync(join(history, "derived", "trades.json"), JSON.stringify(derived));
   writeFileSync(join(tmp, "quotes.json"), JSON.stringify({ asOf: "x", quotes: { [CANARY]: { price: 1, time: "x" } } }));
+  const playbook = join(tmp, "playbook");
+  mkdirSync(join(playbook, "Reviews"), { recursive: true });
+  mkdirSync(join(playbook, "Images", "2026-09-20"), { recursive: true });
+  writeFileSync(join(playbook, "Reviews", `${REVIEW_NAME}.md`), `**Date:** 2026-09-20
+**Ticker:** ${CANARY}
+
+## Context
+
+${REVIEW_TEXT}
+`);
+  writeFileSync(join(playbook, "Images", "2026-09-20", IMAGE_NAME), IMAGE_BYTES);
+  process.env.PLAYBOOK_DIR = playbook;
   process.env.TRADE_HISTORY_DIR = history;
   process.env.QUOTES_FILE = join(tmp, "quotes.json");
   outDir = join(tmp, "dist");
@@ -46,10 +63,10 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(() => {
-  if (saved.history === undefined) delete process.env.TRADE_HISTORY_DIR;
-  else process.env.TRADE_HISTORY_DIR = saved.history;
-  if (saved.quotes === undefined) delete process.env.QUOTES_FILE;
-  else process.env.QUOTES_FILE = saved.quotes;
+  const restore = (k: string, v: string | undefined) => (v === undefined ? delete process.env[k] : (process.env[k] = v));
+  restore("TRADE_HISTORY_DIR", saved.history);
+  restore("QUOTES_FILE", saved.quotes);
+  restore("PLAYBOOK_DIR", saved.playbook);
   rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -58,8 +75,13 @@ describe("vite build output", () => {
     expect(allText(outDir)).not.toContain(CANARY);
   });
 
-  it("does not contain the dev data loader at all", () => {
-    expect(allText(outDir)).not.toContain("__data/bundle.json");
+  it("contains no review file names, review text or chart images from PLAYBOOK_DIR", () => {
+    const text = allText(outDir);
+    for (const s of [REVIEW_NAME, REVIEW_TEXT, IMAGE_NAME, IMAGE_BYTES]) expect(text).not.toContain(s);
+  });
+
+  it("does not contain the dev data or image loaders at all", () => {
+    expect(allText(outDir)).not.toContain("__data");
   });
 
   it("passes the dist leak guard, which catches a planted symbol", () => {
