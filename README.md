@@ -13,7 +13,7 @@ the rolling 90-day average.
 See [`docs/SPEC.md`](docs/SPEC.md) for the full specification and the
 decisions log (§10).
 
-Status: milestone 4 (encrypted deploy to GitHub Pages) in progress. Site: https://lykam.github.io/trade-journal/
+Status: milestone 4 (encrypted deploy to GitHub Pages) complete. Next: milestone 5, in-browser import and override editing. Site: https://lykam.github.io/trade-journal/
 
 ## Development
 
