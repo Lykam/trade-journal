@@ -228,7 +228,7 @@ code { color: var(--text-2); background: var(--inset); padding: 0 4px; border: 1
 .fgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
 .flabel { color: var(--dim); font-size: 11px; letter-spacing: 0.1em; }
 .fgroup .dates { display: inline-flex; align-items: center; gap: 6px; }
-#f-symbol { width: 130px; text-transform: uppercase; }
+.sym-input { width: 130px; text-transform: uppercase; }
 .dropdown { position: relative; }
 .dropdown > summary { list-style: none; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dropdown > summary::-webkit-details-marker { display: none; }
@@ -358,7 +358,7 @@ pre.json { margin: 0; padding: 10px 14px; max-height: 420px; overflow: auto; col
   .compact { display: inline; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat { padding: 6px 12px; }
-  #f-symbol { width: 110px; }
+  .sym-input { width: 110px; }
   .filterbar .fbody { gap: 10px 14px; }
 }
 
@@ -388,3 +388,17 @@ pre.report { margin: 0; padding: 10px 14px; font-size: 11px; overflow: auto; max
 .deploy-banner.timeout { border-bottom-color: var(--half); }
 .counts { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .btn.tiny { padding: 0 6px; min-height: 0; line-height: 1.4; }
+
+/* Milestone 7: Reports */
+.tabs { align-self: flex-start; max-width: 100%; }
+/* Rows of three as in the spec (SPEC §6.5); two, then one, on narrower screens. */
+.sgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .sgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .sgrid { grid-template-columns: minmax(0, 1fr); } }
+.sgrid .cell { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 14px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); min-width: 0; }
+.sgrid .cell > .num { white-space: nowrap; }
+.axis-labels { position: relative; display: flex; justify-content: space-between; margin-top: 4px; }
+.axis-labels .mid { position: absolute; transform: translateX(-50%); }
+.panel-pad { padding: 10px 14px 0; }
+table.grid tr.selected { background: var(--inset); }
+table.grid tr.sub td { border-top-color: var(--rule-faint); }

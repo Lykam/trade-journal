@@ -12,6 +12,7 @@ import { ImportPage } from "./pages/ImportPage";
 import { JournalPage, ReviewPage } from "./pages/JournalPage";
 import { LockScreen } from "./pages/LockScreen";
 import { OpenPage } from "./pages/OpenPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { Stub } from "./pages/Stub";
 import { TradeDetail } from "./pages/TradeDetail";
@@ -26,10 +27,6 @@ const NAV = [
   { path: "/journal", label: "JOURNAL" },
   { path: "/settings", label: "SETTINGS" },
 ];
-
-const STUBS: Record<string, { title: string; milestone: number }> = {
-  "/reports": { title: "REPORTS", milestone: 7 },
-};
 
 export function App() {
   const load = useBundle();
@@ -62,9 +59,10 @@ export function App() {
   else if (path === "/cal") page = <CalendarPage journal={journal!} view={view} params={params} />;
   else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
   else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
+  else if (path === "/reports") page = <ReportsPage journal={journal!} view={view} params={params} />;
   else if (path === "/settings") page = <SettingsPage data={load.data} />;
   else if (path === "/import") page = <ImportPage />;
-  else page = <Stub {...(STUBS[path] ?? { title: "NOT FOUND", milestone: 3 })} params={params} />;
+  else page = <Stub title="NOT FOUND" />;
 
   const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path;
   return (

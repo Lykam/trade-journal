@@ -1,6 +1,6 @@
 // Global filter bar (SPEC §6.0). All state lives in the URL hash, so every view
 // can be bookmarked; each control just navigates to the updated URL.
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   activeFilterCount, dateRange, emptyFilter, PRESET_LABELS, PRESETS, queryOf, viewToParams, type Flag, type TradeFilter, type ViewState,
 } from "../../core/journal/filter";
@@ -43,7 +43,7 @@ const RESULTS: Array<{ value: TradeResult; label: string; cls: string }> = [
 ];
 
 export function FilterBar({
-  view, journal, base, extra, count = true, dates = true,
+  view, journal, base, extra, count = true, dates = true, pnl = true, controls, hrefFor, title = "FILTERS",
 }: {
   view: ViewState;
   journal: Journal;
@@ -53,7 +53,15 @@ export function FilterBar({
   count?: boolean;
   /** Show the date controls (the calendar picks its dates with month arrows instead). */
   dates?: boolean;
+  /** Show the Gross / Net toggle. */
+  pnl?: boolean;
+  /** Page-specific toggles beside Gross / Net and Count. */
+  controls?: React.ReactNode;
+  /** Where a change navigates; defaults to `base` with the view and `extra`. */
+  hrefFor?: (v: ViewState) => string;
+  title?: string;
 }) {
+  const uid = useId();
   const f = view.filter;
   const [open, setOpen] = useState(() => typeof window === "undefined" || window.matchMedia("(min-width: 760px)").matches);
   const [symbol, setSymbol] = useState(f.symbols.join(", "));
@@ -63,7 +71,8 @@ export function FilterBar({
   }, [symbolsKey]);
 
   const go = (next: Partial<ViewState>) => {
-    window.location.hash = viewHref(base, { ...view, ...next, page: 1 }, extra);
+    const v = { ...view, ...next, page: 1 };
+    window.location.hash = hrefFor ? hrefFor(v) : viewHref(base, v, extra);
   };
   const set = (patch: Partial<TradeFilter>) => go({ filter: { ...f, ...patch } });
   const commitSymbol = () => {
@@ -79,14 +88,15 @@ export function FilterBar({
     <section className="panel filterbar" aria-label="Filters">
       <div className="fhead">
         <button type="button" className="btn ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? "▾" : "▸"} FILTERS{active ? <span className="accent">&nbsp;· {active} ACTIVE</span> : null}
+          {open ? "▾" : "▸"} {title}{active ? <span className="accent">&nbsp;· {active} ACTIVE</span> : null}
         </button>
         {active > 0 && <button type="button" className="btn ghost" onClick={() => go({ filter: emptyFilter() })}>CLEAR</button>}
         <span className="grow" />
-        <Seg label="P&L" value={view.pnl} options={[{ value: "net", label: "NET" }, { value: "gross", label: "GROSS" }]} onChange={(pnl) => go({ pnl })} />
+        {pnl && <Seg label="P&L" value={view.pnl} options={[{ value: "net", label: "NET" }, { value: "gross", label: "GROSS" }]} onChange={(p) => go({ pnl: p })} />}
         {count && (
           <Seg label="COUNT" value={view.count} options={[{ value: "trade", label: "TRADE" }, { value: "idea", label: "IDEA" }]} onChange={(c) => go({ count: c })} />
         )}
+        {controls}
       </div>
       {f.flag && (
         <div className="fflag">
@@ -97,9 +107,9 @@ export function FilterBar({
       {open && (
         <div className="fbody">
           <div className="fgroup">
-            <label className="flabel" htmlFor="f-symbol">SYMBOL</label>
+            <label className="flabel" htmlFor={`${uid}-symbol`}>SYMBOL</label>
             <input
-              id="f-symbol" className="input" value={symbol} placeholder="TICKER, …" spellCheck={false} autoCapitalize="characters"
+              id={`${uid}-symbol`} className="input sym-input" value={symbol} placeholder="TICKER, …" spellCheck={false} autoCapitalize="characters"
               onChange={(e) => setSymbol(e.target.value)} onBlur={commitSymbol}
               onKeyDown={(e) => e.key === "Enter" && commitSymbol()}
             />

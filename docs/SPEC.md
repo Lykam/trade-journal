@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.9)
+# Trade Journal — Spec (v0.10)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -912,10 +912,23 @@ Schwab trades show the date only). Below it are the tag chips, with an
   | # breakeven ($0.00) | Max consecutive wins ↗ | Max consecutive losses ↗ |
   | Trade P&L std dev | SQN | Probability of random chance |
   | Kelly % | K-ratio | Profit factor |
-  | Total commissions | Total fees | Expectancy |
+  | Fees & commissions | Win % (excl. BE) | Expectancy |
 
-  ↗ links to the trade or streak. MFE/MAE rows are left out until price
-  history exists.
+  ↗ links to the trade (Trade detail, carrying the filter) or the streak (the
+  Trades page for the streak's dates under the same filter). MFE/MAE rows are
+  left out until price history exists. The exports carry one combined
+  "Fees & Comm" figure, so commissions and fees are one stat, and the freed
+  cell shows the win rate as defined in §4.4 (Q42).
+- **What counts:** closed, matched, non-excluded trades that pass the global
+  filter (`isScored`). In the Idea view each idea is one unit built from its
+  trades that pass (Q28). Results always come from net P&L; Gross / Net only
+  changes the values. Formulas are in Q42 and `src/core/reports/`.
+- **$ / % return:** % mode replaces each unit's P&L by P&L ÷ the cost of the
+  shares it bought (every open and add), and totals, averages, std dev, SQN and
+  the curves use those returns (totals add them). Per-share P&L, volume and
+  fees stay in dollars. URL: `#/reports?tab=detailed&sub=price&mode=pct&…`,
+  plus `b=` (Compare's second filter, as its own query string) and `tag=`
+  (Tag Breakdown's open grid).
 - **Breakdown sub-tabs** under the grid. Each is a set of horizontal bar
   charts of P&L, with win rate, trade count and expectancy on hover:
   - **Days/Times:** day of week, hour of day (Webull only; Schwab is
@@ -932,14 +945,22 @@ Schwab trades show the date only). Below it are the tag chips, with an
   - **Not in v1:** Tradervue's "Market Behavior" and "Liquidity" sub-tabs,
     which need market data.
 - **Win vs Loss Days:** the stats grid split into green days vs red days, to
-  show how behavior differs on losing days (trade count, size, hold time).
+  show how behavior differs on losing days (trade count, size, hold time). A
+  day's color is its total net P&L on the ET close date; $0.00 days are
+  counted as flat.
 - **Drawdown:** an underwater equity curve, max drawdown $ and %, the longest
-  drawdown in days, and recovery time.
+  drawdown in days, and recovery time. Max drawdown % is the drawdown of the
+  summed % returns (points), with the $ drawdown as a share of its peak shown
+  beside it when that peak is above $0 (Q42).
 - **Compare:** two filter sets side by side, each with its own stats grid and
   cumulative P&L. Examples are "Day vs Swing", "Stock vs ETF", or "this month
-  vs last month".
+  vs last month". Set A is the global filter; set B has its own filter bar.
+  The presets (Day vs Swing, Stock vs ETF, Schwab vs Webull, This month vs Last
+  month) put their difference on top of the current filter on both sides.
 - **Tag Breakdown:** the stats grid for each tag, plus each review
-  `Category`, plus each style.
+  `Category`, plus each style. A summary table per kind (count, win %, P&L,
+  expectancy, profit factor, SQN); picking a tag opens its full grid. A trade
+  with several tags counts in each.
 
 ### 6.6 Tags
 
@@ -1056,6 +1077,8 @@ trade-journal/
     core/crypto.ts     encrypted file format + WebCrypto decrypt (shared with build/encrypt.ts)
     core/market.ts     prices-workflow market window
     core/reviews/      parse-header.ts, join.ts, images.ts
+    core/reports/      math.ts (std dev, SQN, t-test, Kelly, K-ratio, streaks, drawdown), units.ts,
+                       grid.ts, breakdowns.ts, reports.ts (tabs URL, win/loss days, drawdown, tags)
     core/journal/      filter.ts (URL state, matching), rows.ts (table rows, sort, prev/next),
                        calendar-view.ts, tags.ts, overrides.ts (bulk actions, commit plan), journal.ts
     core/import/       plan.ts (one import: parse, merge, regroup, preview, files), report.ts
@@ -1215,11 +1238,13 @@ the commit leaves the private repo.
 | Q39 | Leak guard vs. libraries | `check-dist` also skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`, now Ajv, whose code generator has short uppercase operator names that match a traded symbol). Ajv loads only with the import / commit chunk. (2026-10-04, milestone 5) |
 | Q40 | Commit safety | Commits are computed from `trade-history` read fresh through the API, never from `data.enc`. On a moved `main` the app re-reads and recomputes (up to 3 tries) and commits only if the result matches the approved preview (new fill ids, ETF mappings and trade counts for an import; the changed override entries for an edit); otherwise it shows the new preview. Unchanged files are skipped by git blob id, so an import that adds nothing archives only new CSVs, and an edit already on `main` commits nothing. "Deploying…" resolves when a new `data.enc` was built from that commit or a later one (`history` in the bundle). (2026-10-04, milestone 5) |
 | Q41 | Playbook skill | The `playbook-review` skill lists **ideas** from `derived/trades.json` (Python, no Node dependency) and names reviews `<IDEA DATE>-<UNDERLYING>.md`, filling in `**Idea ID:**` from the listing. Grouping stays in the journal; the skill only reads it. Its review matcher mirrors `join.ts` and is checked against a golden file from the journal's synthetic fixtures. The skill never imports trades itself, so imports keep their preview-and-OK step. `sync_review.py` embeds charts for every symbol traded in a pinned idea. (2026-10-04, milestone 6) |
+| Q42 | Report stats | Every stat is computed over **units** (scored trades, or ideas in the Idea view) in close order, on the unit's value ($ gross / net, or % return on the cost bought). **Std dev:** sample (n − 1). **SQN:** √n × mean ÷ std dev, n not capped at 100, on $ P&L since no R is recorded. **Probability of random chance:** two-sided p-value of a one-sample t-test that mean P&L is 0 (t = SQN, df = n − 1). **Kelly %:** W − (1 − W) ÷ (avg win ÷ \|avg loss\|), W = wins ÷ (wins + losses). **K-ratio:** Kestner's 2003 form, slope ÷ (standard error × n) of a least-squares line through cumulative P&L at the end of each trading day (no account size, so not log equity); needs 3 days. **Expectancy:** W × avg win + (1 − W) × avg loss, per decisive unit, so it agrees with the win rate; "avg trade" is the plain mean including breakevens. **Streaks:** a breakeven ends a run of wins or losses. **Avg hold:** timed minutes, else whole calendar days for multi-day date-only trades; same-day Schwab trades have no hold and are left out. **Avg per-share:** $ P&L ÷ shares bought. **Avg daily:** total ÷ ET dates with a close. **Drawdown:** from the running peak of cumulative P&L starting at 0 (an opening loss counts), each unit a step so a dip within a day counts; longest = calendar days from the peak until back at it (or to the last close); recovery = trough to back at peak. With no account size, max drawdown % is taken on the summed % returns. Fees and commissions are one figure, since both brokers report them combined. (2026-10-04, milestone 7) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open
 
-- Nothing blocks milestone 7. Milestone 5 was checked live on 2026-10-04: token save, two fixture imports and an override edit committed to a throwaway repo (byte-identical to the CLI), "Deploying…" resolving, and one override edit on trade-history.
+- Milestone 7 (Reports) is built and tested on the synthetic fixtures; the live check against real data is next.
+- Milestone 5 was checked live on 2026-10-04: token save, two fixture imports and an override edit committed to a throwaway repo (byte-identical to the CLI), "Deploying…" resolving, and one override edit on trade-history.
 - Milestone 6 was checked live on 2026-10-04 with a placeholder test review (written from the template with the skill's scripts, then removed): the push dispatched a redeploy, the review linked to its idea by Idea ID in the Journal, Trades and Trade detail at desktop and phone width, and the deploy log was clean. The first real review with the updated skill is still to come.
 
 ## 11. Future

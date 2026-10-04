@@ -7,7 +7,7 @@ import type { Trade } from "../../core/types";
 import { dateOf, days, DOW, minutes, mmdd, money, pct, pnlClass, underlyingTag } from "../format";
 import { tradeHref } from "./OpenPositions";
 
-function Widget({ title, children, wide }: { title: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
+export function Widget({ title, children, wide }: { title: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
   return (
     <section className="panel widget" style={wide ? { gridColumn: "1 / -1" } : undefined}>
       <h2>{title}</h2>
@@ -16,10 +16,16 @@ function Widget({ title, children, wide }: { title: React.ReactNode; children: R
   );
 }
 
-function CumulativeChart({ r }: { r: RangeStats }) {
-  const pts = r.cumulative;
+export interface CumPoint {
+  date: string;
+  value: number;
+  cum: number;
+}
+
+/** Cumulative line from 0, with a hover band per point. `fmt` formats values ($ by default). */
+export function CumulativeChart({ pts, label, fmt = money, height = 200 }: { pts: CumPoint[]; label: string; fmt?: (n: number) => string; height?: number }) {
   if (pts.length === 0) return <div className="empty">No closed trades in range</div>;
-  const W = 600, H = 200, P = 10;
+  const W = 600, H = height, P = 10;
   const vals = [0, ...pts.map((p) => p.cum)];
   const lo = Math.min(...vals), hi = Math.max(...vals);
   const span = hi - lo || 1;
@@ -28,35 +34,41 @@ function CumulativeChart({ r }: { r: RangeStats }) {
   const last = pts[pts.length - 1]!;
   const step = pts.length > 1 ? W / (pts.length - 1) : W;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: 200 }} role="img"
-      aria-label={`Cumulative P&L over ${r.days} days, ending at ${money(last.cum)}`}>
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: H }} role="img" aria-label={`${label}, ending at ${fmt(last.cum)}`}>
       <line x1="0" x2={W} y1={y(0)} y2={y(0)} className="chart-axis" strokeDasharray="2 4" vectorEffect="non-scaling-stroke" />
       <polyline points={pts.map((p, i) => `${x(i).toFixed(1)},${y(p.cum).toFixed(1)}`).join(" ")}
         className={last.cum >= 0 ? "line-gain" : "line-loss"} vectorEffect="non-scaling-stroke" />
       {pts.map((p, i) => (
         <rect key={p.date} x={x(i) - step / 2} y="0" width={step} height={H} fill="transparent">
-          <title>{`${p.date}: day ${money(p.net)} · cum ${money(p.cum)}`}</title>
+          <title>{`${p.date}: day ${fmt(p.value)} · cum ${fmt(p.cum)}`}</title>
         </rect>
       ))}
     </svg>
   );
 }
 
-function WinByDay({ r }: { r: RangeStats }) {
-  const days = r.winByDay;
+export interface WinDay {
+  date: string;
+  winRate: number | null;
+  wins: number;
+  losses: number;
+  value: number;
+}
+
+/** Win % per day as columns; days at or above the average are green. */
+export function WinByDay({ days, avg, fmt = money }: { days: WinDay[]; avg: number | null; fmt?: (n: number) => string }) {
   if (days.length === 0) return <div className="empty">No closed trades in range</div>;
-  const ref = r.summary.winRate;
   return (
     <div style={{ position: "relative", height: 200, display: "flex", alignItems: "flex-end", gap: 2, borderBottom: "1px solid var(--border-strong)" }}
-      role="img" aria-label={`Win rate by day; average ${pct(ref)}`}>
-      {ref !== null && (
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: `${ref * 100}%`, borderTop: "1px dashed var(--accent)" }} />
+      role="img" aria-label={`Win rate by day; average ${pct(avg)}`}>
+      {avg !== null && (
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: `${avg * 100}%`, borderTop: "1px dashed var(--accent)" }} />
       )}
       {days.map((d) => (
-        <div key={d.date} title={`${d.date}: ${pct(d.winRate)} · ${d.wins}W/${d.losses}L · ${money(d.net)}`}
+        <div key={d.date} title={`${d.date}: ${pct(d.winRate)} · ${d.wins}W/${d.losses}L · ${fmt(d.value)}`}
           style={{
             flex: "1 1 0", minWidth: 2, height: `${Math.max(1, (d.winRate ?? 0) * 100)}%`,
-            background: d.winRate === null ? "var(--border)" : ref !== null && d.winRate >= ref ? "var(--gain)" : "var(--border-strong)",
+            background: d.winRate === null ? "var(--border)" : avg !== null && d.winRate >= avg ? "var(--gain)" : "var(--border-strong)",
           }} />
       ))}
     </div>
@@ -102,7 +114,7 @@ function Donut({ r }: { r: RangeStats }) {
   );
 }
 
-interface Bar {
+export interface Bar {
   key: string;
   label: React.ReactNode;
   value: number;
@@ -112,7 +124,7 @@ interface Bar {
 }
 
 /** Horizontal bars from a shared zero line; values in text ink beside each bar. */
-function HBars({ bars }: { bars: Bar[] }) {
+export function HBars({ bars }: { bars: Bar[] }) {
   const max = Math.max(...bars.map((b) => Math.abs(b.value)), 0) || 1;
   const hasNeg = bars.some((b) => b.value < 0);
   const hasPos = bars.some((b) => b.value > 0);
@@ -136,9 +148,9 @@ function HBars({ bars }: { bars: Bar[] }) {
   );
 }
 
-const pnlBar = (v: number) => (v > 0 ? "gain" : v < 0 ? "loss" : "flat");
+export const pnlBar = (v: number) => (v > 0 ? "gain" : v < 0 ? "loss" : "flat");
 
-function TradeLink({ t }: { t: Trade | null }) {
+export function TradeLink({ t }: { t: Trade | null }) {
   if (!t) return <span className="muted">—</span>;
   return (
     <a href={tradeHref(t.id)} className="sym">
@@ -268,10 +280,10 @@ export function WidgetGrid({ r, attention, reviews, journal }: { r: RangeStats; 
       <StatRow r={r} />
       <div className="widgets">
         <Widget title={<>Cum P&amp;L · {r.days}D · <span className={pnlClass(last?.cum)}>{money(last?.cum ?? 0)}</span></>}>
-          <CumulativeChart r={r} />
+          <CumulativeChart pts={r.cumulative.map((p) => ({ date: p.date, value: p.net, cum: p.cum }))} label={`Cumulative P&L over ${r.days} days`} />
         </Widget>
         <Widget title={<>Win % / day · avg {pct(r.summary.winRate)} <span className="accent">┄</span></>}>
-          <WinByDay r={r} />
+          <WinByDay days={r.winByDay.map((d) => ({ ...d, value: d.net }))} avg={r.summary.winRate} />
         </Widget>
         <Widget title="Winning vs losing trades"><Donut r={r} /></Widget>
         <Widget title="Hold time · winners vs losers"><HoldTimes r={r} /></Widget>
