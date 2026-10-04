@@ -157,3 +157,10 @@ export async function copyText(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/** Reload past any cached index.html (Pages caches it for 10 minutes), e.g. right after a deploy. */
+export function freshReload() {
+  const url = new URL(window.location.href);
+  url.searchParams.set("fresh", String(Date.now()));
+  window.location.replace(url.href);
+}

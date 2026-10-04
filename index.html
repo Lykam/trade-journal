@@ -8,6 +8,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <script>
+      // Pages lets browsers cache index.html for 10 minutes, and each deploy replaces
+      // the hashed files in assets/. A page cached from before a deploy then asks for
+      // files that are gone: reload once with a query that bypasses the cache.
+      addEventListener("error", function (e) {
+        var t = e.target, url = t && (t.href || t.src);
+        if (!url || String(url).indexOf("/assets/") < 0) return;
+        // At most once a minute, so a file that is really missing can't cause a reload loop.
+        try {
+          if (Date.now() - Number(sessionStorage.getItem("tj.fresh") || 0) < 60000) return;
+          sessionStorage.setItem("tj.fresh", String(Date.now()));
+        } catch (_) {
+          return;
+        }
+        var u = new URL(location.href);
+        u.searchParams.set("fresh", String(Date.now()));
+        location.replace(u.href);
+      }, true);
+    </script>
   </head>
   <body>
     <div id="root"></div>

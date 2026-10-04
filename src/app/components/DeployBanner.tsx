@@ -2,6 +2,7 @@
 // data.enc until the new data is live, then offers a reload; after ~5 minutes it
 // links to the Actions runs instead of spinning forever.
 import { useEffect, useState } from "react";
+import { freshReload } from "../data";
 import { dismissDeploy, useDeploy } from "../github";
 
 export function DeployBanner() {
@@ -22,7 +23,7 @@ export function DeployBanner() {
       {s.phase === "ready" && (
         <>
           <span className="gain">NEW DATA IS LIVE</span>
-          <button type="button" className="btn primary" onClick={() => window.location.reload()}>RELOAD</button>
+          <button type="button" className="btn primary" onClick={freshReload}>RELOAD</button>
         </>
       )}
       {s.phase === "timeout" && (
