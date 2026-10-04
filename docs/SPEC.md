@@ -1219,7 +1219,8 @@ the commit leaves the private repo.
 
 ### Still open
 
-- Nothing blocks milestone 6. Milestone 5 was checked live on 2026-10-04: token save, two fixture imports and an override edit committed to a throwaway repo (byte-identical to the CLI), "Deploying…" resolving, and one override edit on trade-history.
+- Nothing blocks milestone 7. Milestone 5 was checked live on 2026-10-04: token save, two fixture imports and an override edit committed to a throwaway repo (byte-identical to the CLI), "Deploying…" resolving, and one override edit on trade-history.
+- Milestone 6 was checked live on 2026-10-04 with a placeholder test review (written from the template with the skill's scripts, then removed): the push dispatched a redeploy, the review linked to its idea by Idea ID in the Journal, Trades and Trade detail at desktop and phone width, and the deploy log was clean. The first real review with the updated skill is still to come.
 
 ## 11. Future
 
