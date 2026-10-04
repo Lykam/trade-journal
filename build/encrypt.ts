@@ -26,6 +26,7 @@ import {
 } from "../src/core/crypto";
 import type { DataBundle } from "../src/core/types";
 import { type BundleImage, bundleData, resolveSources } from "./bundle-data";
+import { isPublicLog } from "./fetch-quotes";
 
 export const MIN_PASSPHRASE = 16;
 
@@ -128,7 +129,8 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename
     if (!existsSync(join(dist, "index.html"))) throw new Error(`${dist} has no index.html (run vite build first)`);
     const { bundle, images } = bundleData(resolveSources({ historyDir: values["history-dir"], playbookDir: values["playbook-dir"], quotesFile: values.quotes }));
     const r = encryptBundle(bundle, images, passphrase, dist);
-    console.log(`encrypt: wrote data.enc and ${r.imgFiles} img/*.enc files (padded with decoys)`);
+    // Public logs get no counts at all, not even the padded one (Q35).
+    console.log(isPublicLog() ? "encrypt: wrote data.enc and img/*.enc (padded with decoys)" : `encrypt: wrote data.enc and ${r.imgFiles} img/*.enc files (padded with decoys)`);
   } catch (e) {
     console.error(`encrypt: ${safeMessage(e)}`);
     process.exitCode = 1;
