@@ -1197,7 +1197,7 @@ the commit leaves the private repo.
 
 ### Still open
 
-- Milestone 5: live-site checks (token, sandbox import and override commits, Deploying…) pending.
+- Nothing blocks milestone 6. Milestone 5 was checked live on 2026-10-04: token save, two fixture imports and an override edit committed to a throwaway repo (byte-identical to the CLI), "Deploying…" resolving, and one override edit on trade-history.
 
 ## 11. Future
 
