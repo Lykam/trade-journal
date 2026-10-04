@@ -153,3 +153,24 @@ export function importFingerprint(p: ImportPlan): string {
     trades: [p.diff.added.length, p.diff.changed.length, p.diff.removed.length],
   });
 }
+
+/**
+ * Oldest export first, from the file names: Webull numbers re-downloads
+ * (Webull_Orders_Records.csv, then (1), (2), …) and Schwab stamps the export
+ * time (…_Transactions_20260930-194206.csv). Order matters because Webull keeps
+ * the first-seen symbol (Q18). Ties fall back to the modified time, then the name.
+ */
+export function exportOrder<T extends { name: string; lastModified?: number }>(files: T[]): T[] {
+  const key = (f: T): [number, string] => {
+    const wb = /^Webull_Orders_Records(?:\((\d+)\))?\.csv$/i.exec(f.name);
+    if (wb) return [0, String(Number(wb[1] ?? 0)).padStart(6, "0")];
+    const sw = /_Transactions_(\d{8}-\d{6})\.csv$/i.exec(f.name);
+    if (sw) return [1, sw[1]!];
+    return [2, ""];
+  };
+  return [...files].sort((a, b) => {
+    const [ga, ka] = key(a);
+    const [gb, kb] = key(b);
+    return ga - gb || ka.localeCompare(kb) || (a.lastModified ?? 0) - (b.lastModified ?? 0) || a.name.localeCompare(b.name);
+  });
+}

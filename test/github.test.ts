@@ -379,3 +379,25 @@ describe("the app bundles the CLI's schemas and generator", () => {
     expect(remote.GENERATOR).toBe(generatorVersion());
   });
 });
+
+describe("Import page file order", () => {
+  it("applies exports oldest first, whatever order the file dialog gives", async () => {
+    const { exportOrder } = await import("../src/core/import/plan");
+    const picked = [
+      "Webull_Orders_Records(10).csv", "Trading_XXX000_Transactions_20250320-170000.csv", "Webull_Orders_Records(1).csv",
+      "Webull_Orders_Records.csv", "Trading_XXX000_Transactions_20250315-170000.csv", "Webull_Orders_Records(2).csv",
+    ].map((name) => ({ name, lastModified: 0 }));
+    expect(exportOrder(picked).map((f) => f.name)).toEqual([
+      "Webull_Orders_Records.csv", "Webull_Orders_Records(1).csv", "Webull_Orders_Records(2).csv", "Webull_Orders_Records(10).csv",
+      "Trading_XXX000_Transactions_20250315-170000.csv", "Trading_XXX000_Transactions_20250320-170000.csv",
+    ]);
+  });
+
+  it("the reversed Webull order changes the kept symbol, which is why order matters", () => {
+    const fake = new FakeGitHub(historyFiles());
+    return readHistory(new GitHubClient(TOKEN, fake.fetch), DATA, validate).then((remote) => {
+      const sym = (rels: string[]) => planImport(inputs(rels), remote.snap, { importedAt: IMPORTED_AT }).result.fills.map((f) => f.symbol);
+      expect(sym([WEBULL_A, WEBULL_B])).not.toEqual(sym([WEBULL_B, WEBULL_A]));
+    });
+  });
+});

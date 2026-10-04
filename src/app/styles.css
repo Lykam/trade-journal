@@ -387,3 +387,4 @@ pre.report { margin: 0; padding: 10px 14px; font-size: 11px; overflow: auto; max
 .deploy-banner.ready { border-bottom-color: var(--gain); }
 .deploy-banner.timeout { border-bottom-color: var(--half); }
 .counts { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.btn.tiny { padding: 0 6px; min-height: 0; line-height: 1.4; }

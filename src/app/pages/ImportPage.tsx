@@ -4,7 +4,7 @@
 // Errors block the commit.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { gitBlobSha } from "../../core/history/files";
-import { previewLines, type ImportInput } from "../../core/import/plan";
+import { exportOrder, previewLines, type ImportInput } from "../../core/import/plan";
 import { detectBroker } from "../../core/normalize";
 import type { SymbolInfo, SymbolsMap } from "../../core/types";
 import { ACTIONS_URL, clientFor, feedsSite, useToken, watchDeploy } from "../github";
@@ -15,6 +15,7 @@ type Remote = typeof import("../remote");
 
 interface Picked extends ImportInput {
   broker: string | null;
+  lastModified: number;
 }
 
 interface MapRow {
@@ -35,10 +36,10 @@ async function readFiles(list: FileList | File[]): Promise<Picked[]> {
     if (f.size > MAX_BYTES) throw new Error(`${f.name} is larger than 20 MB; is it a broker export?`);
     const bytes = new Uint8Array(await f.arrayBuffer());
     const head = new TextDecoder().decode(bytes.slice(0, 4096));
-    out.push({ name: f.name, bytes, broker: detectBroker(head) });
+    out.push({ name: f.name, bytes, broker: detectBroker(head), lastModified: f.lastModified });
   }
-  // Applied in the order picked, as the CLI applies its arguments.
-  return out;
+  // A file dialog's order is arbitrary, so sort oldest export first by name (Q18: the first-seen symbol is kept).
+  return exportOrder(out);
 }
 
 export function ImportPage() {
@@ -128,6 +129,13 @@ export function ImportPage() {
     }
   };
 
+  const move = (i: number, d: -1 | 1) => {
+    const next = [...files];
+    [next[i], next[i + d]] = [next[i + d]!, next[i]!];
+    setStatus({ kind: "idle" });
+    setFiles(next);
+  };
+
   if (token.status === "loading") return <main className="page import"><div className="center-msg">LOADING…</div></main>;
   if (!record) {
     return (
@@ -185,18 +193,21 @@ export function ImportPage() {
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); void pick(e.dataTransfer.files); }}
       >
-        <p>Drop Webull <code>Webull_Orders_Records*.csv</code> or Schwab <code>Trading_*_Transactions_*.csv</code> exports here, oldest first.</p>
+        <p>Drop Webull <code>Webull_Orders_Records*.csv</code> or Schwab <code>Trading_*_Transactions_*.csv</code> exports here. They are applied oldest export first (by the numbers and dates in their names); use ↑ ↓ to change that.</p>
         <input ref={input} type="file" accept=".csv,text/csv" multiple hidden onChange={(e) => { void pick(e.target.files); e.target.value = ""; }} />
         <button type="button" className="btn primary" onClick={() => input.current?.click()}>CHOOSE FILES</button>
         {files.length > 0 && (
-          <ul className="files">
-            {files.map((f) => (
+          <ol className="files">
+            {files.map((f, i) => (
               <li key={f.name}>
+                <span className="dim">{i + 1}.</span>{" "}
+                <button type="button" className="btn ghost tiny" disabled={i === 0} aria-label={`Move ${f.name} earlier`} onClick={() => move(i, -1)}>↑</button>
+                <button type="button" className="btn ghost tiny" disabled={i === files.length - 1} aria-label={`Move ${f.name} later`} onClick={() => move(i, 1)}>↓</button>{" "}
                 <code>{f.name}</code> <span className={f.broker ? "muted" : "loss"}>{f.broker ? f.broker.toUpperCase() : "UNRECOGNIZED HEADER"}</span>{" "}
                 <span className="dim">{(f.bytes.length / 1024).toFixed(1)} KB</span>
               </li>
             ))}
-          </ul>
+          </ol>
         )}
       </section>
 
