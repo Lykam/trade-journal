@@ -51,7 +51,8 @@ export function ImportPage() {
   const [remote, setRemote] = useState<RemoteHistory | null>(null);
   const [reading, setReading] = useState(false);
   const [maps, setMaps] = useState<Record<string, MapRow>>({});
-  const [importedAt] = useState(() => new Date().toISOString().replace(/\.\d{3}Z$/, "Z"));
+  // Set when files are picked (not when the page opens), so each import gets its own time; the preview and the commit share it.
+  const [importedAt, setImportedAt] = useState(() => new Date().toISOString().replace(/\.\d{3}Z$/, "Z"));
   const [status, setStatus] = useState<{ kind: "idle" | "committing" | "done"; url?: string; notice?: string }>({ kind: "idle" });
   const input = useRef<HTMLInputElement>(null);
 
@@ -122,7 +123,9 @@ export function ImportPage() {
     if (!list || !list.length) return;
     setStatus({ kind: "idle" });
     try {
-      setFiles(await readFiles(list));
+      const picked = await readFiles(list);
+      setImportedAt(new Date().toISOString().replace(/\.\d{3}Z$/, "Z"));
+      setFiles(picked);
       setMaps({});
     } catch (e) {
       setError((e as Error).message);
