@@ -19,6 +19,8 @@ interface Picked extends ImportInput {
 
 interface MapRow {
   on: boolean;
+  /** The broker's name for the symbol (kept: a mapped symbol leaves unmappedEtfs). */
+  name: string;
   underlying: string;
   leverage: string;
   direction: SymbolInfo["direction"];
@@ -109,7 +111,8 @@ export function ImportPage() {
     const add: Record<string, MapRow> = {};
     for (const e of computed.plan.result.unmappedEtfs) {
       if (maps[e.symbol]) continue;
-      add[e.symbol] = { on: e.guess.underlying !== null, underlying: e.guess.underlying ?? "", leverage: String(e.guess.leverage), direction: e.guess.direction, issuer: e.guess.issuer ?? "" };
+      // The guess is pre-filled but never mapped until the row is checked.
+      add[e.symbol] = { on: false, name: e.name, underlying: e.guess.underlying ?? "", leverage: String(e.guess.leverage), direction: e.guess.direction, issuer: e.guess.issuer ?? "" };
     }
     if (Object.keys(add).length) setMaps((m) => ({ ...add, ...m }));
   }, [computed, maps]);
@@ -252,19 +255,18 @@ export function ImportPage() {
             <section className="panel" aria-label="ETF symbols to map">
               <div className="panel-head"><h2>New ETF symbols · {Object.keys(maps).length}</h2></div>
               <div className="body">
-                <p className="muted small">Checked rows are written to symbols.json in this commit, and their trades count toward the underlying. Unchecked ones stay unmapped.</p>
+                <p className="muted small">The guess comes from the broker's name. Check a row to write it to symbols.json in this commit, so its trades count toward the underlying; unchecked ones stay unmapped (Needs attention).</p>
                 <div className="scroll-x">
                   <table className="grid dense">
                     <thead><tr><th>MAP</th><th>SYMBOL</th><th>NAME</th><th>UNDERLYING</th><th>LEV</th><th>DIRECTION</th><th>ISSUER</th></tr></thead>
                     <tbody>
                       {Object.entries(maps).map(([sym, m]) => {
-                        const name = plan.result.unmappedEtfs.find((e) => e.symbol === sym)?.name ?? "";
                         const set = (patch: Partial<MapRow>) => setMaps((all) => ({ ...all, [sym]: { ...m, ...patch } }));
                         return (
                           <tr key={sym}>
                             <td><input type="checkbox" checked={m.on} onChange={(e) => set({ on: e.target.checked })} aria-label={`Map ${sym}`} /></td>
                             <td><b>{sym}</b></td>
-                            <td className="muted small">{name}</td>
+                            <td className="muted small">{m.name}</td>
                             <td><input className="input narrow" value={m.underlying} onChange={(e) => set({ underlying: e.target.value.toUpperCase() })} aria-label={`${sym} underlying`} /></td>
                             <td><input className="input tiny" inputMode="decimal" value={m.leverage} onChange={(e) => set({ leverage: e.target.value })} aria-label={`${sym} leverage`} /></td>
                             <td>
