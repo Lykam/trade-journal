@@ -165,7 +165,7 @@ describe("GitHub client: errors and permissions", () => {
     const readOnly = new FakeGitHub(historyFiles(), { write: false });
     await expect(checkToken(new GitHubClient(TOKEN, readOnly.fetch), TOKEN, DATA, APP)).rejects.toThrow(/not write/);
     const noAccess = new FakeGitHub(historyFiles(), { read: false });
-    await expect(checkToken(new GitHubClient(TOKEN, noAccess.fetch), TOKEN, DATA, APP)).rejects.toThrow(/can't read/);
+    await expect(checkToken(new GitHubClient(TOKEN, noAccess.fetch), TOKEN, DATA, APP)).rejects.toThrow(/can.t see .*HTTP 404/);
     const classic = "ghp_" + "x".repeat(36);
     await expect(checkToken(new GitHubClient(classic, ok.fetch), classic, DATA, APP)).rejects.toBeInstanceOf(TokenError);
   });

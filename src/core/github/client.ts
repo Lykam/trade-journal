@@ -325,8 +325,14 @@ export async function checkToken(gh: GitHubClient, token: string, data: RepoId, 
   try {
     await gh.request("GET", `${repoPath(data)}/git/ref/heads/main`);
   } catch (e) {
-    if (e instanceof GitHubError && (e.kind === "not-found" || e.kind === "permission")) {
-      throw new TokenError(`The token can't read ${repoName(data)}. Give it Contents: read and write on that repository.`);
+    // A fine-grained token sees 404 for a private repo it wasn't granted, and 403 when Contents is missing.
+    if (e instanceof GitHubError && e.kind === "not-found") {
+      throw new TokenError(
+        `The token can't see ${repoName(data)} (HTTP 404). Under Repository access, choose "Only select repositories" and add ${data.repo}; also check the name and that you pasted the main token, not the Actions one.`,
+      );
+    }
+    if (e instanceof GitHubError && e.kind === "permission") {
+      throw new TokenError(`The token can see ${repoName(data)} but can't read its contents (HTTP 403). Set Repository permissions → Contents to "Read and write".`);
     }
     if (e instanceof GitHubError && e.kind === "conflict") throw new TokenError(`${repoName(data)} is empty (no main branch yet).`);
     throw e;
