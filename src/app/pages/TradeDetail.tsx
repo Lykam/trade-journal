@@ -2,10 +2,10 @@
 // current filter and sort, stats, executions, timeline, idea, review notes and
 // Playbook charts.
 import { useMemo, useState } from "react";
-import { holdLabel } from "../../core/dashboard/dashboard";
+import { buyFees, daysHeld, holdLabel } from "../../core/dashboard/dashboard";
 import { quoteStatus } from "../../core/gauge/gauge";
 import { tradeDate, type ViewState } from "../../core/journal/filter";
-import { reviewsOf, type Journal } from "../../core/journal/journal";
+import { groupPnl, reviewsOf, type Journal } from "../../core/journal/journal";
 import { neighbors, pageOf, tradeOrder, viewRows } from "../../core/journal/rows";
 import { chartsFor } from "../../core/reviews/images";
 import { cents, etDate } from "../../core/normalize/util";
@@ -15,9 +15,10 @@ import { StagedPreview, useStagedOverrides } from "../components/BulkBar";
 import { viewHref } from "../components/FilterBar";
 import { Lightbox, type LightboxImage } from "../components/Lightbox";
 import { Timeline } from "../components/OpenPositions";
+import { Pnl } from "../components/Pnl";
 import { LazyReview } from "../components/LazyReview";
 import { copyText, useImageSrcs } from "../data";
-import { dateOf, longDate, money, pnlClass, price, qty, signedPct, timeOf, whenOf } from "../format";
+import { longDate, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, whenOf } from "../format";
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
 
 function Stat({ label, children, cls }: { label: string; children: React.ReactNode; cls?: string }) {
@@ -119,38 +120,46 @@ function StatsPanel({ data, t, now, view }: { data: DataBundle; t: Trade; now: s
   const cost = bought.reduce((s, e) => s + e.qty * e.price, 0);
   const volume = t.events.reduce((s, e) => s + e.qty, 0) + t.unmatchedQty;
   const q = data.quotes?.quotes[t.symbol];
-  const mark = t.status === "open" && q ? markToMarket(t, q.price) : null;
+  const open = t.status === "open";
+  const mark = open && q ? markToMarket(t, q.price) : null;
   const qs = q ? quoteStatus(q, now) : null;
-  const hold = t.status === "open" ? `open ${Math.max(0, Math.round((Date.parse(now) - Date.parse(t.openedAt)) / 86_400_000))} days` : holdLabel(t);
+  const hold = open ? `open ${daysHeld(t, now)}d` : holdLabel(t);
   const emph = (mode: "gross" | "net") => (view.pnl === mode ? "b" : "");
+  // An open trade has no result yet: its mark comes first, and the closed-trade figures wait for the close (#14).
+  const result = (n: number) => (open ? "—" : money(n));
   return (
     <section className="panel" aria-label="Stats">
       <div className="panel-head"><h2>Stats</h2></div>
       <div className="stats">
+        {open && (
+          <>
+            <Stat label="TOTAL OPEN P&L" cls={`b ${pnlClass(mark?.total)}`}>{mark ? money(mark.total) : "—"}</Stat>
+            <Stat label="UNREALIZED" cls={pnlClass(mark?.unrealized)}>{mark ? money(mark.unrealized) : "—"}</Stat>
+            <Stat label="REALIZED">
+              <span className={pnlClass(t.realizedPnl)}>{money(t.realizedPnl)}</span>{" "}
+              <span className="dim">{realizedNote(t.events.filter((e) => e.kind === "trim").length, buyFees(t))}</span>
+            </Stat>
+            <Stat label="OPEN SHARES">{qty(t.openQty)} @ {price(t.avgCost)} avg</Stat>
+            <Stat label="LAST">
+              {q ? <>{price(q.price)} <span className={qs?.isStale ? "half" : "dim"}>{qs?.isStale ? `· STALE (${stamp(q.time)})` : stamp(q.time)}</span></> : <span className="half">not priced</span>}
+            </Stat>
+          </>
+        )}
         <Stat label="SHARES TRADED">{qty(volume)} <span className="dim">(max {qty(t.maxPosition)})</span></Stat>
         <Stat label="EXECUTIONS">{t.fillIds.length}</Stat>
         <Stat label="AVG ENTRY">{price(t.avgEntry)}</Stat>
         <Stat label="AVG EXIT">{price(t.avgExit)}</Stat>
-        <Stat label="GROSS P&L" cls={`${pnlClass(t.grossPnl)} ${emph("gross")}`}>{money(t.grossPnl)}</Stat>
+        <Stat label="GROSS P&L" cls={open ? "muted" : `${pnlClass(t.grossPnl)} ${emph("gross")}`}>{result(t.grossPnl)}</Stat>
         <Stat label="FEES">{money(t.fees, { sign: false })}</Stat>
-        <Stat label="NET P&L" cls={`${pnlClass(t.netPnl)} ${emph("net")}`}>{money(t.netPnl)}</Stat>
-        <Stat label="RETURN ON COST" cls={pnlClass(t.netPnl)}>{cost ? signedPct(t.netPnl / cost) : "—"}</Stat>
+        <Stat label="NET P&L" cls={open ? "muted" : `${pnlClass(t.netPnl)} ${emph("net")}`}>{result(t.netPnl)}</Stat>
+        <Stat label="RETURN ON COST" cls={open ? "muted" : pnlClass(t.netPnl)}>{!open && cost ? signedPct(t.netPnl / cost) : "—"}</Stat>
         <Stat label="HOLD">{hold}</Stat>
         <Stat label="STYLE">{t.style.toUpperCase()}{t.sameDay && t.style === "swing" ? <span className="dim"> · same day</span> : null}</Stat>
         <Stat label="BROKER">{t.broker.toUpperCase()}</Stat>
         <Stat label="ACCOUNT">{t.account}</Stat>
-        <Stat label="RESULT" cls={t.result ? (t.result === "win" ? "gain" : t.result === "loss" ? "loss" : "flat") : "muted"}>{t.result?.toUpperCase() ?? (t.status === "open" ? "OPEN" : "—")}</Stat>
+        <Stat label="RESULT" cls={t.result ? (t.result === "win" ? "gain" : t.result === "loss" ? "loss" : "flat") : "muted"}>{t.result?.toUpperCase() ?? (open ? "OPEN" : "—")}</Stat>
         {t.instrument === "leveraged_etf" && (
           <Stat label="UNDERLYING">{t.underlying} · {t.leverage}x {t.direction === "inverse" ? "inverse" : "long"}</Stat>
-        )}
-        {t.status === "open" && (
-          <>
-            <Stat label="OPEN SHARES">{qty(t.openQty)} @ {price(t.avgCost)} avg</Stat>
-            <Stat label="LAST">{q ? <>{price(q.price)} <span className="dim">{timeOf(q.time)} {dateOf(q.time).slice(5)}{qs?.isStale ? " · stale" : ""}</span></> : <span className="half">not priced</span>}</Stat>
-            <Stat label="UNREALIZED" cls={pnlClass(mark?.unrealized)}>{mark ? money(mark.unrealized) : "—"}</Stat>
-            <Stat label="REALIZED (TRIMS)" cls={pnlClass(t.realizedPnl)}>{money(t.realizedPnl)}</Stat>
-            <Stat label="TOTAL OPEN P&L" cls={`b ${pnlClass(mark?.total)}`}>{mark ? money(mark.total) : "—"}</Stat>
-          </>
         )}
       </div>
     </section>
@@ -199,12 +208,10 @@ function IdeaPanel({ journal: j, t, view }: { journal: Journal; t: Trade; view: 
   if (!idea) return null;
   const trades = idea.tradeIds.map((id) => j.tradeById.get(id)).filter((x) => x !== undefined);
   const counts = [...new Set(trades.map((x) => x.symbol))].map((s) => `${trades.filter((x) => x.symbol === s).length} ${s}`);
-  const total = (mode: "gross" | "net") => cents(trades.reduce((s, x) => s + (mode === "gross" ? x.grossPnl : x.netPnl), 0));
-  const pnl = (x: Trade) => (view.pnl === "gross" ? x.grossPnl : x.netPnl);
   return (
     <section className="panel" aria-label="Idea">
       <div className="panel-head">
-        <h2>Idea: {idea.underlying} · {trades.length} trade{trades.length === 1 ? "" : "s"} · <span className={pnlClass(total(view.pnl))}>{money(total(view.pnl))}</span> {trades.length > 1 || idea.usedEtf ? `(${counts.join(", ")})` : ""}</h2>
+        <h2>Idea: {idea.underlying} · {trades.length} trade{trades.length === 1 ? "" : "s"} · <Pnl p={groupPnl(j, trades, view.pnl)} /> {trades.length > 1 || idea.usedEtf ? `(${counts.join(", ")})` : ""}</h2>
         <span className="grow" />
         <span className="muted small">{idea.style.toUpperCase()} · OPENED {idea.date} · {idea.status.toUpperCase()}</span>
       </div>
@@ -216,7 +223,7 @@ function IdeaPanel({ journal: j, t, view }: { journal: Journal; t: Trade; view: 
               <td>{x.id === t.id ? <b>{x.symbol}</b> : <a className="sym" href={tradeLink(x.id, view)}>{x.symbol}</a>} <EtfBadge t={x} /></td>
               <td className="muted">{tradeDate(x)}</td>
               <td className="muted">{x.status === "open" ? "open" : holdLabel(x)}</td>
-              <td className={`num ${pnlClass(pnl(x))}`}>{money(pnl(x))}</td>
+              <td className="num"><Pnl p={groupPnl(j, [x], view.pnl)} /></td>
             </tr>
           ))}
         </tbody>

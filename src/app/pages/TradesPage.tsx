@@ -2,12 +2,13 @@
 // paginated at 50, with bulk-select actions previewed against overrides.json.
 import { Fragment, useMemo, useState } from "react";
 import { queryOf, tradeDate, viewToParams, type SortKey, type ViewState } from "../../core/journal/filter";
-import { reviewsOf, type Journal } from "../../core/journal/journal";
+import { groupPnl, reviewsOf, type Journal } from "../../core/journal/journal";
 import { paginate, summarizeRows, viewRows, type Row } from "../../core/journal/rows";
 import { holdLabel } from "../../core/dashboard/dashboard";
 import type { DataBundle, Trade } from "../../core/types";
 import { BulkBar } from "../components/BulkBar";
 import { FilterBar, viewHref } from "../components/FilterBar";
+import { Pnl } from "../components/Pnl";
 import { go } from "../data";
 import { mmdd, money, pct, pnlClass, qty } from "../format";
 
@@ -57,8 +58,6 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const href = (v: Partial<ViewState>) => viewHref("#/trades", { ...view, ...v });
-  const pnlOf = (r: { gross: number; net: number }) => (view.pnl === "gross" ? r.gross : r.net);
-  const tradePnl = (t: Trade) => (view.pnl === "gross" ? t.grossPnl : t.netPnl);
 
   const pageIds = items.flatMap((r) => r.trades.map((t) => t.id));
   const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
@@ -147,7 +146,7 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                         <td className="num">{qty(r.volume)}</td>
                         <td className="num">{r.executions}</td>
                         <td className="muted">{rowHold(r)}</td>
-                        <td className={`num b ${pnlClass(pnlOf(r))}`}>{money(pnlOf(r))}</td>
+                        <td className="num"><Pnl p={groupPnl(j, r.trades, view.pnl)} b /></td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {review ? <a href={reviewLink(review.id)} title="Open review" aria-label="Open review">📄</a> : null}
                         </td>
@@ -165,7 +164,7 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                           <td className="num">{qty(t.events.reduce((s, e) => s + e.qty, 0))}</td>
                           <td className="num">{t.fillIds.length}</td>
                           <td className="muted">{t.status === "open" ? "open" : holdLabel(t)}</td>
-                          <td className={`num ${pnlClass(tradePnl(t))}`}>{money(tradePnl(t))}</td>
+                          <td className="num"><Pnl p={groupPnl(j, [t], view.pnl)} /></td>
                           <td />
                           <td className="note" title={t.note}>{t.note}</td>
                           <td />

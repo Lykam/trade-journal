@@ -2,13 +2,12 @@
 // filter bar, and a read-only review page with the linked idea's trades.
 import { useMemo } from "react";
 import type { ViewState } from "../../core/journal/filter";
-import { filterReviews, type Journal } from "../../core/journal/journal";
+import { filterReviews, groupPnl, type Journal } from "../../core/journal/journal";
 import type { Review } from "../../core/reviews/join";
-import { cents } from "../../core/normalize/util";
 import type { Trade } from "../../core/types";
 import { FilterBar, viewHref } from "../components/FilterBar";
 import { LazyReview } from "../components/LazyReview";
-import { money, pnlClass } from "../format";
+import { Pnl } from "../components/Pnl";
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
 
 function ideaFor(j: Journal, r: Review) {
@@ -17,7 +16,6 @@ function ideaFor(j: Journal, r: Review) {
   return { idea, trades };
 }
 
-const pnlSum = (trades: Trade[], mode: ViewState["pnl"]) => cents(trades.reduce((s, t) => s + (mode === "gross" ? t.grossPnl : t.netPnl), 0));
 
 function StatusChip({ r }: { r: Review }) {
   if (!r.header.status) return <span className="dim">—</span>;
@@ -53,7 +51,6 @@ export function JournalPage({ journal: j, view }: { journal: Journal; view: View
               <tbody>
                 {reviews.map((r) => {
                   const { idea, trades } = ideaFor(j, r);
-                  const pnl = pnlSum(trades, view.pnl);
                   return (
                     <tr key={r.id} className="clickable" onClick={() => (window.location.hash = reviewLink(r.id))}>
                       <td className="muted">{r.date ?? "—"}</td>
@@ -64,7 +61,7 @@ export function JournalPage({ journal: j, view }: { journal: Journal; view: View
                       <td className="muted">{r.header.tradeType?.toUpperCase() ?? "—"}</td>
                       <td><StatusChip r={r} /></td>
                       <td className="muted">{r.header.category ?? ""}</td>
-                      <td className={`num b ${idea ? pnlClass(pnl) : "dim"}`}>{idea ? money(pnl) : "—"}</td>
+                      <td className="num">{idea ? <Pnl p={groupPnl(j, trades, view.pnl)} b /> : <span className="dim">—</span>}</td>
                       <td className="num">{idea ? trades.length : "—"}</td>
                       <td>{idea ? <span className="muted small">{idea.style.toUpperCase()} · {idea.status.toUpperCase()}</span> : <span className="half small">NO MATCHING IDEA</span>}</td>
                     </tr>
@@ -96,7 +93,6 @@ export function ReviewPage({ journal: j, id, view }: { journal: Journal; id: str
   const newer = i > 0 ? list[i - 1] : undefined;
   const older = i >= 0 ? list[i + 1] : undefined;
   const nav = (x: Review | undefined) => (x ? `${reviewLink(x.id)}${back.slice("#/journal".length)}` : undefined);
-  const pnl = (t: Trade) => (view.pnl === "gross" ? t.grossPnl : t.netPnl);
   const method = j.reviews.method.get(r.id);
   return (
     <main className="page">
@@ -113,7 +109,7 @@ export function ReviewPage({ journal: j, id, view }: { journal: Journal; id: str
         <div className="panel-head">
           {idea ? (
             <>
-              <h2>Idea: {idea.underlying} · {trades.length} trade{trades.length === 1 ? "" : "s"} · <span className={pnlClass(pnlSum(trades, view.pnl))}>{money(pnlSum(trades, view.pnl))}</span> {view.pnl.toUpperCase()}</h2>
+              <h2>Idea: {idea.underlying} · {trades.length} trade{trades.length === 1 ? "" : "s"} · <Pnl p={groupPnl(j, trades, view.pnl)} /> {view.pnl.toUpperCase()}</h2>
               <span className="grow" />
               <span className="muted small">{idea.style.toUpperCase()} · OPENED {idea.date} · {idea.status.toUpperCase()} · LINKED BY {method === "idea-id" ? "IDEA ID" : method === "re-entry" ? "RE-ENTRY DATE" : "DATE + TICKER"}</span>
             </>
@@ -127,7 +123,7 @@ export function ReviewPage({ journal: j, id, view }: { journal: Journal; id: str
               <a key={t.id} className="strip-item" href={tradeLink(t.id, view)}>
                 <span className="sym">{t.symbol}</span> <EtfBadge t={t} />
                 <span className="muted small">{t.openedAt.slice(5, 10)}{t.closedAt ? `→${t.closedAt.slice(5, 10)}` : " open"}</span>
-                <b className={pnlClass(pnl(t))}>{money(pnl(t))}</b>
+                <Pnl p={groupPnl(j, [t], view.pnl)} b />
               </a>
             ))}
           </div>

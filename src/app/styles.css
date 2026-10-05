@@ -417,3 +417,18 @@ table.grid tr.sub td { border-top-color: var(--rule-faint); }
   color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
 }
 .note-line { color: var(--muted); font-size: 11px; }
+
+/* ---- UX review 2026-10 (#13–#23) */
+.text-2 { color: var(--text-2); }
+.spaced { letter-spacing: 0.08em; }
+a.sym.big { font-size: 15px; }
+table.open-quick { min-width: 1040px; }
+table.open-table { min-width: 1180px; }
+table.open-table thead tr { border-bottom: 1px solid var(--border-strong); }
+table.open-table td.sym-cell { padding-top: 10px; }
+table.open-table tr.timeline-row { border-top: 0; }
+table.open-table tr.timeline-row td { padding: 0 14px 12px; white-space: normal; }
+@media (max-width: 640px) {
+  /* The timeline repeats the row and is cut off on a phone (#17). */
+  table.open-table tr.timeline-row { display: none; }
+}

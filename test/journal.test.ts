@@ -10,20 +10,12 @@ import { buildJournal, filterReviews, filterTrades, reviewAttention, type Journa
 import { applyBulkAction, changedOverrideIds, previewOverrides } from "../src/core/journal/overrides";
 import { buildRows, neighbors, pageOf, paginate, sortRows, summarizeRows, tradeOrder, viewRows } from "../src/core/journal/rows";
 import type { DerivedTrades, Fill, Idea, ReviewFile, Trade } from "../src/core/types";
-import { closed, open } from "./factory";
+import { closed, ideasOf, open } from "./factory";
+
 import { config, FIXTURES, noOverrides, symbols } from "./helpers";
 
 const TODAY = "2025-04-10";
 
-function ideasOf(trades: Trade[]): Idea[] {
-  const by = new Map<string, Trade[]>();
-  for (const t of trades) by.set(t.ideaId, [...(by.get(t.ideaId) ?? []), t]);
-  return [...by].map(([id, ts]) => ({
-    id, underlying: ts[0]!.underlying, accounts: [ts[0]!.account], symbolsTraded: [...new Set(ts.map((t) => t.symbol))],
-    usedEtf: ts.some((t) => t.instrument === "leveraged_etf"), style: ts[0]!.style, date: ts[0]!.openedAt.slice(0, 10),
-    tradeIds: ts.map((t) => t.id), netPnl: ts.reduce((s, t) => s + t.netPnl, 0), status: ts.some((t) => t.status === "open") ? "open" : "closed",
-  }));
-}
 
 function journal(trades: Trade[], reviews: ReviewFile[] = [], today = TODAY): Journal {
   return buildJournal({ derived: { generated: true, generator: "test", trades, ideas: ideasOf(trades) }, symbols: {}, config, playbook: { reviews, images: [] } }, today);

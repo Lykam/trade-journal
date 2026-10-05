@@ -1,6 +1,6 @@
 // Synthetic trades for gauge and dashboard tests. Fake tickers only.
 import { etOffset } from "../src/core/normalize/util";
-import type { Style, Trade, TradeEvent } from "../src/core/types";
+import type { Idea, Style, Trade, TradeEvent } from "../src/core/types";
 
 let n = 0;
 
@@ -87,4 +87,15 @@ export function batch(style: Style, date: string, wins: number, losses: number, 
   for (let k = 0; k < losses; k++) out.push(closed({ style, closedAt: at(i++), net: -1 }));
   for (let k = 0; k < bes; k++) out.push(closed({ style, closedAt: at(i++), net: 0 }));
   return out;
+}
+
+/** One idea per ideaId, in first-seen order (enough for journal tests). */
+export function ideasOf(trades: Trade[]): Idea[] {
+  const by = new Map<string, Trade[]>();
+  for (const t of trades) by.set(t.ideaId, [...(by.get(t.ideaId) ?? []), t]);
+  return [...by].map(([id, ts]) => ({
+    id, underlying: ts[0]!.underlying, accounts: [ts[0]!.account], symbolsTraded: [...new Set(ts.map((t) => t.symbol))],
+    usedEtf: ts.some((t) => t.instrument === "leveraged_etf"), style: ts[0]!.style, date: ts[0]!.openedAt.slice(0, 10),
+    tradeIds: ts.map((t) => t.id), netPnl: ts.reduce((s, t) => s + t.netPnl, 0), status: ts.some((t) => t.status === "open") ? "open" : "closed",
+  }));
 }

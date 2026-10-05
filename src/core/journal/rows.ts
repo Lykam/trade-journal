@@ -112,7 +112,8 @@ function sortValue(r: Row, key: SortKey, pnl: PnlMode): number | string | null {
     case "volume": return r.volume;
     case "executions": return r.executions;
     case "hold": return r.holdMinutes ?? r.holdDays * 1440;
-    case "pnl": return pnlOf(r, pnl);
+    // An open row has no result yet: it sorts after the closed ones either way (#14).
+    case "pnl": return r.open ? null : pnlOf(r, pnl);
     case "review": return r.reviewed ? 1 : 0;
     case "notes": return r.note || null;
     case "tags": return r.tags.length ? r.tags.join(" ") : null;
@@ -121,7 +122,7 @@ function sortValue(r: Row, key: SortKey, pnl: PnlMode): number | string | null {
 
 /**
  * Stable sort. Equal keys keep the incoming (default) order in both directions;
- * empty values (no note, no tags) always sort last. Date sorts break same-instant
+ * empty values (no note, no tags, an open row's P&L) always sort last. Date sorts break same-instant
  * ties by derived order so ascending is the exact mirror of descending.
  */
 export function sortRows(rows: Row[], sort: ViewState["sort"], pnl: PnlMode): Row[] {

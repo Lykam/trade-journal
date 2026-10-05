@@ -3,7 +3,8 @@ import { openPositions, openTotals } from "../../core/dashboard/dashboard";
 import type { DataBundle } from "../../core/types";
 import { asOfText, OpenTable } from "../components/OpenPositions";
 import { usePersisted } from "../data";
-import { money, pnlClass } from "../format";
+import { cents } from "../../core/normalize/util";
+import { money, pnlClass, realizedNote } from "../format";
 
 const FILTERS = ["all", "swing", "day"] as const;
 
@@ -14,10 +15,13 @@ export function OpenPage({ data, now }: { data: DataBundle; now: string }) {
   const all = useMemo(() => openPositions(data.derived.trades, quotes, now), [data, quotes, now]);
   const rows = filter === "all" ? all : all.filter((r) => r.trade.style === filter);
   const t = openTotals(rows);
+  const trims = rows.reduce((n, r) => n + r.trims.length, 0);
+  const fees = cents(rows.reduce((s, r) => s + r.buyFees, 0));
   const cells = [
-    { label: "UNREALIZED", value: money(t.unrealized), sub: "OPEN SHARES @ LAST", cls: pnlClass(t.unrealized) },
-    { label: "REALIZED (TRIMS)", value: money(t.realized), sub: `FROM ${rows.reduce((n, r) => n + r.trims.length, 0)} TRIMS`, cls: pnlClass(t.realized) },
-    { label: "TOTAL OPEN P&L", value: money(t.total), sub: "REALIZED + UNREALIZED", cls: pnlClass(t.total) },
+    { label: "UNREALIZED", value: money(t.unrealized), sub: "", cls: pnlClass(t.unrealized) },
+    // Buy fees count as realized (Q44); saying so keeps a fee-only red tile from reading as a losing trim (#14).
+    { label: "REALIZED", value: money(t.realized), sub: realizedNote(trims, fees), cls: pnlClass(t.realized) },
+    { label: "TOTAL OPEN P&L", value: money(t.total), sub: "", cls: pnlClass(t.total) },
     { label: "MARKET VALUE", value: money(t.marketValue, { sign: false }), sub: `COST ${money(t.costBasis, { sign: false })}`, cls: "" },
     { label: "OPEN POSITIONS", value: String(t.count), sub: `${t.green} GREEN · ${t.red} RED${t.unpriced ? ` · ${t.unpriced} UNPRICED` : ""}`, cls: "" },
   ];

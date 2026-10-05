@@ -37,6 +37,12 @@ export const mmdd = (date: string) => date.slice(5);
 export const dateOf = (iso: string) => etDate(iso);
 export const timeOf = (iso: string) => `${etTime(iso)} ET`;
 export const dateTimeOf = (iso: string) => `${etDate(iso)} ${timeOf(iso)}`;
+/** "10-01 14:00": a price or import stamp in dense places (ET implied). */
+export const stamp = (iso: string) => `${etDate(iso).slice(5)} ${etTime(iso)}`;
+
+/** "0 TRIMS · 0.65 FEES": what an open position's realized P&L is made of (#14). */
+export const realizedNote = (trims: number, fees: number) =>
+  `${trims} TRIM${trims === 1 ? "" : "S"}${fees ? ` · ${money(fees, { sign: false })} FEES` : ""}`;
 
 /** "→FAKE 2x" style suffix for leveraged ETFs (inverse funds say so). */
 export function underlyingTag(t: Trade): string {

@@ -822,7 +822,7 @@ everything else, and are never hidden.
    centerpiece, and it is not in Tradervue.
 2. **Open positions (quick view):** every open position, all on the main
    page.
-   - **Header totals:** count, **Unrealized**, **Realized (from trims)**,
+   - **Header totals:** count, **Unrealized**, **Realized** (trims, less buy fees; Q54),
      **Total open P&L**, "as of HH:MM ET" for the prices, and a
      **DETAILS ›** link to the Open Positions page (§6.1a).
    - **One row per position:**
@@ -881,11 +881,16 @@ everything else, and are never hidden.
 Nav item **OPEN**, the second item in the top bar. It holds everything the
 dashboard quick view has, plus:
 
-- **Totals strip:** unrealized, realized from trims, total open P&L, market
-  value vs cost, and the count of green vs red positions.
-- **Filter:** All / Swing / Day.
+- **Totals strip:** unrealized, realized (with its trim count and buy fees,
+  e.g. `0 TRIMS · 0.65 FEES`, Q54), total open P&L, market value vs cost, and
+  the count of green vs red positions.
+- **Filter:** All / Swing / Day. **Sortable** on every column; unpriced
+  values sort last.
+- **Last price:** a stale quote shows its own stamp on the row
+  (`9.80 * 10-01 14:00`).
 - **Per position,** extra columns: **Market value** and **Unrealized %**,
-  plus a **timeline** of every event:
+  plus a **timeline** of every event, shown only when the position has adds
+  or trims (and not at phone width):
   - `OPEN date BUY qty @ price`.
   - `ADD date BUY qty @ price`.
   - `TRIM date SELL qty @ price  +realized`.
@@ -922,6 +927,10 @@ dashboard quick view has, plus:
   which expands to show its trades.
 - **Sortable** on every column. Paginated at 50 per page, or virtualized if
   that's simpler.
+- **Open trades** have no result yet: P&L shows their mark at the last price
+  in muted text (`open +19.50`, or `open —` without a quote), never colored
+  as a win or loss, and they sort after the closed trades on P&L (Q54). The
+  Journal list, the review page and the Idea panel do the same.
 - **Bulk select** with checkboxes, then **Add tag / Remove tag / Set style /
   Exclude**. Every bulk action is one commit to `trade-history/overrides.json`.
 - **Views:** only *Table* in v1. Tradervue's "Charts (large/small)" views are
@@ -938,7 +947,11 @@ Schwab trades show the date only). Below it are the tag chips, with an
   - Shares traded, executions, avg entry, avg exit, gross / fees / net P&L,
     % return on cost, hold time, style, broker and account.
   - The underlying and leverage, for ETF trades.
-  - Unrealized P&L at the latest quote, for open swing positions.
+  - Unrealized P&L at the latest quote, for open swing positions. For an
+    open trade, Total open P&L, Unrealized and Realized come first, and
+    Gross / Net P&L and % return on cost show "—" until it closes (Q54).
+    Hold is "open 17d" in whole ET calendar days, the same count as the
+    dashboard.
   - **Not shown in v1:** MFE/MAE ("best exit", position and price
     MFE/MAE). Those need intraday price history (§11).
 - **Executions table:** time, side, qty, price and fees for every fill.
@@ -1402,6 +1415,7 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q54 | Open trades in tables | UX review (#14): an open trade has no result, so tables never show its booked P&L (often 0.00, or a red buy fee) as if it were one. Trades, the Journal list, the review page and the Idea panel show the mark at the last price in muted text (`open +19.50`; `open —` without a quote); an idea with closed and open trades adds the closed results and the open marks, and still reads as open. Open rows sort after closed ones on P&L in both directions. Buy fees stay in realized P&L (Q44, average-cost basis unchanged), labeled `REALIZED · 0 TRIMS · 0.65 FEES`. Days held are whole ET calendar days everywhere (`daysHeld`). Stops and risk are deferred (§11). (2026-10-04, #14) |
 | Q53 | Tradervue import | One-time CLI import of a Tradervue **trades** export (§4.7), owner decisions 2026-10-04. Tradervue wins for **tags** (union of duplicate copies; automatic tags such as `Swing` aren't stored) and **style** (the `Swing` tag means swing, its absence day; overrides only where it differs from the account default). Its **notes** become quick notes as plain text, capped at 500 characters. The broker fills stay the truth for P&L and quantities: discrepancies are listed, never applied. The export has no executions and only one trade predated the broker exports (a position opened before the Schwab export starts), so **no synthetic fills** and no schema change; the owner left that position out for now, to reconcile later. Matching uses the exact second for timed trades, regardless of symbol (Webull renames, Q18), and symbol + dates + shares + P&L for date-only ones. Not in the web app: it runs once, from the CLI, behind the usual dry-run-and-OK step (Q14). (2026-10-04) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
@@ -1431,7 +1445,10 @@ the commit leaves the private repo.
   import of Tradervue's tags and notes is built: §4.7, Q53.)
 - Live browser-side quotes (Finnhub free key, stored encrypted) layered on top
   of the scheduled Action prices, if 15–30 min delay ever proves too slow.
-- R-multiples, if a planned stop is recorded per trade.
+- R-multiples, if a planned stop is recorded per trade. Stops would also give
+  the open-position views STOP, RISK $ (`shares × (avg − stop)`) and % TO
+  STOP (UX review #14 item 5, #24; owner deferred them, 2026-10-04).
+
 - Short selling and options. `assetType` is reserved, and grouping would need
   signed positions.
 - Auto-suggest "worth reviewing" trades.

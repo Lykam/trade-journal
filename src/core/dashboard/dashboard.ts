@@ -7,6 +7,12 @@ import type { Quote, Style, Trade, TradeEvent } from "../types";
 
 // ---------------------------------------------------------------- open positions
 
+/** Fees paid on a position's buys (open and add events). Realized P&L already subtracts them (Q44). */
+export const buyFees = (t: Trade) => cents(t.events.reduce((s, e) => s + (e.kind === "open" || e.kind === "add" ? (e.fees ?? 0) : 0), 0));
+
+/** Whole ET calendar days from the open date to `now` (the same count everywhere, #14). */
+export const daysHeld = (t: Trade, now: string) => daysBetween(etDate(t.openedAt), etDate(now));
+
 export interface OpenRow {
   trade: Trade;
   shares: number;
@@ -16,6 +22,8 @@ export interface OpenRow {
   daysHeld: number;
   trims: TradeEvent[];
   realized: number;
+  /** Buy fees on the open and add events; they are part of `realized` (Q44). */
+  buyFees: number;
   quote: QuoteStatus | null;
   last: number | null;
   marketValue: number | null;
@@ -41,7 +49,6 @@ export interface OpenTotals {
 
 /** Every open position (any style), oldest first, marked to the quote for the symbol actually held. */
 export function openPositions(trades: Trade[], quotes: Record<string, Quote>, now: string): OpenRow[] {
-  const today = etDate(now);
   return trades
     .filter((t) => t.status === "open")
     .sort((a, b) => Date.parse(a.openedAt) - Date.parse(b.openedAt))
@@ -50,8 +57,8 @@ export function openPositions(trades: Trade[], quotes: Record<string, Quote>, no
       const costBasis = cents(t.avgCost * t.openQty);
       const base = {
         trade: t, shares: t.openQty, maxShares: t.maxPosition, avgCost: t.avgCost, costBasis,
-        daysHeld: daysBetween(etDate(t.openedAt), today), trims: t.events.filter((e) => e.kind === "trim"),
-        realized: t.realizedPnl,
+        daysHeld: daysHeld(t, now), trims: t.events.filter((e) => e.kind === "trim"),
+        realized: t.realizedPnl, buyFees: buyFees(t),
       };
       if (!q) return { ...base, quote: null, last: null, marketValue: null, unrealized: null, unrealizedPct: null, total: null };
       const m = markToMarket(t, q.price);
@@ -62,7 +69,28 @@ export function openPositions(trades: Trade[], quotes: Record<string, Quote>, no
     });
 }
 
+export type OpenSort = "symbol" | "style" | "opened" | "days" | "shares" | "avg" | "last" | "value" | "unrealized" | "pct" | "realized" | "total";
+const OPEN_SORT_VALUE: Record<OpenSort, (r: OpenRow) => number | string | null> = {
+  symbol: (r) => r.trade.symbol, style: (r) => r.trade.style, opened: (r) => r.trade.openedAt, days: (r) => r.daysHeld,
+  shares: (r) => r.shares, avg: (r) => r.avgCost, last: (r) => r.last, value: (r) => r.marketValue, unrealized: (r) => r.unrealized,
+  pct: (r) => r.unrealizedPct, realized: (r) => r.realized, total: (r) => r.total,
+};
+
+/** Open Positions page sort (#14): unpriced (null) values sort last either way; ties keep the incoming order. */
+export function sortOpenRows(rows: OpenRow[], key: OpenSort, dir: 1 | -1): OpenRow[] {
+  const value = OPEN_SORT_VALUE[key];
+  return rows
+    .map((r, i) => ({ r, i, v: value(r) }))
+    .sort((a, b) => {
+      if (a.v === null || b.v === null) return a.v === b.v ? a.i - b.i : a.v === null ? 1 : -1;
+      const c = typeof a.v === "string" ? a.v.localeCompare(b.v as string) : a.v - (b.v as number);
+      return dir * c || a.i - b.i;
+    })
+    .map(({ r }) => r);
+}
+
 export function openTotals(rows: OpenRow[]): OpenTotals {
+
   const priced = rows.filter((r) => r.quote);
   const sum = (xs: OpenRow[], f: (r: OpenRow) => number | null) => cents(xs.reduce((s, r) => s + (f(r) ?? 0), 0));
   let pricesAsOf: string | null = null;

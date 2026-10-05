@@ -1,6 +1,8 @@
-import type { OpenRow, OpenTotals } from "../../core/dashboard/dashboard";
+import { useState } from "react";
+import { sortOpenRows, type OpenRow, type OpenSort, type OpenTotals } from "../../core/dashboard/dashboard";
+
 import type { Trade, TradeEvent } from "../../core/types";
-import { dateOf, mmdd, money, pnlClass, price, qty, signedPct, timeOf, underlyingTag } from "../format";
+import { dateOf, mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, underlyingTag } from "../format";
 
 export const tradeHref = (id: string) => `#/trade/${id}`;
 
@@ -8,7 +10,7 @@ function Sym({ r, big }: { r: OpenRow; big?: boolean }) {
   const t = r.trade;
   return (
     <>
-      <a className="sym" href={tradeHref(t.id)} style={big ? { fontSize: 15 } : undefined}>{t.symbol}</a>{" "}
+      <a className={`sym ${big ? "big" : ""}`} href={tradeHref(t.id)}>{t.symbol}</a>{" "}
       {underlyingTag(t) && <span className="tag">{underlyingTag(t)}</span>}
     </>
   );
@@ -19,10 +21,13 @@ function Last({ r }: { r: OpenRow }) {
   return (
     <span title={`${timeOf(r.quote.time)} ${dateOf(r.quote.time)}${r.quote.marketState ? ` · ${r.quote.marketState}` : ""}`}>
       {price(r.last)}
-      {r.quote.isStale && <span className="half"> *</span>}
+      {/* A stale price says how old it is on the row itself (#14). */}
+      {r.quote.isStale && <span className="half"> * {stamp(r.quote.time)}</span>}
     </span>
   );
 }
+
+const realizedTitle = (r: OpenRow) => `${realizedNote(r.trims.length, r.buyFees)} (average-cost basis)`;
 
 const trimText = (e: TradeEvent) => `${mmdd(dateOf(e.at))} −${qty(e.qty)} @${price(e.price)}`;
 
@@ -39,8 +44,8 @@ export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
         <h2>Open positions · {totals.count}</h2>
         {totals.count > 0 && (
           <>
-            <span className="headline">UNREAL <b className={pnlClass(totals.unrealized)}>{money(totals.unrealized)}</b></span>
-            <span className="headline">REALIZED (TRIMS) <b className={pnlClass(totals.realized)}>{money(totals.realized)}</b></span>
+            <span className="headline">UNREALIZED <b className={pnlClass(totals.unrealized)}>{money(totals.unrealized)}</b></span>
+            <span className="headline">REALIZED <b className={pnlClass(totals.realized)}>{money(totals.realized)}</b></span>
             <span className="headline">TOTAL <b className={pnlClass(totals.total)}>{money(totals.total)}</b></span>
           </>
         )}
@@ -54,11 +59,11 @@ export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
         <div className="empty">No open positions</div>
       ) : (
         <div className="scroll-x">
-          <table className="grid" style={{ minWidth: 1040 }}>
+          <table className="grid open-quick">
             <thead>
               <tr>
                 <th>SYMBOL</th><th>OPENED</th><th>TRIMS</th><th className="num">SHARES</th><th className="num">AVG</th>
-                <th className="num">LAST</th><th className="num">UNREAL</th><th className="num">%</th>
+                <th className="num">LAST</th><th className="num">UNREALIZED</th><th className="num">%</th>
                 <th className="num">REALIZED</th><th className="num">TOTAL</th>
               </tr>
             </thead>
@@ -66,14 +71,14 @@ export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
               {rows.map((r) => (
                 <tr key={r.trade.id}>
                   <td><Sym r={r} /> <span className="accent small">{r.trade.style.toUpperCase()}</span></td>
-                  <td style={{ color: "var(--text-2)" }}>{mmdd(dateOf(r.trade.openedAt))} <span className="dim">({r.daysHeld}d)</span></td>
-                  <td style={{ color: "var(--text-2)" }}>{r.trims.length ? r.trims.map(trimText).join(", ") : "—"}</td>
+                  <td className="text-2">{mmdd(dateOf(r.trade.openedAt))} <span className="dim">({r.daysHeld}d)</span></td>
+                  <td className="text-2">{r.trims.length ? r.trims.map(trimText).join(", ") : "—"}</td>
                   <td className="num">{qty(r.shares)} <span className="dim">/ {qty(r.maxShares)}</span></td>
                   <td className="num">{price(r.avgCost)}</td>
                   <td className="num"><Last r={r} /></td>
                   <td className={`num b ${pnlClass(r.unrealized)}`}>{money(r.unrealized)}</td>
                   <td className={`num ${pnlClass(r.unrealized)}`}>{signedPct(r.unrealizedPct)}</td>
-                  <td className={`num ${pnlClass(r.realized)}`}>{money(r.realized)}</td>
+                  <td className={`num ${pnlClass(r.realized)}`} title={realizedTitle(r)}>{money(r.realized)}</td>
                   <td className={`num b ${pnlClass(r.total)}`}>{money(r.total)}</td>
                 </tr>
               ))}
@@ -94,7 +99,7 @@ export function Timeline({ trade, now, times }: { trade: Trade; now?: { shares: 
       {trade.events.map((e, i) => (
         <div className="ev" key={i}>
           <span className={`ev-${e.kind}`}>{KIND_LABEL[e.kind]}</span>
-          <span style={{ color: "var(--text-2)" }}>{dateOf(e.at)}{times ? ` ${timeOf(e.at)}` : ""}</span>
+          <span className="text-2">{dateOf(e.at)}{times ? ` ${timeOf(e.at)}` : ""}</span>
           <span>{e.kind === "open" || e.kind === "add" ? "BUY" : "SELL"} {qty(e.qty)} @ {price(e.price)}</span>
           {e.realized !== undefined && <span className={pnlClass(e.realized)}>{money(e.realized)}</span>}
         </div>
@@ -104,47 +109,70 @@ export function Timeline({ trade, now, times }: { trade: Trade; now?: { shares: 
   );
 }
 
-/** Open Positions page table (SPEC §6.1a). */
+const OPEN_COLUMNS: Array<{ key: OpenSort; label: string; num?: boolean }> = [
+  { key: "symbol", label: "SYMBOL" }, { key: "style", label: "STYLE" }, { key: "opened", label: "OPENED" },
+  { key: "days", label: "DAYS", num: true }, { key: "shares", label: "SHARES", num: true }, { key: "avg", label: "AVG COST", num: true },
+  { key: "last", label: "LAST", num: true }, { key: "value", label: "MKT VALUE", num: true }, { key: "unrealized", label: "UNREALIZED", num: true },
+  { key: "pct", label: "UNREALIZED %", num: true }, { key: "realized", label: "REALIZED", num: true }, { key: "total", label: "TOTAL", num: true },
+];
+
+/** Adds or trims make a timeline worth a line; a plain open is already the row itself (#14). */
+const hasHistory = (t: Trade) => t.events.some((e) => e.kind === "add" || e.kind === "trim");
+
+/** Open Positions page table (SPEC §6.1a), sortable on every column. */
 export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotals }) {
+  const [sort, setSort] = useState<{ key: OpenSort; dir: 1 | -1 }>({ key: "opened", dir: 1 });
   if (rows.length === 0) return <section className="panel"><div className="empty">No open positions</div></section>;
   const unrealPct = totals.costBasis ? totals.unrealized / totals.costBasis : null;
+  const sorted = sortOpenRows(rows, sort.key, sort.dir);
+  const by = (key: OpenSort) =>
+    setSort((s) => ({ key, dir: s.key === key ? (s.dir === 1 ? -1 : 1) : key === "symbol" || key === "style" || key === "opened" ? 1 : -1 }));
   return (
     <section className="panel scroll-x" aria-label="Positions">
-      <table className="grid" style={{ minWidth: 1180 }}>
+      <table className="grid open-table">
         <thead>
-          <tr style={{ borderBottom: "1px solid var(--border-strong)" }}>
-            <th>SYMBOL</th><th>STYLE</th><th>OPENED</th><th className="num">DAYS</th><th className="num">SHARES</th>
-            <th className="num">AVG COST</th><th className="num">LAST</th><th className="num">MKT VALUE</th>
-            <th className="num">UNREAL</th><th className="num">UNREAL %</th><th className="num">REALIZED</th><th className="num">TOTAL</th>
+          <tr>
+            {OPEN_COLUMNS.map((c) => {
+              const on = sort.key === c.key;
+              return (
+                <th key={c.key} className={c.num ? "num" : ""} aria-sort={on ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+                  <button type="button" className={`sort ${on ? "on" : ""}`} onClick={() => by(c.key)}>
+                    {c.label}<span aria-hidden="true">{on ? (sort.dir === 1 ? " ▲" : " ▼") : ""}</span>
+                  </button>
+                </th>
+              );
+            })}
           </tr>
         </thead>
-        {rows.map((r) => (
+        {sorted.map((r) => (
           <tbody key={r.trade.id}>
             <tr>
-              <td style={{ paddingTop: 10 }}><Sym r={r} big /></td>
+              <td className="sym-cell"><Sym r={r} big /></td>
               <td className="accent">{r.trade.style.toUpperCase()}</td>
               <td>{dateOf(r.trade.openedAt)}</td>
               <td className="num">{r.daysHeld}</td>
               <td className="num">{qty(r.shares)} <span className="dim">/ {qty(r.maxShares)}</span></td>
               <td className="num">{price(r.avgCost)}</td>
               <td className="num"><Last r={r} /></td>
-              <td className="num" style={{ color: "var(--text-2)" }}>{money(r.marketValue, { sign: false })}</td>
+              <td className="num text-2">{money(r.marketValue, { sign: false })}</td>
               <td className={`num b ${pnlClass(r.unrealized)}`}>{money(r.unrealized)}</td>
               <td className={`num ${pnlClass(r.unrealized)}`}>{signedPct(r.unrealizedPct)}</td>
-              <td className={`num ${pnlClass(r.realized)}`}>{money(r.realized)}</td>
+              <td className={`num ${pnlClass(r.realized)}`} title={realizedTitle(r)}>{money(r.realized)}</td>
               <td className={`num b ${pnlClass(r.total)}`}>{money(r.total)}</td>
             </tr>
-            <tr style={{ borderTop: 0 }}>
-              <td colSpan={12} style={{ padding: "0 14px 12px", whiteSpace: "normal" }}><Timeline trade={r.trade} now={{ shares: r.shares, last: r.last, stale: r.quote?.isStale }} /></td>
-            </tr>
+            {hasHistory(r.trade) && (
+              <tr className="timeline-row">
+                <td colSpan={12}><Timeline trade={r.trade} now={{ shares: r.shares, last: r.last, stale: r.quote?.isStale }} /></td>
+              </tr>
+            )}
           </tbody>
         ))}
         <tbody>
           <tr className="total">
-            <td colSpan={7} className="muted" style={{ letterSpacing: "0.08em" }}>
+            <td colSpan={7} className="muted spaced">
               TOTAL · {totals.count} POSITION{totals.count === 1 ? "" : "S"}{totals.unpriced ? ` · ${totals.unpriced} UNPRICED (NOT IN TOTALS)` : ""}
             </td>
-            <td className="num" style={{ color: "var(--text-2)" }}>{money(totals.marketValue, { sign: false })}</td>
+            <td className="num text-2">{money(totals.marketValue, { sign: false })}</td>
             <td className={`num b ${pnlClass(totals.unrealized)}`}>{money(totals.unrealized)}</td>
             <td className={`num ${pnlClass(totals.unrealized)}`}>{signedPct(unrealPct)}</td>
             <td className={`num ${pnlClass(totals.realized)}`}>{money(totals.realized)}</td>
