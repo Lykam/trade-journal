@@ -792,8 +792,9 @@ candlestick charts in v1 (see §11).
     REPORTS · JOURNAL · SETTINGS, with IMPORT and LOCK on the right. Beside
     them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
     SCHWAB 10-02`, the last import per broker turning amber with `!` when it
-    is older than the latest closed session (Q55). It wraps
-    at phone width.
+    is older than the latest closed session (Q55). At phone width it is one
+    line that scrolls sideways, IMPORT included, with the active tab kept in
+    view (Q57).
   - All colors are CSS variables, so a light theme or different palette can be
     added later without touching components.
 - **Global filter bar** on Trades and Reports, kept in the URL so views can be
@@ -936,7 +937,9 @@ dashboard quick view has, plus:
 - A month grid. Each day cell shows net P&L (green or red background tint),
   the number of trades, and 📄 if a review exists. A weekly total column sits
   on the right; a week that reaches into another month is dimmed and says
-  so (`WK · INCL. SEP`), since its total includes those days.
+  so (`WK · INCL. SEP`), since its total includes those days. At phone width
+  amounts are whole dollars (`+16`, `−43`) and the weekend columns are
+  narrower.
 - Clicking a day opens the Trades page filtered to that date. Arrows step
   between months, and a **year view** shows a 12-month heatmap.
 
@@ -1445,6 +1448,8 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q57 | Phone layout | UX review (#17), at 390 px. **P&L never leaves the screen:** below 640 px every table hides its middle columns instead of becoming cards (Dashboard open positions: symbol, %, total; OPEN: symbol, days, unrealized %, total; Trades: date without the year, symbol, P&L, 📄; Journal: date, ticker, status, P&L; Recent 10 drops the hold), and the Trades select column goes, since bulk edits are a desktop task. The OPEN timeline is hidden. **Order** stays the desktop one (owner decision), with compact gauges (Q55). The nav is one scrolling line. The week strip shows weekdays only; the calendar uses whole dollars and narrow weekends. (2026-10-04, #17) |
+
 | Q56 | One set of numbers | UX review (#16). **Win %** is always wins ÷ (wins + losses): the dashboard donut's legend shows counts only and its center the tile's figure, and the Detailed grid shows Winners / Losers / Breakeven as counts with Win % once. **% mode** (owner decision): totals stay, labeled `SUM OF TRADE %`, with a hover saying it is not an account return; drawdown drops "of peak" in % mode. **Hold** splits by style whenever both are in a grid (Detailed, Compare, Win vs Loss Days). The Trades tile counts open rows apart (`8 OPEN · 296 CLOSED`), so its closed count matches Reports. A calendar week that spans two months is dimmed and names the other month. (2026-10-04, #16) |
 
 | Q55 | Dashboard top | UX review (#15), owner decisions 2026-10-04. **Needs attention** joins the pinned top blocks as one line under the gauges that opens into the list, hidden when empty, and adds today's unreviewed trades. **Backfill stays** (Q13, Q20): there is no "not enough trades" state, since earlier trades always fill the window; the gauge says so instead (`1 CLOSED THIS WEEK, 4 EARLIER` and a note). **Full-size target:** the fewest extra wins this week that reach Δ ≥ 0 with nothing else changing, each win pushing the oldest backfilled trade out; none at full size, without a baseline or beyond 50. **Imports:** the bundle carries the latest `importedAt` per broker (`imports`; fills keep theirs blank), and the top bar flags one older than the latest closed session (weekdays 16:00 ET, no holidays, like Q21). The 30/60/90 block gets an ALL / DAY / SWING toggle; the week strip hides empty weekend days and says it covers all styles; the Recent 10 strip runs newest first like its list; largest gain / loss are two bars instead of a half-gauge. (2026-10-04, #15) |

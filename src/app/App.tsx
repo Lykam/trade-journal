@@ -65,7 +65,10 @@ export function App() {
   const view = useMemo(() => parseView(params), [params]);
   useEffect(() => {
     window.scrollTo(0, 0);
+    // On a phone the nav scrolls sideways (#17): keep the active tab in view.
+    document.querySelector(".nav a.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [path]);
+
   const pinned = new URLSearchParams(window.location.search).has("now");
 
   // The encrypted site shows nothing but the passphrase screen until unlocked. (The demo never locks.)

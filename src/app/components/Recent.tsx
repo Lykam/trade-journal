@@ -35,7 +35,8 @@ function Column({ r, journal }: { r: Recent; journal: Journal }) {
                 <td>
                   <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> <span className="tag">{underlyingTag(t)}</span>
                 </td>
-                <td className="muted">{holdLabel(t)}</td>
+                <td className="muted ph-hide">{holdLabel(t)}</td>
+
                 <td className="review-cell">
                   {reviewsOf(journal, t)[0] && (
                     <a href={`#/journal/${encodeURIComponent(reviewsOf(journal, t)[0]!.id)}`} title="Reviewed: open the review" aria-label="Reviewed" onClick={(e) => e.stopPropagation()}>📄</a>

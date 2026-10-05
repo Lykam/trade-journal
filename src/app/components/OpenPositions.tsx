@@ -31,11 +31,6 @@ const realizedTitle = (r: OpenRow) => `${realizedNote(r.trims.length, r.buyFees)
 
 const trimText = (e: TradeEvent) => `${mmdd(dateOf(e.at))} −${qty(e.qty)} @${price(e.price)}`;
 
-export function asOfText(totals: OpenTotals): string {
-  if (!totals.pricesAsOf) return "NO PRICES";
-  return `AS OF ${timeOf(totals.pricesAsOf)} ${mmdd(dateOf(totals.pricesAsOf))}`;
-}
-
 /** Dashboard block 2 (SPEC §6.1 item 2). */
 export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotals }) {
   return (
@@ -63,23 +58,23 @@ export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
           <table className="grid open-quick">
             <thead>
               <tr>
-                <th>SYMBOL</th><th>OPENED</th><th>TRIMS</th><th className="num">SHARES</th><th className="num">AVG</th>
-                <th className="num">LAST</th><th className="num">UNREALIZED</th><th className="num">%</th>
-                <th className="num">REALIZED</th><th className="num">TOTAL</th>
+                <th>SYMBOL</th><th className="ph-hide">OPENED</th><th className="ph-hide">TRIMS</th><th className="num ph-hide">SHARES</th><th className="num ph-hide">AVG</th>
+                <th className="num ph-hide">LAST</th><th className="num ph-hide">UNREALIZED</th><th className="num">%</th>
+                <th className="num ph-hide">REALIZED</th><th className="num">TOTAL</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.trade.id}>
                   <td><Sym r={r} /> <span className="accent small">{r.trade.style.toUpperCase()}</span></td>
-                  <td className="text-2">{mmdd(dateOf(r.trade.openedAt))} <span className="dim">({r.daysHeld}d)</span></td>
-                  <td className="text-2">{r.trims.length ? r.trims.map(trimText).join(", ") : "—"}</td>
-                  <td className="num">{qty(r.shares)} <span className="dim">/ {qty(r.maxShares)}</span></td>
-                  <td className="num">{price(r.avgCost)}</td>
-                  <td className="num"><Last r={r} /></td>
-                  <td className={`num b ${pnlClass(r.unrealized)}`}>{money(r.unrealized)}</td>
+                  <td className="text-2 ph-hide">{mmdd(dateOf(r.trade.openedAt))} <span className="dim">({r.daysHeld}d)</span></td>
+                  <td className="text-2 ph-hide">{r.trims.length ? r.trims.map(trimText).join(", ") : "—"}</td>
+                  <td className="num ph-hide">{qty(r.shares)} <span className="dim">/ {qty(r.maxShares)}</span></td>
+                  <td className="num ph-hide">{price(r.avgCost)}</td>
+                  <td className="num ph-hide"><Last r={r} /></td>
+                  <td className={`num b ph-hide ${pnlClass(r.unrealized)}`}>{money(r.unrealized)}</td>
                   <td className={`num ${pnlClass(r.unrealized)}`}>{signedPct(r.unrealizedPct)}</td>
-                  <td className={`num ${pnlClass(r.realized)}`} title={realizedTitle(r)}>{money(r.realized)}</td>
+                  <td className={`num ph-hide ${pnlClass(r.realized)}`} title={realizedTitle(r)}>{money(r.realized)}</td>
                   <td className={`num b ${pnlClass(r.total)}`}>{money(r.total)}</td>
                 </tr>
               ))}
@@ -110,12 +105,14 @@ export function Timeline({ trade, now, times }: { trade: Trade; now?: { shares: 
   );
 }
 
-const OPEN_COLUMNS: Array<{ key: OpenSort; label: string; num?: boolean }> = [
-  { key: "symbol", label: "SYMBOL" }, { key: "style", label: "STYLE" }, { key: "opened", label: "OPENED" },
-  { key: "days", label: "DAYS", num: true }, { key: "shares", label: "SHARES", num: true }, { key: "avg", label: "AVG COST", num: true },
-  { key: "last", label: "LAST", num: true }, { key: "value", label: "MKT VALUE", num: true }, { key: "unrealized", label: "UNREALIZED", num: true },
-  { key: "pct", label: "UNREALIZED %", num: true }, { key: "realized", label: "REALIZED", num: true }, { key: "total", label: "TOTAL", num: true },
+/** `phone`: still shown below 640 px, where the rest is hidden so P&L never falls off-screen (#17). */
+const OPEN_COLUMNS: Array<{ key: OpenSort; label: string; num?: boolean; phone?: boolean }> = [
+  { key: "symbol", label: "SYMBOL", phone: true }, { key: "style", label: "STYLE" }, { key: "opened", label: "OPENED" },
+  { key: "days", label: "DAYS", num: true, phone: true }, { key: "shares", label: "SHARES", num: true }, { key: "avg", label: "AVG COST", num: true },
+  { key: "last", label: "LAST", num: true }, { key: "value", label: "MARKET VALUE", num: true }, { key: "unrealized", label: "UNREALIZED", num: true },
+  { key: "pct", label: "UNREALIZED %", num: true, phone: true }, { key: "realized", label: "REALIZED", num: true }, { key: "total", label: "TOTAL", num: true, phone: true },
 ];
+const ph = (key: OpenSort) => (OPEN_COLUMNS.find((c) => c.key === key)!.phone ? "" : "ph-hide");
 
 /** Adds or trims make a timeline worth a line; a plain open is already the row itself (#14). */
 const hasHistory = (t: Trade) => t.events.some((e) => e.kind === "add" || e.kind === "trim");
@@ -136,7 +133,7 @@ export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
             {OPEN_COLUMNS.map((c) => {
               const on = sort.key === c.key;
               return (
-                <th key={c.key} className={c.num ? "num" : ""} aria-sort={on ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+                <th key={c.key} className={`${c.num ? "num" : ""} ${ph(c.key)}`} aria-sort={on ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
                   <button type="button" className={`sort ${on ? "on" : ""}`} onClick={() => by(c.key)}>
                     {c.label}<span aria-hidden="true">{on ? (sort.dir === 1 ? " ▲" : " ▼") : ""}</span>
                   </button>
@@ -149,16 +146,16 @@ export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
           <tbody key={r.trade.id}>
             <tr>
               <td className="sym-cell"><Sym r={r} big /></td>
-              <td className="accent">{r.trade.style.toUpperCase()}</td>
-              <td>{dateOf(r.trade.openedAt)}</td>
+              <td className="accent ph-hide">{r.trade.style.toUpperCase()}</td>
+              <td className="ph-hide">{dateOf(r.trade.openedAt)}</td>
               <td className="num">{r.daysHeld}</td>
-              <td className="num">{qty(r.shares)} <span className="dim">/ {qty(r.maxShares)}</span></td>
-              <td className="num">{price(r.avgCost)}</td>
-              <td className="num"><Last r={r} /></td>
-              <td className="num text-2">{money(r.marketValue, { sign: false })}</td>
-              <td className={`num b ${pnlClass(r.unrealized)}`}>{money(r.unrealized)}</td>
+              <td className="num ph-hide">{qty(r.shares)} <span className="dim">/ {qty(r.maxShares)}</span></td>
+              <td className="num ph-hide">{price(r.avgCost)}</td>
+              <td className="num ph-hide"><Last r={r} /></td>
+              <td className="num text-2 ph-hide">{money(r.marketValue, { sign: false })}</td>
+              <td className={`num b ph-hide ${pnlClass(r.unrealized)}`}>{money(r.unrealized)}</td>
               <td className={`num ${pnlClass(r.unrealized)}`}>{signedPct(r.unrealizedPct)}</td>
-              <td className={`num ${pnlClass(r.realized)}`} title={realizedTitle(r)}>{money(r.realized)}</td>
+              <td className={`num ph-hide ${pnlClass(r.realized)}`} title={realizedTitle(r)}>{money(r.realized)}</td>
               <td className={`num b ${pnlClass(r.total)}`}>{money(r.total)}</td>
             </tr>
             {hasHistory(r.trade) && (
@@ -170,13 +167,17 @@ export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
         ))}
         <tbody>
           <tr className="total">
-            <td colSpan={7} className="muted spaced">
+            {/* Phone shows SYMBOL and DAYS before % and TOTAL, so its label spans two columns (#17). */}
+            <td colSpan={2} className="muted spaced ph-only">TOTAL · {totals.count}</td>
+            <td colSpan={7} className="muted spaced ph-hide">
+
               TOTAL · {totals.count} POSITION{totals.count === 1 ? "" : "S"}{totals.unpriced ? ` · ${totals.unpriced} UNPRICED (NOT IN TOTALS)` : ""}
             </td>
-            <td className="num text-2">{money(totals.marketValue, { sign: false })}</td>
-            <td className={`num b ${pnlClass(totals.unrealized)}`}>{money(totals.unrealized)}</td>
+            <td className="num text-2 ph-hide">{money(totals.marketValue, { sign: false })}</td>
+            <td className={`num b ph-hide ${pnlClass(totals.unrealized)}`}>{money(totals.unrealized)}</td>
             <td className={`num ${pnlClass(totals.unrealized)}`}>{signedPct(unrealPct)}</td>
-            <td className={`num ${pnlClass(totals.realized)}`}>{money(totals.realized)}</td>
+            <td className={`num ph-hide ${pnlClass(totals.realized)}`}>{money(totals.realized)}</td>
+
             <td className={`num b ${pnlClass(totals.total)}`}>{money(totals.total)}</td>
           </tr>
         </tbody>

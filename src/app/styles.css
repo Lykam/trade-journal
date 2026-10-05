@@ -465,3 +465,24 @@ td.review-cell { width: 18px; }
 .donut-value { fill: var(--text); font: 700 15px var(--font); }
 .donut-legend { display: flex; flex-direction: column; gap: 4px; }
 .cal-cell.week.spans .cal-pnl, .cal-cell.week.spans .cal-n { opacity: 0.5; }
+/* Phone tables (#17): middle columns go, so SYMBOL and P&L always fit. */
+.ph-only { display: none; }
+@media (max-width: 640px) {
+  .ph-hide { display: none; }
+  table.grid td.ph-only, table.grid th.ph-only { display: table-cell; }
+  table.open-quick, table.open-table { min-width: 0; }
+}
+@media (max-width: 640px) {
+  /* Narrower weekend columns on a phone (#17); weekends rarely hold trades. */
+  .cal.starts-monday .cal-row { grid-template-columns: repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, 0.55fr)) minmax(0, 1.1fr); }
+  .cal.starts-sunday .cal-row { grid-template-columns: minmax(0, 0.55fr) repeat(5, minmax(0, 1fr)) minmax(0, 0.55fr) minmax(0, 1.1fr); }
+  /* The nav is one line that scrolls sideways (#17), so it never takes three rows or moves the active tab. */
+  .nav { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav > * { flex: 0 0 auto; }
+  .nav .spacer { flex: 0 0 8px; }
+  .nav .stamps { flex-wrap: nowrap; order: 10; }
+}
+th.select-cell { width: 28px; }
+.ph-only-inline { display: none; }
+@media (max-width: 640px) { .ph-only-inline { display: inline; } }

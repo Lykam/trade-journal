@@ -44,8 +44,8 @@ export function JournalPage({ journal: j, view }: { journal: Journal; view: View
             <table className="grid">
               <thead>
                 <tr>
-                  <th>DATE</th><th>TICKER</th><th>TYPE</th><th>STATUS</th><th>CATEGORY</th>
-                  <th className="num">IDEA {view.pnl.toUpperCase()} P&amp;L</th><th className="num">TRADES</th><th>IDEA</th>
+                  <th>DATE</th><th>TICKER</th><th className="ph-hide">TYPE</th><th>STATUS</th><th className="ph-hide">CATEGORY</th>
+                  <th className="num">IDEA {view.pnl.toUpperCase()} P&amp;L</th><th className="num ph-hide">TRADES</th><th className="ph-hide">IDEA</th>
                 </tr>
               </thead>
               <tbody>
@@ -58,12 +58,13 @@ export function JournalPage({ journal: j, view }: { journal: Journal; view: View
                         <a className="sym" href={reviewLink(r.id)}>{r.ticker ?? r.id}</a>
                         {r.underlying && r.underlying !== r.ticker && <span className="tag"> →{r.underlying}</span>}
                       </td>
-                      <td className="muted">{r.header.tradeType?.toUpperCase() ?? "—"}</td>
+                      <td className="muted ph-hide">{r.header.tradeType?.toUpperCase() ?? "—"}</td>
                       <td><StatusChip r={r} /></td>
-                      <td className="muted">{r.header.category ?? ""}</td>
+                      <td className="muted ph-hide">{r.header.category ?? ""}</td>
                       <td className="num">{idea ? <Pnl p={groupPnl(j, trades, view.pnl)} b /> : <span className="dim">—</span>}</td>
-                      <td className="num">{idea ? trades.length : "—"}</td>
-                      <td>{idea ? <span className="muted small">{idea.style.toUpperCase()} · {idea.status.toUpperCase()}</span> : <span className="half small">NO MATCHING IDEA</span>}</td>
+                      <td className="num ph-hide">{idea ? trades.length : "—"}</td>
+                      <td className="ph-hide">{idea ?
+ <span className="muted small">{idea.style.toUpperCase()} · {idea.status.toUpperCase()}</span> : <span className="half small">NO MATCHING IDEA</span>}</td>
                     </tr>
                   );
                 })}

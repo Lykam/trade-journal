@@ -106,7 +106,8 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
           <h2>{monthLabel(month)} · <span className={pnlClass(total.pnl)}>{money(total.pnl)}</span></h2>
           <span className="muted small">{n(total)} {unit.toUpperCase()} · CLICK A DAY FOR ITS TRADES</span>
         </div>
-        <div className="cal" role="grid">
+        <div className={`cal starts-${startsOn}`} role="grid">
+
           <div className="cal-row head" role="row">
             {dows.map((d) => <div key={d} role="columnheader">{d}</div>)}
             <div role="columnheader">WEEK</div>

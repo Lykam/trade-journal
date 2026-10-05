@@ -74,9 +74,10 @@ export const monthLabel = (month: string) => `${MONTHS[Number(month.slice(5, 7))
 export const whenOf = (iso: string, precision: "second" | "day" = "second") =>
   precision === "day" ? dateOf(iso) : `${dateOf(iso)} ${etTime(iso)}`;
 
-/** Short P&L for small calendar cells: "+12.6", "−126", "+1.2k". */
+/** Whole dollars for small calendar cells on a phone: "+16", "−43", "+1.2k" (#17), with a true minus. */
 export function compactMoney(n: number): string {
   const a = Math.abs(n);
-  const body = a >= 1000 ? `${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : a >= 100 ? a.toFixed(0) : a.toFixed(a >= 10 ? 1 : 2);
+  const body = a >= 1000 ? `${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : String(Math.round(a));
   return n < 0 ? `${MINUS}${body}` : n > 0 ? `+${body}` : body;
 }
+

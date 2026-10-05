@@ -15,15 +15,16 @@ import { mmdd, money, pct, pnlClass, qty } from "../format";
 export const tradeLink = (id: string, v: ViewState) => `#/trade/${id}${queryOf(viewToParams(v, { page: false }))}`;
 export const reviewLink = (id: string) => `#/journal/${encodeURIComponent(id)}`;
 
-const COLUMNS: Array<{ key: SortKey; label: string; num?: boolean; title?: string }> = [
-  { key: "date", label: "DATE" },
-  { key: "symbol", label: "SYMBOL" },
+/** `phone`: still shown below 640 px, where the other columns are hidden so P&L stays on screen (#17). */
+const COLUMNS: Array<{ key: SortKey; label: string; num?: boolean; title?: string; phone?: boolean }> = [
+  { key: "date", label: "DATE", phone: true },
+  { key: "symbol", label: "SYMBOL", phone: true },
   { key: "style", label: "STYLE" },
   { key: "volume", label: "VOLUME", num: true, title: "Shares bought + sold" },
-  { key: "executions", label: "EXEC", num: true, title: "Fills" },
+  { key: "executions", label: "FILLS", num: true },
   { key: "hold", label: "HOLD" },
-  { key: "pnl", label: "P&L", num: true },
-  { key: "review", label: "REVIEW" },
+  { key: "pnl", label: "P&L", num: true, phone: true },
+  { key: "review", label: "REVIEW", phone: true },
   { key: "notes", label: "NOTES" },
   { key: "tags", label: "TAGS" },
 ];
@@ -99,15 +100,16 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
             <table className="grid trades">
               <thead>
                 <tr>
-                  <th style={{ width: 28 }}>
+                  <th className="select-cell ph-hide">
                     <input type="checkbox" aria-label="Select all on this page" checked={allOnPage} onChange={(e) => toggle(pageIds, e.target.checked)} />
                   </th>
                   {COLUMNS.map((c) => {
                     const on = view.sort.key === c.key;
                     return (
-                      <th key={c.key} className={c.num ? "num" : ""} aria-sort={on ? (view.sort.dir === "asc" ? "ascending" : "descending") : "none"} title={c.title}>
+                      <th key={c.key} className={`${c.num ? "num" : ""} ${c.phone ? "" : "ph-hide"}`} aria-sort={on ? (view.sort.dir === "asc" ? "ascending" : "descending") : "none"} title={c.title}>
                         <button type="button" className={`sort ${on ? "on" : ""}`} onClick={() => sortBy(c.key)}>
-                          {c.key === "pnl" ? `${view.pnl.toUpperCase()} P&L` : c.label}
+                          {c.key === "pnl" ? `${view.pnl.toUpperCase()} P&L` : c.key === "review" ? <><span className="ph-hide">REVIEW</span><span className="ph-only-inline" aria-hidden="true">📄</span></> : c.label}
+
                           <span aria-hidden="true">{on ? (view.sort.dir === "asc" ? " ▲" : " ▼") : ""}</span>
                         </button>
                       </th>
@@ -129,11 +131,12 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                   return (
                     <Fragment key={r.id}>
                       <tr className={`clickable ${first.excluded && !isIdea ? "excluded" : ""}`} onClick={onRow}>
-                        <td onClick={(e) => e.stopPropagation()}>
+                        <td className="ph-hide" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" aria-label={`Select ${r.symbol} ${r.date}`} checked={ids.every((id) => selected.has(id))} onChange={(e) => toggle(ids, e.target.checked)} />
                         </td>
                         <td className="muted">
-                          {r.firstDate !== r.date ? <>{mmdd(r.firstDate)}→{mmdd(r.date)}</> : r.date}
+                          {/* The year goes on a phone, where P&L needs the width (#17). */}
+                          {r.firstDate !== r.date ? <>{mmdd(r.firstDate)}→{mmdd(r.date)}</> : <><span className="ph-hide">{r.date.slice(0, 5)}</span>{mmdd(r.date)}</>}
                         </td>
                         <td>
                           {isIdea && r.trades.length > 1 && <span className="caret" aria-hidden="true">{isOpen ? "▾" : "▸"} </span>}
@@ -143,36 +146,38 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                           ) : (
                             <EtfBadge t={first} />
                           )}
-                          {r.open && <span className="chip accent">OPEN</span>}
+                          {r.open && <span className="chip accent ph-hide">OPEN</span>}
+
                           {first.status === "unmatched" && <span className="chip loss">UNMATCHED</span>}
                           {first.excluded && !isIdea && <span className="chip">EXCL</span>}
                         </td>
-                        <td className="muted">{r.style.toUpperCase()}</td>
-                        <td className="num">{qty(r.volume)}</td>
-                        <td className="num">{r.executions}</td>
-                        <td className="muted">{rowHold(r)}</td>
+                        <td className="muted ph-hide">{r.style.toUpperCase()}</td>
+                        <td className="num ph-hide">{qty(r.volume)}</td>
+                        <td className="num ph-hide">{r.executions}</td>
+                        <td className="muted ph-hide">{rowHold(r)}</td>
                         <td className="num"><Pnl p={groupPnl(j, r.trades, view.pnl)} b /></td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {review ? <a href={reviewLink(review.id)} title="Open review" aria-label="Open review">📄</a> : null}
                         </td>
-                        <td className="note" title={r.note}>{r.note}</td>
-                        <td><Tags r={r} j={j} /></td>
+                        <td className="note ph-hide" title={r.note}>{r.note}</td>
+                        <td className="ph-hide"><Tags r={r} j={j} /></td>
                       </tr>
                       {isIdea && isOpen && r.trades.map((t) => (
                         <tr key={t.id} className="clickable sub" onClick={() => go(tradeLink(t.id, view))}>
-                          <td onClick={(e) => e.stopPropagation()}>
+                          <td className="ph-hide" onClick={(e) => e.stopPropagation()}>
                             <input type="checkbox" aria-label={`Select ${t.symbol} trade`} checked={selected.has(t.id)} onChange={(e) => toggle([t.id], e.target.checked)} />
                           </td>
                           <td className="muted">↳ {mmdd(tradeDate(t))}</td>
                           <td><a className="sym" href={tradeLink(t.id, view)}>{t.symbol}</a> <EtfBadge t={t} /></td>
-                          <td className="muted">{t.style.toUpperCase()}</td>
-                          <td className="num">{qty(t.events.reduce((s, e) => s + e.qty, 0))}</td>
-                          <td className="num">{t.fillIds.length}</td>
-                          <td className="muted">{t.status === "open" ? "open" : holdLabel(t)}</td>
+                          <td className="muted ph-hide">{t.style.toUpperCase()}</td>
+                          <td className="num ph-hide">{qty(t.events.reduce((s, e) => s + e.qty, 0))}</td>
+                          <td className="num ph-hide">{t.fillIds.length}</td>
+                          <td className="muted ph-hide">{t.status === "open" ? "open" : holdLabel(t)}</td>
                           <td className="num"><Pnl p={groupPnl(j, [t], view.pnl)} /></td>
                           <td />
-                          <td className="note" title={t.note}>{t.note}</td>
-                          <td />
+                          <td className="note ph-hide" title={t.note}>{t.note}</td>
+                          <td className="ph-hide" />
+
                         </tr>
                       ))}
                     </Fragment>

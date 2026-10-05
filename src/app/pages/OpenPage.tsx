@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { openPositions, openTotals } from "../../core/dashboard/dashboard";
-import type { DataBundle } from "../../core/types";
-import { asOfText, OpenTable } from "../components/OpenPositions";
-import { usePersisted } from "../data";
 import { cents } from "../../core/normalize/util";
-import { money, pnlClass, realizedNote } from "../format";
+import type { DataBundle } from "../../core/types";
+import { OpenTable } from "../components/OpenPositions";
+import { usePersisted } from "../data";
+import { money, pnlClass, realizedNote, stamp } from "../format";
 
 const FILTERS = ["all", "swing", "day"] as const;
 
@@ -28,7 +28,7 @@ export function OpenPage({ data, now }: { data: DataBundle; now: string }) {
   return (
     <main className="page">
       <header className="page-head">
-        <h1>OPEN POSITIONS <span className="sub">/ {t.count} OPEN · PRICES {asOfText(t)} (YAHOO){t.stale ? ` · * ${t.stale} STALE` : ""}</span></h1>
+        <h1>OPEN POSITIONS <span className="sub">/ {t.count} · {t.pricesAsOf ? `PRICES ${stamp(t.pricesAsOf)}` : "NO PRICES"}{t.stale ? ` · ${t.stale} STALE` : ""}</span></h1>
         <div className="seg" role="group" aria-label="Style">
           {FILTERS.map((f) => (
             <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>{f.toUpperCase()}</button>
@@ -45,10 +45,10 @@ export function OpenPage({ data, now }: { data: DataBundle; now: string }) {
         ))}
       </section>
       <OpenTable rows={rows} totals={t} />
-      <div className="dim">
-        REALIZED = P&amp;L LOCKED IN BY TRIMS (AVG-COST BASIS). UNREALIZED = SHARES × (LAST − AVG COST). TOTAL = BOTH. MAY DIFFER
-        FROM SCHWAB'S TAX-LOT (FIFO) FIGURES BY DESIGN.
+      <div className="dim small" title="Realized = locked in by trims, less buy fees. Unrealized = shares × (last − avg cost). Total = both.">
+        Average-cost basis; may differ from Schwab's FIFO tax lots.
       </div>
+
     </main>
   );
 }

@@ -9,6 +9,7 @@ import { buildRows, sortRows, summarizeRows } from "../src/core/journal/rows";
 import { buildUnits, computeGrid } from "../src/core/reports";
 import type { Fill, QuotesFile, Trade } from "../src/core/types";
 import { batch, closed, ideasOf, open } from "./factory";
+import { compactMoney } from "../src/app/format";
 import { config } from "./helpers";
 
 const q = (price: number, time = "2026-10-02T16:00:00-04:00") => ({ price, time });
@@ -150,5 +151,11 @@ describe("#16 numbers that agree", () => {
     const b = open({ openedAt: "2026-09-30T00:00:00-04:00" });
     const j = journal([a, b]);
     expect(summarizeRows(buildRows(j.trades, j, "trade"), "net")).toMatchObject({ rows: 2, open: 1, wins: 1 });
+  });
+});
+
+describe("#17 phone layout", () => {
+  it("shows whole dollars with a true minus in small calendar cells", () => {
+    expect([16.2, 170.67, -42.5, 30.05, 1234, -12500, 0].map(compactMoney)).toEqual(["+16", "+171", "−43", "+30", "+1.2k", "−13k", "0"]);
   });
 });
