@@ -10,6 +10,7 @@ import { parseArgs } from "node:util";
 import { loadHistory, REPO_ROOT, resolveHistoryDir } from "../cli/lib/history";
 import { mergeQuotes, openSymbols, quoteCounts } from "../src/core/quotes";
 import type { Quote, QuotesFile } from "../src/core/types";
+import { isPublicLog, runMain } from "./public-log";
 
 /** A source of last prices. Swap in another implementation (Finnhub, Alpaca…) without touching callers. */
 export interface QuoteProvider {
@@ -37,11 +38,6 @@ export class YahooProvider implements QuoteProvider {
     }
     return out;
   }
-}
-
-/** True in the workflows: their logs are public, so scripts print no counts (Q35). */
-export function isPublicLog(): boolean {
-  return process.env.TJ_PUBLIC_LOG === "1";
 }
 
 export function resolveQuotesFile(flag?: string): string {
@@ -94,10 +90,5 @@ export async function runFetchQuotes(
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
-  runFetchQuotes(process.argv.slice(2))
-    .then((code) => (process.exitCode = code))
-    .catch((e) => {
-      console.error((e as Error).message);
-      process.exitCode = 1;
-    });
+  await runMain("quotes", () => runFetchQuotes(process.argv.slice(2)));
 }

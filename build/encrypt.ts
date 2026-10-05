@@ -26,14 +26,9 @@ import {
 } from "../src/core/crypto";
 import type { DataBundle } from "../src/core/types";
 import { type BundleImage, bundleData, resolveSources } from "./bundle-data";
-import { isPublicLog } from "./fetch-quotes";
+import { isPublicLog, PublicError, runMain } from "./public-log";
 
 export const MIN_PASSPHRASE = 16;
-
-/** An error message that is safe for public CI logs: JSON.parse errors quote the input, so they are replaced. */
-export function safeMessage(e: unknown): string {
-  return e instanceof SyntaxError ? "a data file is not valid JSON" : ((e as Error)?.message ?? "unknown error");
-}
 
 export interface KdfParams {
   salt: Uint8Array;
@@ -43,8 +38,8 @@ export interface KdfParams {
 export function readKdfParams(file = join(REPO_ROOT, "build", "kdf.json")): KdfParams {
   const j = JSON.parse(readFileSync(file, "utf8")) as { salt: string; iterations: number };
   const salt = new Uint8Array(Buffer.from(j.salt, "hex"));
-  if (salt.length !== SALT_BYTES) throw new Error(`kdf.json: salt must be ${SALT_BYTES} bytes of hex`);
-  if (!Number.isInteger(j.iterations) || j.iterations < PBKDF2_ITERATIONS) throw new Error(`kdf.json: iterations must be at least ${PBKDF2_ITERATIONS}`);
+  if (salt.length !== SALT_BYTES) throw new PublicError(`kdf.json: salt must be ${SALT_BYTES} bytes of hex`);
+  if (!Number.isInteger(j.iterations) || j.iterations < PBKDF2_ITERATIONS) throw new PublicError(`kdf.json: iterations must be at least ${PBKDF2_ITERATIONS}`);
   return { salt, iterations: j.iterations };
 }
 
@@ -87,7 +82,7 @@ export function encryptBundle(
   distDir: string,
   kdf: KdfParams = readKdfParams(),
 ): EncryptResult {
-  if (passphrase.length < MIN_PASSPHRASE) throw new Error(`SITE_PASSPHRASE must be at least ${MIN_PASSPHRASE} characters`);
+  if (passphrase.length < MIN_PASSPHRASE) throw new PublicError(`SITE_PASSPHRASE must be at least ${MIN_PASSPHRASE} characters`);
   const key = deriveKeyNode(passphrase, kdf);
   const name = imageNamer(key);
   const imgDir = join(distDir, "img");
@@ -122,17 +117,14 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename
     args: process.argv.slice(2),
     options: { dist: { type: "string" }, "history-dir": { type: "string" }, "playbook-dir": { type: "string" }, quotes: { type: "string" } },
   });
-  try {
+  await runMain("encrypt", () => {
     const passphrase = process.env.SITE_PASSPHRASE ?? "";
-    if (!passphrase) throw new Error("SITE_PASSPHRASE is not set");
+    if (!passphrase) throw new PublicError("SITE_PASSPHRASE is not set");
     const dist = resolve(values.dist ?? join(REPO_ROOT, "dist"));
-    if (!existsSync(join(dist, "index.html"))) throw new Error(`${dist} has no index.html (run vite build first)`);
+    if (!existsSync(join(dist, "index.html"))) throw new PublicError("the dist folder has no index.html (run vite build first)");
     const { bundle, images } = bundleData(resolveSources({ historyDir: values["history-dir"], playbookDir: values["playbook-dir"], quotesFile: values.quotes }));
     const r = encryptBundle(bundle, images, passphrase, dist);
     // Public logs get no counts at all, not even the padded one (Q35).
     console.log(isPublicLog() ? "encrypt: wrote data.enc and img/*.enc (padded with decoys)" : `encrypt: wrote data.enc and ${r.imgFiles} img/*.enc files (padded with decoys)`);
-  } catch (e) {
-    console.error(`encrypt: ${safeMessage(e)}`);
-    process.exitCode = 1;
-  }
+  });
 }

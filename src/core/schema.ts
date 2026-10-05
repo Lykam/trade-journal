@@ -3,6 +3,7 @@
 // bundled (?raw) by the app, so both validate against the same files.
 // Ajv lives here only, so the app loads it with the import / commit code, not up front.
 import { Ajv, type ValidateFunction } from "ajv";
+import { DataFileError } from "./data-error";
 import type { SchemaName, SchemaTexts, Validate } from "./schema-names";
 
 export { SCHEMAS, type SchemaName, type SchemaTexts, type Validate } from "./schema-names";
@@ -18,7 +19,7 @@ export function makeValidator(texts: SchemaTexts): Validate {
     }
     if (!v(data)) {
       const errs = (v.errors ?? []).slice(0, 5).map((e) => `  ${e.instancePath || "/"} ${e.message}`);
-      throw new Error(`${label} does not match ${name}.schema.json:\n${errs.join("\n")}`);
+      throw new DataFileError(label, "schema mismatch", `${label} does not match ${name}.schema.json:\n${errs.join("\n")}`);
     }
   };
 }

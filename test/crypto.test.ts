@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { checkEncFile, entropy } from "../build/check-dist";
-import { deriveKeyNode, encryptBundle, encryptPayload, imageNamer, type KdfParams, MIN_PASSPHRASE, readKdfParams, safeMessage } from "../build/encrypt";
+import { deriveKeyNode, encryptBundle, encryptPayload, imageNamer, type KdfParams, MIN_PASSPHRASE, readKdfParams } from "../build/encrypt";
 import { openCache, sealCache } from "../build/quotes-cache";
 import {
   DATA_BUCKET, decodeHeader, decryptData, decryptFile, deriveKeyBytes, fromBase64, HEADER_BYTES, IMAGE_BUCKET, IMAGE_COUNT_BUCKET,
@@ -129,17 +129,6 @@ describe("format helpers", () => {
     expect(checkEncFile(flat, KIND_DATA)).toContain("low entropy (not ciphertext?)");
     expect(checkEncFile(good, KIND_IMAGE)).toContain("wrong kind");
     expect(entropy(good.subarray(HEADER_BYTES))).toBeGreaterThan(7.9);
-  });
-
-  it("safeMessage drops JSON.parse errors, which quote the input", () => {
-    let err: unknown;
-    try {
-      JSON.parse('{"symbol": SECRET}');
-    } catch (e) {
-      err = e;
-    }
-    expect(safeMessage(err)).not.toContain("SECRET");
-    expect(safeMessage(new Error("SITE_PASSPHRASE is not set"))).toBe("SITE_PASSPHRASE is not set");
   });
 });
 

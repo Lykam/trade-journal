@@ -12,8 +12,9 @@ import { reviewIdOf } from "../src/core/reviews/join";
 import {
   DATA_BUCKET, decodeHeader, HEADER_BYTES, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, IMAGE_NAME_RE, KIND_DATA, KIND_IMAGE, TAG_BYTES,
 } from "../src/core/crypto";
-import { isPublicLog, readQuotes, resolveQuotesFile } from "./fetch-quotes";
+import { readQuotes, resolveQuotesFile } from "./fetch-quotes";
 import { loadPlaybook, resolvePlaybookDir } from "./playbook";
+import { isPublicLog, runMain } from "./public-log";
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
@@ -178,10 +179,13 @@ export function checkDist(
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
-  const dir = resolveHistoryDir();
-  if (!existsSync(join(dir, "config.json"))) {
-    console.log("check-dist: no trade-history checkout; skipped");
-  } else {
+  // A data file that fails to load ends the run with "<file>: <kind>" only, never its message (Q43).
+  await runMain("check-dist", () => {
+    const dir = resolveHistoryDir();
+    if (!existsSync(join(dir, "config.json"))) {
+      console.log("check-dist: no trade-history checkout; skipped");
+      return 0;
+    }
     const h = loadHistory(dir);
     const playbook = loadPlaybook(resolvePlaybookDir()) ?? { reviews: [], images: [] };
     const symbols = new Set<string>([
@@ -190,9 +194,9 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename
       ...Object.keys(readQuotes(resolveQuotesFile())?.quotes ?? {}),
       ...playbook.reviews.map((r) => parseReviewHeader(r.markdown).ticker).filter((t): t is string => t !== null),
     ]);
-    process.exitCode = checkDist(join(REPO_ROOT, "dist"), symbols, console.log, appSourceText(), playbookNames(playbook), {
+    return checkDist(join(REPO_ROOT, "dist"), symbols, console.log, appSourceText(), playbookNames(playbook), {
       encrypted: process.argv.includes("--encrypted"),
       publicLog: isPublicLog(),
     });
-  }
+  });
 }
