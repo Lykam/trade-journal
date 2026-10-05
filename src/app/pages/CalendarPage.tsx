@@ -84,7 +84,8 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                       title={`${d.date}: ${d.trades ? `${money(d.pnl)} · ${n(d)} ${unit}` : "no trades"}`} aria-label={`${d.date} ${d.trades ? money(d.pnl) : "no trades"}`} />
                   ))}
                 </div>
-                <div className="muted small">{m.trades ? `${n(m)} ${(n(m) === 1 ? unit.slice(0, -1) : unit).toUpperCase()} · ${m.green}↑ ${m.red}↓` : "—"}</div>
+                <div className="muted small">{m.trades ? `${n(m)} ${(n(m) === 1 ? unit.slice(0, -1) : unit).toUpperCase()} · ${m.green} GREEN / ${m.red} RED` : "—"}</div>
+
               </div>
             ))}
           </div>
@@ -104,7 +105,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
       <section className="panel" aria-label={monthLabel(month)}>
         <div className="panel-head">
           <h2>{monthLabel(month)} · <span className={pnlClass(total.pnl)}>{money(total.pnl)}</span></h2>
-          <span className="muted small">{n(total)} {unit.toUpperCase()} · CLICK A DAY FOR ITS TRADES</span>
+          <span className="muted small">{n(total)} {unit.toUpperCase()}</span>
         </div>
         <div className={`cal starts-${startsOn}`} role="grid">
 
@@ -147,7 +148,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                 {w.trades > 0 && (
                   <>
                     <span className={`cal-pnl ${pnlClass(w.pnl)}`}><span className="full">{money(w.pnl)}</span><span className="compact">{compactMoney(w.pnl)}</span></span>
-                    <span className="cal-n muted">{n(w)}</span>
+                    <span className="cal-n muted">{n(w)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(w) === 1 ? "" : "S"}</span></span>
                   </>
                 )}
               </a>
@@ -157,7 +158,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
 
         </div>
       </section>
-      <div className="dim small">Realized P&amp;L of closed trades by ET close date; tint scales with the size of the day. 📄 = a Playbook review dated that day.</div>
+      <div className="dim small">Closed-trade P&amp;L by close date (ET). Darker = bigger day. 📄 = review.</div>
     </main>
   );
 }

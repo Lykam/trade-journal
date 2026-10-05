@@ -222,11 +222,12 @@ export function BulkBar({ data, journal: j, selected, onClear }: { data: DataBun
           {manual.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
         <div className="seg" role="group" aria-label="Set style">
-          <button type="button" onClick={() => apply(trades, { kind: "setStyle", style: "day" })}>SET DAY</button>
-          <button type="button" onClick={() => apply(trades, { kind: "setStyle", style: "swing" })}>SET SWING</button>
+          <button type="button" onClick={() => apply(trades, { kind: "setStyle", style: "day" })}>MARK DAY</button>
+          <button type="button" onClick={() => apply(trades, { kind: "setStyle", style: "swing" })}>MARK SWING</button>
         </div>
         <div className="seg" role="group" aria-label="Exclude">
-          <button type="button" onClick={() => apply(trades, { kind: "exclude", exclude: true })}>EXCLUDE</button>
+          <button type="button" onClick={() => apply(trades, { kind: "exclude", exclude: true })}>EXCLUDE FROM STATS</button>
+
           <button type="button" onClick={() => apply(trades, { kind: "exclude", exclude: false })}>INCLUDE</button>
         </div>
         <span className="grow" />

@@ -79,7 +79,7 @@ export function BucketBars({ buckets, fmt, unit, empty = "No closed trades in ra
   const bars: Bar[] = buckets.map((b) => ({
     key: b.key, label: b.label, value: b.total, cls: pnlBar(b.total),
     text: `${fmt(b.total)} · ${b.count}`,
-    title: `${b.label}: ${b.count} ${unit}${b.count === 1 ? "" : "s"} · ${pct(b.winRate)} win (${b.wins}W/${b.losses}L) · expectancy ${fmt(b.expectancy)}`,
+    title: `${b.label}: ${b.count} ${unit}${b.count === 1 ? "" : "s"} · ${pct(b.winRate)} win (${b.wins}W ${b.losses}L) · expectancy ${fmt(b.expectancy)}`,
   }));
   return <HBars bars={bars} />;
 }
@@ -100,7 +100,7 @@ export function BucketTable({ buckets, fmt, unit, onRow, selected }: {
             <tr key={b.key} className={selected === b.key ? "selected" : ""}>
               <td>{onRow ? <a href={onRow(b.key)} aria-current={selected === b.key ? "true" : undefined}>{b.label}</a> : b.label}</td>
               <td className="num">{b.count}</td>
-              <td className="num">{pct(b.winRate, 1)} <span className="dim">{b.wins}W/{b.losses}L</span></td>
+              <td className="num">{pct(b.winRate, 1)} <span className="dim">{b.wins}W {b.losses}L</span></td>
               <td className={`num b ${b.total > 0 ? "gain" : b.total < 0 ? "loss" : "flat"}`}>{fmt(b.total)}</td>
               <td className="num">{fmt(b.avg)}</td>
               <td className="num">{fmt(b.expectancy)}</td>

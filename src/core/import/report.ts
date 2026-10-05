@@ -72,7 +72,7 @@ export function monthlyTable(trades: Trade[]): string {
 }
 
 export function filesTable(files: FileReport[]): string {
-  const rows: Array<Array<string | number>> = [["FILE", "BROKER", "ACCOUNT", "ROWS", "FILLS", "NEW", "DUP", "SKIPPED", "ERRORS"]];
+  const rows: Array<Array<string | number>> = [["FILE", "BROKER", "ACCOUNT", "ROWS", "FILLS", "NEW", "DUPLICATE", "SKIPPED", "ERRORS"]];
   for (const f of files) {
     const skipped = Object.entries(f.skipped).map(([k, v]) => `${k} ${v}`).join(", ") || "—";
     rows.push([f.source, f.broker ?? "?", f.account ?? "?", f.rows, f.parsed, f.added, f.duplicates, skipped, f.errors.length]);

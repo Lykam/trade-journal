@@ -5,7 +5,7 @@ import type { Attention, RangeStats } from "../../core/dashboard/dashboard";
 import type { Journal, ReviewAttention } from "../../core/journal/journal";
 import { useState } from "react";
 import type { Quote, Trade } from "../../core/types";
-import { dateOf, days, DOW, minutes, mmdd, money, pct, pnlClass, stamp, underlyingTag } from "../format";
+import { dateOf, days, DOW, minutes, mmdd, money, pct, pnlClass, stamp, etfBadge } from "../format";
 
 import { tradeHref } from "./OpenPositions";
 
@@ -42,7 +42,7 @@ export function CumulativeChart({ pts, label, fmt = money, height = 200 }: { pts
         className={last.cum >= 0 ? "line-gain" : "line-loss"} vectorEffect="non-scaling-stroke" />
       {pts.map((p, i) => (
         <rect key={p.date} x={x(i) - step / 2} y="0" width={step} height={H} fill="transparent">
-          <title>{`${p.date}: day ${fmt(p.value)} · cum ${fmt(p.cum)}`}</title>
+          <title>{`${p.date}: day ${fmt(p.value)} · total ${fmt(p.cum)}`}</title>
         </rect>
       ))}
     </svg>
@@ -67,7 +67,7 @@ export function WinByDay({ days, avg, fmt = money }: { days: WinDay[]; avg: numb
         <div style={{ position: "absolute", left: 0, right: 0, bottom: `${avg * 100}%`, borderTop: "1px dashed var(--accent)" }} />
       )}
       {days.map((d) => (
-        <div key={d.date} title={`${d.date}: ${pct(d.winRate)} · ${d.wins}W/${d.losses}L · ${fmt(d.value)}`}
+        <div key={d.date} title={`${d.date}: ${pct(d.winRate)} · ${d.wins}W ${d.losses}L · ${fmt(d.value)}`}
           style={{
             flex: "1 1 0", minWidth: 0, height: `${Math.max(1, (d.winRate ?? 0) * 100)}%`,
             background: d.winRate === null ? "var(--border)" : avg !== null && d.winRate >= avg ? "var(--gain)" : "var(--border-strong)",
@@ -158,7 +158,7 @@ export function TradeLink({ t }: { t: Trade | null }) {
   if (!t) return <span className="muted">—</span>;
   return (
     <a href={tradeHref(t.id)} className="sym">
-      {t.symbol}<span className="tag"> {underlyingTag(t)} {mmdd(dateOf(t.closedAt!))}</span>
+      {t.symbol}<span className="tag"> {etfBadge(t)} {mmdd(dateOf(t.closedAt!))}</span>
     </a>
   );
 }

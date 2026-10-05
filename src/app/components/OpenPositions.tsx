@@ -2,7 +2,7 @@ import { useState } from "react";
 import { sortOpenRows, type OpenRow, type OpenSort, type OpenTotals } from "../../core/dashboard/dashboard";
 
 import type { Trade, TradeEvent } from "../../core/types";
-import { dateOf, mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, underlyingTag } from "../format";
+import { dateOf, mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, etfBadge } from "../format";
 
 export const tradeHref = (id: string) => `#/trade/${id}`;
 
@@ -11,7 +11,7 @@ function Sym({ r, big }: { r: OpenRow; big?: boolean }) {
   return (
     <>
       <a className={`sym ${big ? "big" : ""}`} href={tradeHref(t.id)}>{t.symbol}</a>{" "}
-      {underlyingTag(t) && <span className="tag">{underlyingTag(t)}</span>}
+      {etfBadge(t) && <span className="tag">{etfBadge(t)}</span>}
     </>
   );
 }

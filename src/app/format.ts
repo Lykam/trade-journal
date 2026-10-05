@@ -44,18 +44,23 @@ export const stamp = (iso: string) => `${etDate(iso).slice(5)} ${etTime(iso)}`;
 export const realizedNote = (trims: number, fees: number) =>
   `${trims} TRIM${trims === 1 ? "" : "S"}${fees ? ` · ${money(fees, { sign: false })} FEES` : ""}`;
 
-/** "→FAKE 2x" style suffix for leveraged ETFs (inverse funds say so). */
-export function underlyingTag(t: Trade): string {
+/**
+ * The one ETF badge (#13): "2x→MZRT", and "−2x→NVQX" for an inverse fund, which is
+ * effectively short and must not be missed.
+ */
+export function etfBadge(t: Pick<Trade, "instrument" | "underlying" | "leverage" | "direction">): string {
   if (t.instrument !== "leveraged_etf") return "";
-  return `→${t.underlying} ${t.leverage}x${t.direction === "inverse" ? " inv" : ""}`;
+  return `${t.direction === "inverse" ? MINUS : ""}${t.leverage}x→${t.underlying}`;
 }
 
+/** "6m", "1h 09m", "14h 41m". */
 export function minutes(m: number | null): string {
   if (m === null) return "—";
   if (m < 60) return `${Math.round(m)}m`;
-  const h = Math.floor(m / 60);
-  return `${h}h${String(Math.round(m % 60)).padStart(2, "0")}`;
+  const total = Math.round(m);
+  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, "0")}m`;
 }
+
 
 export const days = (d: number | null) => (d === null ? "—" : `${d.toFixed(1)}d`);
 
@@ -64,8 +69,6 @@ export const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export const MONTH_NAMES = MONTHS;
 
-/** "2026-01-15" → "Jan 15, 2026". */
-export const longDate = (date: string) => `${MONTHS[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}, ${date.slice(0, 4)}`;
 
 /** "2026-09" → "SEP 2026". */
 export const monthLabel = (month: string) => `${MONTHS[Number(month.slice(5, 7)) - 1]!.toUpperCase()} ${month.slice(0, 4)}`;

@@ -1,6 +1,6 @@
 import { holdLabel, type Recent } from "../../core/dashboard/dashboard";
 import { reviewsOf, type Journal } from "../../core/journal/journal";
-import { dateOf, mmdd, money, pct, pnlClass, underlyingTag } from "../format";
+import { dateOf, mmdd, money, pct, pnlClass, etfBadge } from "../format";
 import { tradeHref } from "./OpenPositions";
 
 function Column({ r, journal }: { r: Recent; journal: Journal }) {
@@ -33,7 +33,7 @@ function Column({ r, journal }: { r: Recent; journal: Journal }) {
                 <td className="dot-cell"><span className={`dot bg-${t.result}`} aria-label={t.result ?? ""} /></td>
                 <td className="muted">{mmdd(dateOf(t.closedAt!))}</td>
                 <td>
-                  <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> <span className="tag">{underlyingTag(t)}</span>
+                  <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> <span className="tag">{etfBadge(t)}</span>
                 </td>
                 <td className="muted ph-hide">{holdLabel(t)}</td>
 

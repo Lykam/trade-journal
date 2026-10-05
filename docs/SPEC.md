@@ -804,12 +804,13 @@ candlestick charts in v1 (see §11).
   - **Tags:** multi-select.
   - **Style:** All / Day / Swing (this replaces Tradervue's "Side", since
     everything is long).
-  - **Instrument:** All / Stock / Leveraged ETF.
+  - **Instrument:** All / Stock / ETF (leveraged single-stock ETFs).
   - **Broker:** All / Schwab / Webull.
   - **Duration:** All / Intraday / Multi-day.
   - **Result:** Win / Loss / Breakeven.
-  - **Has review.**
-  - **Date range:** From – To, with presets.
+  - **Reviewed:** All / Yes / No.
+  - **Date range:** From – To, with presets spelled out (THIS WEEK, LAST
+    MONTH…; the short forms THIS WK, LAST MO only below 640 px).
 - **Gross / Net toggle:** on Trades, Trade detail, Calendar and Journal, kept
   in the URL (`pnl=gross`). The default is Net. Results (win / loss /
   breakeven) and win rates always use net P&L, in both modes (Q2). The
@@ -852,7 +853,8 @@ the top, above everything else, in the same order at phone width.
      **Total open P&L**, and an **ALL OPEN ›** link to the Open Positions
      page (§6.1a). The price stamp is in the top bar.
    - **One row per position:**
-     - Symbol (with `→UNDERLYING 2x` for ETFs) and style.
+     - Symbol (with the `2x→UNDERLYING` badge for ETFs, `−2x→` for inverse)
+       and style.
      - **Opened** date (plus days held) and **Trims** (date, −qty, @price for
        each partial sell).
      - Shares now / max held, avg cost, last price.
@@ -945,8 +947,9 @@ dashboard quick view has, plus:
 
 ### 6.3 Trades
 
-- **Table** columns: Date, Symbol (with an `ETF→NVQX` badge on leveraged
-  ETFs), Style, Volume (shares), Executions (fill count), Hold, Gross/Net P&L,
+- **Table** columns: Date, Symbol (with a `2x→NVQX` badge on leveraged
+  ETFs, `−2x→NVQX` on inverse ones), Style, Volume (shares), Fills, Hold,
+  Gross/Net P&L,
   Review (📄 links to the review), Notes (short note, truncated), and Tags.
   - **Removed from Tradervue's table:** "Shared".
 - **Rows** are one per trade by default, matching Tradervue (e.g. two MZRU
@@ -958,20 +961,23 @@ dashboard quick view has, plus:
   in muted text (`open +19.50`, or `open —` without a quote), never colored
   as a win or loss, and they sort after the closed trades on P&L (Q54). The
   Journal list, the review page and the Idea panel do the same.
-- **Bulk select** with checkboxes, then **Add tag / Remove tag / Set style /
-  Exclude**. Every bulk action is one commit to `trade-history/overrides.json`.
+- **Bulk select** with checkboxes, then **Add tag / Remove tag / Mark Day /
+  Mark Swing / Exclude from stats / Include**. Every bulk action is one commit
+  to `trade-history/overrides.json`.
 - **Views:** only *Table* in v1. Tradervue's "Charts (large/small)" views are
   dropped until charts exist.
 
 ### 6.4 Trade detail
 
-The header is the symbol and date-time ("MZRU · Jan 15, 2026"; day-precision
-Schwab trades show the date only). Below it are the tag chips, with an
-**Add tags +** control. The top right has **Back**, **Previous trade** and
-**Next trade**, which follow the current filter and sort.
+The header is the symbol and date-time ("MZRU · 2026-01-15 15:41 ET";
+day-precision Schwab trades show the date only). Below it are the manual tag
+chips and any review Category, with an **Add tags +** control (style, ETF and
+reviewed already show in the header and stats). The top right has **Back** and
+**‹ Newer / Older ›**, which follow the current filter and sort; under a sort
+other than date they read **‹ Prev / Next ›**.
 
 - **Stats panel:**
-  - Shares traded, executions, avg entry, avg exit, gross / fees / net P&L,
+  - Size (max shares held), volume, fills, avg entry, avg exit, gross / fees / net P&L,
     % return on cost, hold time, style, broker and account.
   - The underlying and leverage, for ETF trades.
   - Unrealized P&L at the latest quote, for open swing positions. For an
@@ -981,14 +987,14 @@ Schwab trades show the date only). Below it are the tag chips, with an
     dashboard.
   - **Not shown in v1:** MFE/MAE ("best exit", position and price
     MFE/MAE). Those need intraday price history (§11).
-- **Executions table:** time, side, qty, price and fees for every fill.
+- **Fills table:** time, side, qty, price and fees for every fill.
 - **Idea panel:** the other trades in the same idea, with their P&L and a
   combined idea total. For example, "Idea: NVQX · 3 trades · +$85 (2 NVQX,
   1 NVQU)".
 - **Notes panel (right side), from your Playbook review:**
   - If a review is linked to this trade's idea (§6.11), it is rendered here:
     headings, the Finviz `<details>` block, and images inline, with template
-    HTML comments hidden. An **Open full review** link goes to the Journal.
+    HTML comments hidden. A **Full review ›** link goes to the Journal.
   - If there is no review, the panel shows a short **quick note**, editable
     and saved to `overrides.json` (one or two lines, like Tradervue's notes
     field). The edit is staged, previewed, then committed (Q32, §4.5A). It also has a **Start review** button that copies
@@ -1448,6 +1454,8 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q58 | Wording | UX review (#13): the find-and-replace table applied, with owner changes (`UNREALIZED`, not `OPEN P&L`, which would clash with Total open P&L; `DAYS TRADED`; Newer / Older only under a date sort). Rules: no "CUM"; W/L as `6W 5L` (`1BE` when there are breakevens); holds `6m 28s`, `1h 09m`, multi-day `17d`; ISO dates in headers and detail pages, `09-21` in dense tables; one price stamp `PRICES 10-02 16:00`; one ETF badge `2x→MZRT` / `−2x→NVQX`; sentences spell out half / quarter size; footnotes in sentence case. Kept short forms: P&L, AVG, ET, sh, 30D/60D/90D, PF in the Tag Breakdown table, SQN, K-ratio, Kelly %, and the nav and logo. (2026-10-04, #13) |
+
 | Q57 | Phone layout | UX review (#17), at 390 px. **P&L never leaves the screen:** below 640 px every table hides its middle columns instead of becoming cards (Dashboard open positions: symbol, %, total; OPEN: symbol, days, unrealized %, total; Trades: date without the year, symbol, P&L, 📄; Journal: date, ticker, status, P&L; Recent 10 drops the hold), and the Trades select column goes, since bulk edits are a desktop task. The OPEN timeline is hidden. **Order** stays the desktop one (owner decision), with compact gauges (Q55). The nav is one scrolling line. The week strip shows weekdays only; the calendar uses whole dollars and narrow weekends. (2026-10-04, #17) |
 
 | Q56 | One set of numbers | UX review (#16). **Win %** is always wins ÷ (wins + losses): the dashboard donut's legend shows counts only and its center the tile's figure, and the Detailed grid shows Winners / Losers / Breakeven as counts with Win % once. **% mode** (owner decision): totals stay, labeled `SUM OF TRADE %`, with a hover saying it is not an account return; drawdown drops "of peak" in % mode. **Hold** splits by style whenever both are in a grid (Detailed, Compare, Win vs Loss Days). The Trades tile counts open rows apart (`8 OPEN · 296 CLOSED`), so its closed count matches Reports. A calendar week that spans two months is dimmed and names the other month. (2026-10-04, #16) |

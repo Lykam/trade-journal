@@ -234,7 +234,7 @@ describe("breakdowns", () => {
   });
 
   it("instrument, same underlying, top / bottom", () => {
-    expect(byInstrument(units, NET).map((b) => [b.label, b.total])).toEqual([["STOCK", 15], ["LEV ETF", -1]]);
+    expect(byInstrument(units, NET).map((b) => [b.label, b.total])).toEqual([["STOCK", 15], ["ETF", -1]]);
     const same = sameUnderlying(units, NET);
     expect(same).toHaveLength(1);
     expect(same[0]).toMatchObject({ underlying: "FAKE", stock: { count: 1, total: 3 }, etf: { count: 1, total: -1 }, mixed: null });

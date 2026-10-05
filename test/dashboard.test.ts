@@ -61,7 +61,7 @@ describe("hold time and duration", () => {
     expect(holdLabel(closed({ closedAt: "2026-09-29T10:00:00-04:00", net: 1, holdMinutes: 2.5 }))).toBe("2m 30s");
     expect(holdLabel(closed({ closedAt: "2026-09-29T13:00:00-04:00", net: 1, holdMinutes: 185 }))).toBe("3h 05m");
     expect(holdLabel(closed({ style: "swing", openedAt: "2026-09-29T00:00:00-04:00", closedAt: "2026-09-29T00:00:00-04:00", net: 1 }))).toBe("same day");
-    expect(holdLabel(closed({ style: "swing", openedAt: "2026-09-26T00:00:00-04:00", closedAt: "2026-09-29T00:00:00-04:00", net: 1 }))).toBe("3 days");
+    expect(holdLabel(closed({ style: "swing", openedAt: "2026-09-26T00:00:00-04:00", closedAt: "2026-09-29T00:00:00-04:00", net: 1 }))).toBe("3d");
   });
 
   it("buckets by duration, with date-only same-day trades kept apart", () => {

@@ -83,7 +83,7 @@ function Overview({ c, g }: { c: Ctx; g: Grid }) {
           <VBars label="Daily P&L" bars={d.map((x) => ({ key: x.date, value: x.value, cls: x.value > 0 ? "gain" : x.value < 0 ? "loss" : "flat", title: `${x.date}: ${fmt(x.value)} · ${x.units} ${c.f.unit.toLowerCase()}s` }))}
             height={200} axis={d.length ? [d[0]!.date, d[d.length - 1]!.date] : undefined} />
         </Widget>
-        <Widget title={<>Win % / day · avg {pct(g.winRate)} <span className="accent">┄</span></>}>
+        <Widget title={<>Daily win % · avg {pct(g.winRate)} <span className="accent">┄</span></>}>
           <WinByDay days={d} avg={g.winRate} fmt={fmt} />
         </Widget>
         <Widget title={<>Volume / day (shares) · avg {g.avgDailyVolume === null ? "—" : qty(Math.round(g.avgDailyVolume))}</>}>
@@ -162,7 +162,7 @@ function Breakdowns({ c }: { c: Ctx }) {
           <VBars label={`Distribution of ${unit} P&L`} height={180}
             bars={dist.bins.map((b) => ({
               key: String(b.from), value: b.count, cls: b.from >= 0 ? "gain" : "loss",
-              title: `${binLabel(b.from)} to ${binLabel(b.to)}: ${b.count} ${unit}${b.count === 1 ? "" : "s"} (${b.wins}W/${b.losses}L)`,
+              title: `${binLabel(b.from)} to ${binLabel(b.to)}: ${b.count} ${unit}${b.count === 1 ? "" : "s"} (${b.wins}W ${b.losses}L)`,
             }))}
             axis={dist.bins.length ? [binLabel(dist.bins[0]!.from), binLabel(dist.bins[dist.bins.length - 1]!.to),
               ...(dist.bins[0]!.from < 0 && dist.bins[dist.bins.length - 1]!.to > 0 ? [{ text: binLabel(0), frac: -dist.bins[0]!.from / (dist.bins[dist.bins.length - 1]!.to - dist.bins[0]!.from) }] : [])] as [string, string, { text: string; frac: number }?] : undefined} />
@@ -205,11 +205,11 @@ function WinLossDays({ c }: { c: Ctx }) {
       <Totals items={[
         { label: "GREEN DAYS", value: String(w.green.days), cls: "gain", sub: c.f.v(w.green.grid.total) },
         { label: "RED DAYS", value: String(w.red.days), cls: "loss", sub: c.f.v(w.red.grid.total) },
-        { label: "FLAT DAYS", value: String(w.flatDays), sub: "NET $0.00" },
-        { label: "DAY WIN %", value: pct(w.green.days + w.red.days ? w.green.days / (w.green.days + w.red.days) : null, 1), sub: "GREEN ÷ (GREEN + RED)" },
+        { label: "FLAT DAYS", value: String(w.flatDays) },
+        { label: "GREEN-DAY %", value: pct(w.green.days + w.red.days ? w.green.days / (w.green.days + w.red.days) : null, 1), title: "Green days ÷ (green + red days); flat days left out" },
       ]} />
       <section className="panel scroll-x">
-        <h2 className="panel-pad">Behavior · green days vs red days <span className="dim">(a day's color is its net P&amp;L)</span></h2>
+        <h2 className="panel-pad" title="A day's color is its net P&L">Green vs red days</h2>
         <table className="grid dense">
           <thead><tr><th></th><th className="num gain">GREEN DAYS</th><th className="num loss">RED DAYS</th></tr></thead>
           <tbody>
@@ -342,7 +342,8 @@ function TagBreakdown({ c }: { c: Ctx }) {
           <StatsGrid g={sel.grid} f={c.f} />
         </>
       ) : (
-        <div className="dim small">Pick a tag for its full stats grid. A trade with several tags counts in each.</div>
+        <div className="dim small">Click a tag for full stats. Multi-tag trades count in each.</div>
+
       )}
     </>
   );
@@ -364,10 +365,10 @@ export function ReportsPage({ journal: j, view, params }: { journal: Journal; vi
 
   const modeSeg = (
     <div className="fgroup">
-      <span className="flabel">VIEW</span>
+      <span className="flabel">SHOW</span>
       <div className="seg" role="group" aria-label="Values">
-        <a className="segl" href={href({ mode: "usd" })} aria-current={r.mode === "usd" ? "true" : undefined}>$ VALUE</a>
-        <a className="segl" href={href({ mode: "pct" })} aria-current={r.mode === "pct" ? "true" : undefined}>% RETURN</a>
+        <a className="segl" href={href({ mode: "usd" })} aria-current={r.mode === "usd" ? "true" : undefined} title="Dollar values">$</a>
+        <a className="segl" href={href({ mode: "pct" })} aria-current={r.mode === "pct" ? "true" : undefined} title="% return on the cost of the shares bought">%</a>
       </div>
     </div>
   );

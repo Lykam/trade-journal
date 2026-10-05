@@ -13,7 +13,7 @@ import { appNow } from "../data";
 import { DEMO_COMMIT_NOTE, DEMO_IMPORT_NOTE } from "../demo-text";
 import { ACTIONS_URL, clientFor, feedsSite, useToken, watchDeploy, type TokenState } from "../github";
 import type { ImportCommit, RemoteHistory } from "../remote";
-import { money, pnlClass } from "../format";
+import { etfBadge, money, pnlClass } from "../format";
 
 /** Demo build (Q50): the demo history stands in for trade-history; there is no token and no commit. */
 const DEMO_TOKEN: TokenState = { status: "ok", record: { repo: "demo/trade-history" } as TokenRecord };
@@ -235,7 +235,9 @@ export function ImportPage({ data }: { data: DataBundle }) {
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); void pick(e.dataTransfer.files); }}
       >
-        <p>Drop Webull <code>Webull_Orders_Records*.csv</code> or Schwab <code>Trading_*_Transactions_*.csv</code> exports here. They are applied oldest export first (by the numbers and dates in their names); use ↑ ↓ to change that.</p>
+        <p title="Webull_Orders_Records*.csv or Trading_*_Transactions_*.csv; ordered by the numbers and dates in their names">
+          Drop Webull or Schwab CSV exports here. The oldest is applied first; reorder with ↑ ↓.
+        </p>
         <input ref={input} type="file" accept=".csv,text/csv" multiple hidden onChange={(e) => { void pick(e.target.files); e.target.value = ""; }} />
         <button type="button" className="btn primary" onClick={() => input.current?.click()}>CHOOSE FILES</button>
         {files.length > 0 && (
@@ -263,22 +265,23 @@ export function ImportPage({ data }: { data: DataBundle }) {
           <section className="panel" aria-label="Preview">
             <div className="panel-head">
               <h2>Preview</h2>
-              <span className="grow" />
-              <span className="muted small">against main @ <code>{remote.state.headSha.slice(0, 7)}</code></span>
             </div>
             <div className="body">
+              {/* Zero counts stay out of the way, except errors, which always say 0 (#13 row 99). */}
               <div className="counts">
-                <span><b className={plan.result.added.length ? "gain" : ""}>+{plan.result.added.length}</b> new fills</span>
-                <span><b>{plan.duplicates}</b> duplicates</span>
-                <span><b>{plan.skipped}</b> skipped rows</span>
-                <span><b className={plan.errors.length ? "loss" : ""}>{plan.errors.length}</b> errors</span>
-                <span><b>{plan.diff.added.length}</b> new · <b>{plan.diff.changed.length}</b> changed · <b>{plan.diff.removed.length}</b> removed trades</span>
+                <span><b className={plan.result.added.length ? "gain" : ""}>+{plan.result.added.length}</b> NEW FILLS</span>
+                {plan.diff.added.length > 0 && <span><b>{plan.diff.added.length}</b> NEW TRADE{plan.diff.added.length === 1 ? "" : "S"}</span>}
+                {plan.diff.changed.length > 0 && <span><b>{plan.diff.changed.length}</b> CHANGED</span>}
+                {plan.diff.removed.length > 0 && <span><b>{plan.diff.removed.length}</b> REMOVED</span>}
+                {plan.duplicates > 0 && <span><b>{plan.duplicates}</b> DUPLICATE{plan.duplicates === 1 ? "" : "S"}</span>}
+                {plan.skipped > 0 && <span><b>{plan.skipped}</b> ROW{plan.skipped === 1 ? "" : "S"} SKIPPED</span>}
+                <span><b className={plan.errors.length ? "loss" : ""}>{plan.errors.length}</b> ERROR{plan.errors.length === 1 ? "" : "S"}</span>
               </div>
               {plan.errors.map((e) => <div key={e} className="loss small">ERROR {e}</div>)}
               {plan.warnings.map((w) => <div key={w} className="half small">WARN {w}</div>)}
               <div className="scroll-x">
                 <table className="grid dense">
-                  <thead><tr><th>FILE</th><th>BROKER</th><th>ACCOUNT</th><th className="num">ROWS</th><th className="num">FILLS</th><th className="num">NEW</th><th className="num">DUP</th><th>SKIPPED</th><th className="num">ERRORS</th></tr></thead>
+                  <thead><tr><th>FILE</th><th>BROKER</th><th>ACCOUNT</th><th className="num">ROWS</th><th className="num">FILLS</th><th className="num">NEW</th><th className="num">DUPLICATE</th><th>SKIPPED</th><th className="num">ERRORS</th></tr></thead>
                   <tbody>
                     {plan.result.files.map((f) => (
                       <tr key={f.source}>
@@ -308,10 +311,10 @@ export function ImportPage({ data }: { data: DataBundle }) {
             <section className="panel" aria-label="ETF symbols to map">
               <div className="panel-head"><h2>New ETF symbols · {Object.keys(maps).length}</h2></div>
               <div className="body">
-                <p className="muted small">The guess comes from the broker's name. Check a row to write it to symbols.json in this commit, so its trades count toward the underlying; unchecked ones stay unmapped (Needs attention).</p>
+                <p className="muted small" title="Ticked rows are written to symbols.json in this commit; unticked ones stay unmapped">Guessed from the fund name. Tick to save it, so its trades count toward the underlying.</p>
                 <div className="scroll-x">
                   <table className="grid dense">
-                    <thead><tr><th>MAP</th><th>SYMBOL</th><th>NAME</th><th>UNDERLYING</th><th>LEV</th><th>DIRECTION</th><th>ISSUER</th></tr></thead>
+                    <thead><tr><th>MAP</th><th>SYMBOL</th><th>NAME</th><th>UNDERLYING</th><th>LEVERAGE</th><th>DIRECTION</th><th>ISSUER</th></tr></thead>
                     <tbody>
                       {Object.entries(maps).map(([sym, m]) => {
                         const set = (patch: Partial<MapRow>) => setMaps((all) => ({ ...all, [sym]: { ...m, ...patch } }));
@@ -343,7 +346,7 @@ export function ImportPage({ data }: { data: DataBundle }) {
             <div className="panel-head"><h2>New or changed trades · {plan.diff.added.length + plan.diff.changed.length}</h2></div>
             <div className="scroll-x">
               <table className="grid dense">
-                <thead><tr><th>OPENED</th><th>CLOSED</th><th>BROKER</th><th>STYLE</th><th>SYMBOL</th><th>STATUS</th><th className="num">MAX</th><th className="num">NET</th><th>RESULT</th><th></th></tr></thead>
+                <thead><tr><th>OPENED</th><th>CLOSED</th><th>BROKER</th><th>STYLE</th><th>SYMBOL</th><th>STATUS</th><th className="num">MAX SHARES</th><th className="num">NET</th><th>RESULT</th><th></th></tr></thead>
                 <tbody>
                   {[...plan.diff.added, ...plan.diff.changed].slice(-100).map((t) => (
                     <tr key={t.id}>
@@ -351,7 +354,7 @@ export function ImportPage({ data }: { data: DataBundle }) {
                       <td className="muted">{t.closedAt?.slice(0, 10) ?? "—"}</td>
                       <td>{t.broker}</td>
                       <td>{t.style}</td>
-                      <td><b>{t.symbol}</b>{t.instrument === "leveraged_etf" ? <span className="dim"> →{t.underlying}</span> : null}</td>
+                      <td><b>{t.symbol}</b>{t.instrument === "leveraged_etf" ? <span className="dim"> {etfBadge(t)}</span> : null}</td>
                       <td className={t.status === "unmatched" ? "loss" : t.status === "open" ? "accent" : "muted"}>{t.status === "open" ? `open ${t.openQty}` : t.status === "unmatched" ? `UNMATCHED −${t.unmatchedQty}` : "closed"}</td>
                       <td className="num">{t.maxPosition}</td>
                       <td className={`num ${pnlClass(t.netPnl)}`}>{money(t.netPnl)}</td>
@@ -368,11 +371,12 @@ export function ImportPage({ data }: { data: DataBundle }) {
           <section className="panel" aria-label="Commit">
             <div className="panel-head"><h2>Commit</h2></div>
             <div className="body">
-              {computed.files && (
-                <div className="muted small">
-                  Writes {writes.length} file(s): {writes.join(", ") || "nothing (all unchanged)"}
-                </div>
-              )}
+              {computed.files && (writes.length ? (
+                <details className="writes">
+                  <summary className="muted small">Writes {writes.length} file{writes.length === 1 ? "" : "s"} ▸</summary>
+                  <div className="muted small">{writes.join(", ")}</div>
+                </details>
+              ) : <div className="muted small">Writes nothing (all unchanged)</div>)}
               <div className="muted small">Message: <code>{computed.message}</code></div>
               <div className="row">
                 <button type="button" className="btn primary" disabled={__TJ_DEMO__ || blocked || status.kind !== "idle" || writes.length === 0} onClick={commit}>
@@ -388,7 +392,10 @@ export function ImportPage({ data }: { data: DataBundle }) {
           </section>
 
           <details className="panel">
-            <summary className="panel-head"><h2>Full report</h2><span className="dim small">same as npm run import -- --dry-run</span></summary>
+            <summary className="panel-head" title="The same text as npm run import -- --dry-run, with the commit it was computed against">
+              <h2>Full dry-run report ▸</h2><span className="dim small">main @ <code>{remote.state.headSha.slice(0, 7)}</code></span>
+            </summary>
+
             <pre className="json report">{remoteMod ? previewText(plan, record.repo) : ""}</pre>
           </details>
         </>

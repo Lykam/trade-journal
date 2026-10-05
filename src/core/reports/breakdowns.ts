@@ -123,7 +123,7 @@ export function topBottom(buckets: Bucket[], n = 20): { top: Bucket[]; bottom: B
 export const bySymbol = (units: Unit[], o: ValueOpts) => groupBy(units, (u) => u.symbol, o);
 export const byUnderlying = (units: Unit[], o: ValueOpts) => groupBy(units, (u) => u.underlying, o);
 
-const INSTRUMENTS: Array<[string, string]> = [["stock", "STOCK"], ["leveraged_etf", "LEV ETF"], ["mixed", "STOCK + ETF"]];
+const INSTRUMENTS: Array<[string, string]> = [["stock", "STOCK"], ["leveraged_etf", "ETF"], ["mixed", "STOCK + ETF"]];
 export const byInstrument = (units: Unit[], o: ValueOpts) => groupBy(units, (u) => u.instrument, o, INSTRUMENTS);
 
 export interface SameUnderlying {
@@ -147,7 +147,7 @@ export function sameUnderlying(units: Unit[], o: ValueOpts): SameUnderlying[] {
     out.push({
       underlying,
       stock: bucketOf("stock", "STOCK", stock, o),
-      etf: bucketOf("leveraged_etf", "LEV ETF", etf, o),
+      etf: bucketOf("leveraged_etf", "ETF", etf, o),
       mixed: mixed.length ? bucketOf("mixed", "STOCK + ETF", mixed, o) : null,
     });
   }

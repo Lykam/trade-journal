@@ -164,8 +164,8 @@ function DemoSettingsPage({ data }: { data: DataBundle }) {
           <div className="panel-head"><h2>Data</h2></div>
           <div className="body">
             <dl className="kv">
-              <dt>Generated</dt><dd>{dateTimeOf(data.loadedAt)}, in this browser</dd>
-              <dt>Quotes as of</dt><dd>{data.quotes ? dateTimeOf(data.quotes.asOf) : "none"}</dd>
+              <dt>Built</dt><dd>{dateTimeOf(data.loadedAt)}</dd>
+              <dt>Prices</dt><dd>{data.quotes ? dateTimeOf(data.quotes.asOf) : "none"}</dd>
             </dl>
           </div>
         </section>
@@ -216,7 +216,7 @@ function RealSettingsPage({ data }: { data: DataBundle }) {
           <div className="body">
             <dl className="kv">
               <dt>{dev ? "Loaded" : "Built"}</dt><dd>{dateTimeOf(data.loadedAt)}</dd>
-              <dt>Quotes as of</dt><dd>{data.quotes ? dateTimeOf(data.quotes.asOf) : "none"}</dd>
+              <dt>Prices</dt><dd>{data.quotes ? dateTimeOf(data.quotes.asOf) : "none"}</dd>
               <dt>Generator</dt><dd>{data.derived.generator}</dd>
             </dl>
           </div>

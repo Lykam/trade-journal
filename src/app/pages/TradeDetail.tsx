@@ -18,7 +18,9 @@ import { Timeline } from "../components/OpenPositions";
 import { Pnl } from "../components/Pnl";
 import { LazyReview } from "../components/LazyReview";
 import { copyText, useImageSrcs } from "../data";
-import { longDate, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, whenOf } from "../format";
+import { mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, whenOf } from "../format";
+import { AUTO_TAGS } from "../../core/journal/tags";
+
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
 
 function Stat({ label, children, cls }: { label: string; children: React.ReactNode; cls?: string }) {
@@ -44,21 +46,23 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
   const order = tradeOrder(rows);
   const nb = neighbors(order, t.id);
   const back = viewHref("#/trades", { ...view, page: pageOf(rows, t.id) });
+  // NEWER / OLDER only when the list is in date order, as on the review page; otherwise the steps follow another sort (#13).
+  const steps = view.sort.key !== "date" ? { prev: "PREV", next: "NEXT" } : view.sort.dir === "desc" ? { prev: "NEWER", next: "OLDER" } : { prev: "OLDER", next: "NEWER" };
   const timed = t.broker === "webull" || j.fillById.get(t.fillIds[0] ?? "")?.timePrecision === "second";
 
   return (
     <main className="page">
       <header className="page-head">
         <h1>
-          {t.symbol} <span className="sub">· {longDate(etDate(t.openedAt))}{timed ? ` ${timeOf(t.openedAt)}` : ""}</span>{" "}
+          {t.symbol} <span className="sub">· {etDate(t.openedAt)}{timed ? ` ${timeOf(t.openedAt)}` : ""}</span>{" "}
           <EtfBadge t={t} /> {t.status !== "closed" && <span className={`chip ${t.status === "open" ? "accent" : "loss"}`}>{t.status.toUpperCase()}</span>}
           {t.excluded && <span className="chip">EXCLUDED</span>}
         </h1>
         <nav className="row" aria-label="Trade navigation">
           <a className="btn" href={back}>‹ BACK</a>
-          <a className={`btn ${nb.prev ? "" : "disabled"}`} aria-disabled={!nb.prev} href={nb.prev ? tradeLink(nb.prev, view) : undefined}>‹ PREV</a>
+          <a className={`btn ${nb.prev ? "" : "disabled"}`} aria-disabled={!nb.prev} href={nb.prev ? tradeLink(nb.prev, view) : undefined}>‹ {steps.prev}</a>
           <span className="muted small">{nb.index >= 0 ? `${nb.index + 1} / ${nb.total}` : "NOT IN FILTER"}</span>
-          <a className={`btn ${nb.next ? "" : "disabled"}`} aria-disabled={!nb.next} href={nb.next ? tradeLink(nb.next, view) : undefined}>NEXT ›</a>
+          <a className={`btn ${nb.next ? "" : "disabled"}`} aria-disabled={!nb.next} href={nb.next ? tradeLink(nb.next, view) : undefined}>{steps.next} ›</a>
         </nav>
       </header>
       <TagRow data={data} journal={j} t={t} />
@@ -98,7 +102,8 @@ function TagRow({ data, journal: j, t }: { data: DataBundle; journal: Journal; t
   const manual = current.trades[t.id]?.tags ?? t.tags;
   return (
     <section className="tagrow" aria-label="Tags">
-      {tags.auto.map((x) => <span key={x} className="chip auto" title="Automatic tag">{x}</span>)}
+      {/* Style, ETF and Reviewed already show in the header and stats (#13 row 107); a review Category stays. */}
+      {tags.auto.filter((x) => !(AUTO_TAGS as readonly string[]).includes(x)).map((x) => <span key={x} className="chip auto" title="Automatic tag (review category)">{x}</span>)}
       {manual.map((x) => <span key={x} className="chip">{x}</span>)}
       {adding ? (
         <form className="row" onSubmit={(e) => { e.preventDefault(); if (tag.trim()) apply([t], { kind: "addTag", tag: tag.trim() }); setTag(""); }}>
@@ -145,8 +150,9 @@ function StatsPanel({ data, t, now, view }: { data: DataBundle; t: Trade; now: s
             </Stat>
           </>
         )}
-        <Stat label="SHARES TRADED">{qty(volume)} <span className="dim">(max {qty(t.maxPosition)})</span></Stat>
-        <Stat label="EXECUTIONS">{t.fillIds.length}</Stat>
+        <Stat label="SIZE">{qty(t.maxPosition)} sh</Stat>
+        <Stat label="VOLUME">{qty(volume)}</Stat>
+        <Stat label="FILLS">{t.fillIds.length}</Stat>
         <Stat label="AVG ENTRY">{price(t.avgEntry)}</Stat>
         <Stat label="AVG EXIT">{price(t.avgExit)}</Stat>
         <Stat label="GROSS P&L" cls={open ? "muted" : `${pnlClass(t.grossPnl)} ${emph("gross")}`}>{result(t.grossPnl)}</Stat>
@@ -173,7 +179,7 @@ function Executions({ journal: j, t, timed }: { journal: Journal; t: Trade; time
   const opening = !t.fillIds.includes(t.id) && t.events[0];
   return (
     <section className="panel" aria-label="Executions">
-      <div className="panel-head"><h2>Executions · {t.fillIds.length}</h2></div>
+      <div className="panel-head"><h2>Fills · {t.fillIds.length}</h2></div>
       <div className="scroll-x">
         <table className="grid dense">
           <thead><tr><th>{timed ? "TIME (ET)" : "DATE"}</th><th>SIDE</th><th className="num">QTY</th><th className="num">PRICE</th><th className="num">FEES</th><th className="num">VALUE</th></tr></thead>
@@ -246,10 +252,9 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
         {reviews.map((r) => (
           <div key={r.id}>
             <div className="panel-head">
-              <h2>Review · {r.date} {r.ticker}</h2>
-              {r.header.status && <span className={`chip ${r.header.status === "open" ? "accent" : ""}`}>{r.header.status.toUpperCase()}</span>}
+              <h2>Idea review · {r.date ? mmdd(r.date) : "no date"}{r.header.status ? ` · ${r.header.status}` : ""}</h2>
               <span className="grow" />
-              <a href={reviewLink(r.id)}>OPEN FULL REVIEW ›</a>
+              <a href={reviewLink(r.id)}>FULL REVIEW ›</a>
             </div>
             <div className="md-wrap"><LazyReview path={r.path} markdown={r.markdown} /></div>
           </div>
@@ -259,13 +264,13 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
   }
   return (
     <section className="panel notes" aria-label="Notes">
-      <div className="panel-head"><h2>Notes</h2><span className="grow" /><span className="dim small">NO PLAYBOOK REVIEW</span></div>
+      <div className="panel-head"><h2>Notes</h2><span className="grow" /><span className="dim small">NOT REVIEWED YET</span></div>
       <div className="notes-body">
         <label className="label small" htmlFor="quick-note">QUICK NOTE</label>
         <textarea id="quick-note" className="input" rows={2} value={note} placeholder="One or two lines…" onChange={(e) => setNote(e.target.value)} />
         <div className="row">
-          <button type="button" className="btn" disabled={locked || note === (t.note ?? "")} onClick={() => apply([t], { kind: "setNote", note })}>STAGE NOTE</button>
-          {staged && <span className="dim small">staged, not saved</span>}
+          <button type="button" className="btn" disabled={locked || note === (t.note ?? "")} onClick={() => apply([t], { kind: "setNote", note })}>SAVE NOTE</button>
+          {staged && <span className="dim small">previewed below; commit to save</span>}
         </div>
         <StagedPreview data={data} staging={staging} onDiscard={() => setNote(t.note ?? "")} />
         <div className="start-review">

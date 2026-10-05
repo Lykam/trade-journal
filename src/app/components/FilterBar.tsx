@@ -2,7 +2,7 @@
 // can be bookmarked; each control just navigates to the updated URL.
 import { useEffect, useId, useState } from "react";
 import {
-  activeFilterCount, dateRange, emptyFilter, PRESET_LABELS, PRESETS, queryOf, viewToParams, type Flag, type TradeFilter, type ViewState,
+  activeFilterCount, dateRange, emptyFilter, PRESET_LABELS, PRESET_SHORT, PRESETS, queryOf, viewToParams, type Flag, type TradeFilter, type ViewState,
 } from "../../core/journal/filter";
 import type { Journal } from "../../core/journal/journal";
 import type { TradeResult } from "../../core/types";
@@ -39,7 +39,7 @@ function Seg<T extends string | null>({ label, value, options, onChange }: { lab
 const RESULTS: Array<{ value: TradeResult; label: string; cls: string }> = [
   { value: "win", label: "WIN", cls: "gain" },
   { value: "loss", label: "LOSS", cls: "loss" },
-  { value: "breakeven", label: "BE", cls: "flat" },
+  { value: "breakeven", label: "BREAKEVEN", cls: "flat" },
 ];
 
 export function FilterBar({
@@ -94,7 +94,7 @@ export function FilterBar({
         <span className="grow" />
         {pnl && <Seg label="P&L" value={view.pnl} options={[{ value: "net", label: "NET" }, { value: "gross", label: "GROSS" }]} onChange={(p) => go({ pnl: p })} />}
         {count && (
-          <Seg label="COUNT" value={view.count} options={[{ value: "trade", label: "TRADE" }, { value: "idea", label: "IDEA" }]} onChange={(c) => go({ count: c })} />
+          <Seg label="COUNT BY" value={view.count} options={[{ value: "trade", label: "TRADE" }, { value: "idea", label: "IDEA" }]} onChange={(c) => go({ count: c })} />
         )}
         {controls}
       </div>
@@ -119,7 +119,9 @@ export function FilterBar({
             <div className="seg wrap" role="group" aria-label="Date presets">
               <button type="button" aria-pressed={!f.preset && !f.from && !f.to} onClick={() => set({ preset: null, from: null, to: null })}>ALL</button>
               {PRESETS.map((p) => (
-                <button key={p} type="button" aria-pressed={f.preset === p} onClick={() => set({ preset: p, from: null, to: null })}>{PRESET_LABELS[p]}</button>
+                <button key={p} type="button" aria-pressed={f.preset === p} onClick={() => set({ preset: p, from: null, to: null })}>
+                  <span className="ph-hide">{PRESET_LABELS[p]}</span><span className="ph-only-inline">{PRESET_SHORT[p]}</span>
+                </button>
               ))}
             </div>
             <span className="dates">
@@ -129,7 +131,7 @@ export function FilterBar({
             </span>
           </div>}
           <Seg label="STYLE" value={f.style} options={[{ value: null, label: "ALL" }, { value: "day", label: "DAY" }, { value: "swing", label: "SWING" }]} onChange={(style) => set({ style })} />
-          <Seg label="INSTRUMENT" value={f.instrument} options={[{ value: null, label: "ALL" }, { value: "stock", label: "STOCK" }, { value: "leveraged_etf", label: "LEV ETF" }]} onChange={(instrument) => set({ instrument })} />
+          <Seg label="INSTRUMENT" value={f.instrument} options={[{ value: null, label: "ALL" }, { value: "stock", label: "STOCK" }, { value: "leveraged_etf", label: "ETF" }]} onChange={(instrument) => set({ instrument })} />
           <Seg label="BROKER" value={f.broker} options={[{ value: null, label: "ALL" }, { value: "schwab", label: "SCHWAB" }, { value: "webull", label: "WEBULL" }]} onChange={(broker) => set({ broker })} />
           <Seg label="DURATION" value={f.duration} options={[{ value: null, label: "ALL" }, { value: "intraday", label: "INTRADAY" }, { value: "multiday", label: "MULTI-DAY" }]} onChange={(duration) => set({ duration })} />
           <div className="fgroup">
@@ -142,7 +144,8 @@ export function FilterBar({
               ))}
             </div>
           </div>
-          <Seg label="HAS REVIEW" value={f.review} options={[{ value: null, label: "ALL" }, { value: "yes", label: "YES" }, { value: "no", label: "NO" }]} onChange={(review) => set({ review })} />
+          <Seg label="REVIEWED" value={f.review}
+ options={[{ value: null, label: "ALL" }, { value: "yes", label: "YES" }, { value: "no", label: "NO" }]} onChange={(review) => set({ review })} />
           <div className="fgroup">
             <span className="flabel">TAGS</span>
             <details className="dropdown">

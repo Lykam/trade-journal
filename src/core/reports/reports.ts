@@ -68,7 +68,7 @@ export const COMPARE_PRESETS: ComparePreset[] = [
   { key: "style", label: "DAY VS SWING", a: { style: "day" }, b: { style: "swing" } },
   { key: "instrument", label: "STOCK VS ETF", a: { instrument: "stock" }, b: { instrument: "leveraged_etf" } },
   { key: "broker", label: "SCHWAB VS WEBULL", a: { broker: "schwab" }, b: { broker: "webull" } },
-  { key: "month", label: "THIS MO VS LAST MO", a: { preset: "month", from: null, to: null }, b: { preset: "lastmonth", from: null, to: null } },
+  { key: "month", label: "THIS MONTH VS LAST MONTH", a: { preset: "month", from: null, to: null }, b: { preset: "lastmonth", from: null, to: null } },
 ];
 
 /** Apply a preset on top of the current filter: both sides keep everything else. */

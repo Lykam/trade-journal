@@ -10,7 +10,8 @@ import { BulkBar } from "../components/BulkBar";
 import { FilterBar, viewHref } from "../components/FilterBar";
 import { Pnl } from "../components/Pnl";
 import { go } from "../data";
-import { mmdd, money, pct, pnlClass, qty } from "../format";
+import { etfBadge, mmdd, money, pct, pnlClass, qty } from "../format";
+
 
 export const tradeLink = (id: string, v: ViewState) => `#/trade/${id}${queryOf(viewToParams(v, { page: false }))}`;
 export const reviewLink = (id: string) => `#/journal/${encodeURIComponent(id)}`;
@@ -33,12 +34,12 @@ function rowHold(r: Row): string {
   if (r.kind === "trade" || r.trades.length === 1) return r.open ? `open ${r.holdDays}d` : holdLabel(r.trades[0]!);
   if (r.open) return `open ${r.holdDays}d`;
   if (r.holdMinutes !== null && r.holdDays === 0) return holdLabel({ ...r.trades[0]!, holdMinutes: r.holdMinutes });
-  return r.holdDays === 0 ? "same day" : `${r.holdDays} day${r.holdDays === 1 ? "" : "s"}`;
+  return r.holdDays === 0 ? "same day" : `${r.holdDays}d`;
 }
 
 export function EtfBadge({ t }: { t: Pick<Trade, "instrument" | "underlying" | "leverage" | "direction"> }) {
   if (t.instrument !== "leveraged_etf") return null;
-  return <span className="chip etf" title={`${t.leverage}x ${t.direction} single-stock ETF`}>ETF→{t.underlying}</span>;
+  return <span className="chip etf" title={`${t.leverage}x ${t.direction} single-stock ETF on ${t.underlying}`}>{etfBadge(t)}</span>;
 }
 
 function Tags({ r, j }: { r: Row; j: Journal }) {

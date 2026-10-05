@@ -14,8 +14,13 @@ export type Flag = "overnight" | "unmatched" | "open" | "excluded";
 export const PRESETS = ["today", "week", "lastweek", "month", "lastmonth", "30d", "90d", "ytd"] as const;
 export type Preset = (typeof PRESETS)[number];
 export const PRESET_LABELS: Record<Preset, string> = {
+  today: "TODAY", week: "THIS WEEK", lastweek: "LAST WEEK", month: "THIS MONTH", lastmonth: "LAST MONTH", "30d": "30D", "90d": "90D", ytd: "YTD",
+};
+/** The short forms, used only below 640 px (#13). */
+export const PRESET_SHORT: Record<Preset, string> = {
   today: "TODAY", week: "THIS WK", lastweek: "LAST WK", month: "THIS MO", lastmonth: "LAST MO", "30d": "30D", "90d": "90D", ytd: "YTD",
 };
+
 
 export interface TradeFilter {
   /** Matches the traded symbol or the underlying (case-insensitive, exact). */

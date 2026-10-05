@@ -69,7 +69,7 @@ function Sparkline({ g }: { g: GaugeData }) {
           const cls = p.winRate === null ? "f-dim" : base === null || p.winRate >= base ? "f-gain" : "f-loss";
           return (
             <rect key={p.weekStart} x={i * 14 + 2} y={H - h} width="10" height={h} className={cls} opacity={p.current ? 1 : 0.7}>
-              <title>{`wk of ${p.weekStart}${p.current ? " (this week)" : ""}: ${pct(p.winRate)} · ${p.wins}W/${p.losses}L`}</title>
+              <title>{`week of ${p.weekStart}${p.current ? " (this week)" : ""}: ${pct(p.winRate)} · ${p.wins}W ${p.losses}L`}</title>
             </rect>
           );
         })}

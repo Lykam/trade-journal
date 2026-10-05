@@ -121,7 +121,7 @@ const scoredIn = (trades: Trade[], from: string, to: string) =>
   trades.filter((t) => isScored(t) && closedOn(t) >= from && closedOn(t) <= to);
 
 
-/** "2m 30s", "3h 05m", or for date-only trades "same day" / "3 days". */
+/** "2m 30s", "3h 05m", or for date-only trades "same day" / "3d". */
 export function holdLabel(t: Trade): string {
   if (t.holdMinutes !== null) {
     const s = Math.round(t.holdMinutes * 60);
@@ -130,7 +130,8 @@ export function holdLabel(t: Trade): string {
   }
   if (!t.closedAt) return "";
   const d = daysBetween(etDate(t.openedAt), closedOn(t));
-  return d === 0 ? "same day" : d === 1 ? "1 day" : `${d} days`;
+  return d === 0 ? "same day" : `${d}d`;
+
 }
 
 export interface Recent {
