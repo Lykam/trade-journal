@@ -507,3 +507,8 @@ th.select-cell { width: 28px; }
 .winbar.down { background: var(--border-strong); }
 .winbar.none { background: var(--border); }
 .winbar.on { outline: 1px solid var(--accent); }
+.f-border-strong { fill: var(--border-strong); }
+.f-accent { fill: var(--accent); }
+.area-loss { fill: var(--loss); opacity: 0.25; }
+rect.bar-on { stroke: var(--accent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.spark-svg { width: 112px; height: 28px; flex: 0 0 112px; }

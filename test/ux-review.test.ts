@@ -10,6 +10,7 @@ import { buildUnits, computeGrid } from "../src/core/reports";
 import type { Fill, QuotesFile, Trade } from "../src/core/types";
 import { batch, closed, ideasOf, open } from "./factory";
 import { compactMoney } from "../src/app/format";
+import { dateTicks } from "../src/app/components/Widgets";
 import { config } from "./helpers";
 
 const q = (price: number, time = "2026-10-02T16:00:00-04:00") => ({ price, time });
@@ -157,5 +158,14 @@ describe("#16 numbers that agree", () => {
 describe("#17 phone layout", () => {
   it("shows whole dollars with a true minus in small calendar cells", () => {
     expect([16.2, 170.67, -42.5, 30.05, 1234, -12500, 0].map(compactMoney)).toEqual(["+16", "+171", "−43", "+30", "+1.2k", "−13k", "0"]);
+  });
+});
+
+describe("#19 charts", () => {
+  it("labels the first, middle and last date under a chart", () => {
+    expect(dateTicks([])).toEqual([]);
+    expect(dateTicks(["09-01", "09-02"])).toEqual(["09-01", "09-02"]);
+    expect(dateTicks(["a", "b", "c", "d", "e"])).toEqual(["a", "c", "e"]);
+    expect(dateTicks(["a", "b", "c", "d"])).toEqual(["a", "b", "d"]);
   });
 });

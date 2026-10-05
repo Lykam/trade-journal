@@ -157,7 +157,7 @@ export interface Bar {
   key: string;
   label: React.ReactNode;
   value: number;
-  text: string;
+  text: React.ReactNode;
   cls: string;
   title?: string;
 }

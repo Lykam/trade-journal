@@ -14,7 +14,7 @@ import { BucketBars, BucketTable, Underwater, VBars } from "../components/Report
 import { GridColumns, holdText, StatsGrid, type Fmt } from "../components/StatsGrid";
 
 import { FilterBar, viewHref } from "../components/FilterBar";
-import { CumulativeChart, Widget, WinByDay } from "../components/Widgets";
+import { CumulativeChart, dateTicks, Widget, WinByDay } from "../components/Widgets";
 import { money, pct, pnlClass, qty, signedPct } from "../format";
 
 const MINUS = "−";
@@ -82,14 +82,14 @@ function Overview({ c, g }: { c: Ctx; g: Grid }) {
         </Widget>
         <Widget title={<>Daily {c.r.mode === "pct" ? "return" : "P&L"} · avg {c.f.v(g.avgDaily)}</>}>
           <VBars label="Daily P&L" bars={d.map((x) => ({ key: x.date, value: x.value, cls: x.value > 0 ? "gain" : x.value < 0 ? "loss" : "flat", title: `${x.date}: ${fmt(x.value)} · ${x.units} ${c.f.unit.toLowerCase()}s` }))}
-            height={200} axis={d.length ? [d[0]!.date, d[d.length - 1]!.date] : undefined} />
+            height={200} ticks={dateTicks(d.map((x) => x.date))} fmt={fmt} />
         </Widget>
         <Widget title={<>Daily win % · avg {pct(g.winRate)} <span className="accent">┄</span></>}>
           <WinByDay days={d} avg={g.winRate} fmt={fmt} />
         </Widget>
         <Widget title={<>Volume / day (shares) · avg {g.avgDailyVolume === null ? "—" : qty(Math.round(g.avgDailyVolume))}</>}>
           <VBars label="Shares traded per day" bars={d.map((x) => ({ key: x.date, value: x.volume, cls: "border-strong", title: `${x.date}: ${qty(x.volume)} shares` }))}
-            height={200} axis={d.length ? [d[0]!.date, d[d.length - 1]!.date] : undefined} />
+            height={200} ticks={dateTicks(d.map((x) => x.date))} fmt={(n) => qty(Math.round(n))} />
         </Widget>
       </div>
     </>
@@ -160,7 +160,7 @@ function Breakdowns({ c }: { c: Ctx }) {
     body = (
       <>
         {W(<>Distribution of {unit} {c.r.mode === "pct" ? "returns" : "P&L"}</>, (
-          <VBars label={`Distribution of ${unit} P&L`} height={180}
+          <VBars label={`Distribution of ${unit} P&L`} height={180} fmt={(n) => `${Math.round(n)} ${unit}s`}
             bars={dist.bins.map((b) => ({
               key: String(b.from), value: b.count, cls: b.from >= 0 ? "gain" : "loss",
               title: `${binLabel(b.from)} to ${binLabel(b.to)}: ${b.count} ${unit}${b.count === 1 ? "" : "s"} (${b.wins}W ${b.losses}L)`,

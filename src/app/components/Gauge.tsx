@@ -58,25 +58,32 @@ function Dial({ g, bands }: { g: GaugeData; bands: Config["gauge"]["bands"] }) {
 function Sparkline({ g }: { g: GaugeData }) {
   const W = 8 * 14, H = 28;
   const base = g.baseline.winRate;
+  // Hovering or tapping a bar puts its week in place of the label (#19); native titles were too slow to find.
+  const [at, setAt] = useState<number | null>(null);
+  const p = at === null ? null : g.sparkline[at]!;
   return (
     <div className="spark">
-      <span>LAST 8 WEEKS</span>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: W, height: H }} role="img"
+      <svg viewBox={`0 0 ${W} ${H}`} className="spark-svg" role="img" onMouseLeave={() => setAt(null)}
         aria-label={`Weekly win rates, last 8 weeks: ${g.sparkline.map((p) => pct(p.winRate)).join(", ")}`}>
         {base !== null && <line x1="0" x2={W} y1={H - base * H} y2={H - base * H} className="chart-ref" />}
         {g.sparkline.map((p, i) => {
           const h = p.winRate === null ? 1 : Math.max(1, p.winRate * H);
           const cls = p.winRate === null ? "f-dim" : base === null || p.winRate >= base ? "f-gain" : "f-loss";
           return (
-            <rect key={p.weekStart} x={i * 14 + 2} y={H - h} width="10" height={h} className={cls} opacity={p.current ? 1 : 0.7}>
-              <title>{`week of ${p.weekStart}${p.current ? " (this week)" : ""}: ${pct(p.winRate)} · ${p.wins}W ${p.losses}L`}</title>
-            </rect>
+            <g key={p.weekStart}>
+              <rect x={i * 14 + 2} y={H - h} width="10" height={h} className={cls} opacity={p.current || at === i ? 1 : 0.7} />
+              <rect x={i * 14} y="0" width="14" height={H} fill="transparent" onMouseEnter={() => setAt(i)} onClick={() => setAt(i)} />
+            </g>
           );
         })}
       </svg>
+      <span className={p ? "text-2" : ""}>
+        {p ? `WEEK ${p.weekStart.slice(5)}${p.current ? " (NOW)" : ""} · ${pct(p.winRate)} · ${p.wins}W ${p.losses}L` : "LAST 8 WEEKS · AVG ┄"}
+      </span>
     </div>
   );
 }
+
 
 /** "11 CLOSED THIS WEEK" / "1 CLOSED, 6 OPEN", plus backfill: what the window holds, in decisive trades. */
 function windowText(g: GaugeData, swingOpen: boolean): string {
