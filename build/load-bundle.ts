@@ -4,10 +4,10 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { loadHistory, validate } from "../cli/lib/history";
-import type { DataBundle } from "../src/core/types";
-import { readQuotes } from "./fetch-quotes";
-import { loadPlaybook } from "./playbook";
+import { loadHistory, validate } from "../cli/lib/history.ts";
+import type { DataBundle } from "../src/core/types.ts";
+import { readQuotes } from "./fetch-quotes.ts";
+import { loadPlaybook } from "./playbook.ts";
 
 export function loadBundle(historyDir: string, quotesFile: string, playbookDir: string): DataBundle {
   if (!existsSync(join(historyDir, "config.json"))) throw new Error(`no config.json in ${historyDir} (set TRADE_HISTORY_DIR)`);

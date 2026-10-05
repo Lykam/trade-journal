@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { Ajv } from "ajv";
 import standalone from "ajv/dist/standalone/index.js";
 import type { Plugin } from "vite";
-import { SCHEMAS } from "../src/core/schema-names";
+import { SCHEMAS } from "../src/core/schema-names.ts";
 
 const ID = "virtual:tj-validators";
 const RESOLVED = `\0${ID}`;

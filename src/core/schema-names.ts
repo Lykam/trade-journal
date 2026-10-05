@@ -1,7 +1,7 @@
 // Names and types of the trade-history JSON Schemas, and the validate wrapper
 // shared by the runtime (Ajv) and precompiled validators. No Ajv here, so
 // importing it is free.
-import { DataFileError } from "./data-error";
+import { DataFileError } from "./data-error.ts";
 
 export const SCHEMAS = ["fills", "overrides", "config", "symbols", "trades"] as const;
 export type SchemaName = (typeof SCHEMAS)[number];

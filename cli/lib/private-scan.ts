@@ -3,18 +3,7 @@
 // reads minified JS, full of short identifiers), the scan reads source,
 // markdown and commit messages, so 1–2 letter symbols are matched as whole
 // words, minus a fixed list of common words that are never treated as tickers.
-import { findLeaks } from "../../build/check-dist";
-
-export interface PrivateTokens {
-  /** Traded symbols, underlyings and review tickers. */
-  symbols: Set<string>;
-  /** Review and image file names (see playbookNames). */
-  names: Set<string>;
-  /** Schwab account ids from config.json schwabAccounts. */
-  accountIds: Set<string>;
-  /** Stored fill ids (wb-… / sc-…). */
-  fillIds: Set<string>;
-}
+import { findLeaks, type PrivateTokens } from "../../build/private-tokens";
 
 /**
  * Generic 1–2 letter words (English, UI and code) skipped as short tickers.

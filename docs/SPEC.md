@@ -1068,7 +1068,9 @@ two in step (§4.6).
   validated against the synthetic output in tests, and are copied into
   `trade-history/schema/` by the importer on every write (Q17). The CLI
   validates every file it reads or writes with Ajv.
-- **CLI:** run with `tsx`.
+- **CLI:** run with `tsx`. Files that `vite.config.ts` loads (the build plugins and
+  what they import) use explicit `.ts` import extensions, because Vite loads the
+  config with Node's own TypeScript support, which needs them.
 - **Tests:** Vitest with **synthetic fixtures only**, because the repo is
   public. These are hand-written CSVs that copy the exact Schwab and Webull
   formats with fake tickers and prices. Golden tests cover dedupe of

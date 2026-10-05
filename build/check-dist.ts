@@ -6,33 +6,22 @@
 // Skips with a note when no trade-history checkout is available.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { loadHistory, REPO_ROOT, resolveHistoryDir } from "../cli/lib/history";
-import { parseReviewHeader } from "../src/core/reviews/parse-header";
-import { reviewIdOf } from "../src/core/reviews/join";
+import { REPO_ROOT, resolveHistoryDir } from "../cli/lib/history";
 import {
   DATA_BUCKET, decodeHeader, HEADER_BYTES, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, IMAGE_NAME_RE, KIND_DATA, KIND_IMAGE, TAG_BYTES,
 } from "../src/core/crypto";
-import { readQuotes, resolveQuotesFile } from "./fetch-quotes";
-import { loadPlaybook, resolvePlaybookDir } from "./playbook";
+import { resolveQuotesFile } from "./fetch-quotes";
+import { resolvePlaybookDir } from "./playbook";
+import { findLeaks, privateTokens } from "./private-tokens";
 import { isPublicLog, runMain } from "./public-log";
+
+export { findLeaks, playbookNames } from "./private-tokens";
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
     const p = join(dir, n);
     return statSync(p).isDirectory() ? files(p) : [p];
   });
-}
-
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-/** Symbols that appear as whole tokens. 1–2 letter symbols only count inside quotes (minified code is full of short identifiers). */
-export function findLeaks(text: string, symbols: Iterable<string>): string[] {
-  const hits: string[] = [];
-  for (const s of symbols) {
-    const re = s.length <= 2 ? new RegExp(`["'\`]${escape(s)}["'\`]`) : new RegExp(`(?<![A-Za-z0-9_$])${escape(s)}(?![A-Za-z0-9_$])`);
-    if (re.test(text)) hits.push(s);
-  }
-  return hits;
 }
 
 /**
@@ -42,28 +31,6 @@ export function findLeaks(text: string, symbols: Iterable<string>): string[] {
  */
 export function appSourceText(root = REPO_ROOT): string {
   return [...files(join(root, "src")), join(root, "index.html")].map((f) => readFileSync(f, "utf8")).join("\n");
-}
-
-/**
- * A symbol that is also a token in the app's own source (a UI word such as a
- * column label) can't be told apart from code, so it is skipped: dist/ can only
- * leak data that is not already in the public source.
- */
-/**
- * Private names that must never reach dist/: each review's file name and stem
- * ("2026-07-27-ABC.md", "2026-07-27-ABC") and each image's path and file name.
- */
-export function playbookNames(playbook: { reviews: Array<{ path: string }>; images: string[] }): Set<string> {
-  const names = new Set<string>();
-  for (const r of playbook.reviews) {
-    names.add(r.path.split("/").pop()!);
-    names.add(reviewIdOf(r.path));
-  }
-  for (const i of playbook.images) {
-    names.add(i);
-    names.add(i.split("/").pop()!);
-  }
-  return names;
 }
 
 /** Shannon entropy in bits per byte (8.0 for uniformly random bytes). */
@@ -177,20 +144,12 @@ export function checkDist(
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
   // A data file that fails to load ends the run with "<file>: <kind>" only, never its message (Q43).
   await runMain("check-dist", () => {
-    const dir = resolveHistoryDir();
-    if (!existsSync(join(dir, "config.json"))) {
+    const tokens = privateTokens(resolveHistoryDir(), resolvePlaybookDir(), resolveQuotesFile());
+    if (!tokens) {
       console.log("check-dist: no trade-history checkout; skipped");
       return 0;
     }
-    const h = loadHistory(dir);
-    const playbook = loadPlaybook(resolvePlaybookDir()) ?? { reviews: [], images: [] };
-    const symbols = new Set<string>([
-      ...h.fills.map((f) => f.symbol),
-      ...(h.derived?.trades ?? []).flatMap((t) => [t.symbol, t.underlying]),
-      ...Object.keys(readQuotes(resolveQuotesFile())?.quotes ?? {}),
-      ...playbook.reviews.map((r) => parseReviewHeader(r.markdown).ticker).filter((t): t is string => t !== null),
-    ]);
-    return checkDist(join(REPO_ROOT, "dist"), symbols, console.log, appSourceText(), playbookNames(playbook), {
+    return checkDist(join(REPO_ROOT, "dist"), tokens.symbols, console.log, appSourceText(), tokens.names, {
       encrypted: process.argv.includes("--encrypted"),
       publicLog: isPublicLog(),
     });

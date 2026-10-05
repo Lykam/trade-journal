@@ -32,7 +32,7 @@ function openingStep(p: OpeningPosition): Step {
     synthetic: true,
     fill: {
       id: `op-${shortHash([p.account, p.symbol, p.qty, p.avgPrice, p.openedAt].join("|"))}`,
-      broker: "schwab", // replaced below with the account's broker when fills exist
+      broker: "schwab", // placeholder: the trade's broker comes from brokerOf(account) when it is built
       account: p.account, symbol: p.symbol, assetType: "equity", side: "buy",
       qty: p.qty, price: p.avgPrice, fees: 0, executedAt, timePrecision: "day",
       seq: -1, source: "overrides.json", importedAt: "",

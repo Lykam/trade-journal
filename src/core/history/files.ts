@@ -3,10 +3,10 @@
 // an import or override edit produces byte-identical files either way.
 import { sha1 } from "@noble/hashes/legacy.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
-import { parseJsonFile } from "../data-error";
-import { etDate } from "../normalize/util";
-import { SCHEMAS, type SchemaTexts, type Validate } from "../schema-names";
-import type { Config, DerivedTrades, Fill, FillsFile, Overrides, SymbolsMap } from "../types";
+import { parseJsonFile } from "../data-error.ts";
+import { etDate } from "../normalize/util.ts";
+import { SCHEMAS, type SchemaTexts, type Validate } from "../schema-names.ts";
+import type { Config, DerivedTrades, Fill, FillsFile, Overrides, SymbolsMap } from "../types.ts";
 
 export interface HistorySnapshot {
   config: Config;

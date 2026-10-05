@@ -3,7 +3,7 @@
 // only the script's label and the error kind: never the message, an Ajv
 // instance path or a stack, which can quote a data file, a ticker, a fill id or
 // a private path. Locally the full message is kept.
-import { DataFileError } from "../src/core/data-error";
+import { DataFileError } from "../src/core/data-error.ts";
 
 /** True in the workflows: their logs are public, so scripts print no counts and no error details (Q35). */
 export function isPublicLog(): boolean {

@@ -3,9 +3,9 @@
 // Ajv at runtime; the app uses the same schemas precompiled at build time
 // (build/validators-plugin.ts), because the site's CSP forbids `new Function` (Q46).
 import { Ajv, type ValidateFunction } from "ajv";
-import { validatorFrom, type SchemaName, type SchemaTexts, type Validate } from "./schema-names";
+import { validatorFrom, type SchemaName, type SchemaTexts, type Validate } from "./schema-names.ts";
 
-export { SCHEMAS, type SchemaName, type SchemaTexts, type Validate } from "./schema-names";
+export { SCHEMAS, type SchemaName, type SchemaTexts, type Validate } from "./schema-names.ts";
 
 export function makeValidator(texts: SchemaTexts): Validate {
   const ajv = new Ajv({ allErrors: true });

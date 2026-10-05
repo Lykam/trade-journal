@@ -2,9 +2,9 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { cspPlugin } from "./build/csp-plugin";
-import { devDataPlugin } from "./build/dev-data-plugin";
-import { validatorsPlugin } from "./build/validators-plugin";
+import { cspPlugin } from "./build/csp-plugin.ts";
+import { devDataPlugin } from "./build/dev-data-plugin.ts";
+import { validatorsPlugin } from "./build/validators-plugin.ts";
 import pkg from "./package.json" with { type: "json" };
 
 export default defineConfig({

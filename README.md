@@ -13,7 +13,7 @@ the rolling 90-day average.
 See [`docs/SPEC.md`](docs/SPEC.md) for the full specification and the
 decisions log (§10).
 
-Status: milestone 5 (in-browser import and override editing through the GitHub API) complete. Next: milestone 6, Playbook integration. Site: https://lykam.github.io/trade-journal/
+Status: milestones 1–7 are done and live at https://lykam.github.io/trade-journal/ (encrypted; owner only).
 
 The Import page and the Commit buttons need a fine-grained GitHub token (Contents: read and write on trade-history only), entered in Settings; see SPEC §2 and Q38.
 

@@ -9,14 +9,13 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { shouldPrice } from "../src/core/market";
 import { runMain } from "./public-log";
+import { yahooClient } from "./yahoo";
 
 const REFERENCE = "SPY";
 
 async function reference(): Promise<{ state: string | null; lastTradeIso: string | null } | null> {
   try {
-    const { default: YahooFinance } = await import("yahoo-finance2");
-    const silent = { info() {}, warn() {}, error() {}, debug() {}, dir() {} };
-    const yf = new YahooFinance({ logger: silent, suppressNotices: ["yahooSurvey"], validation: { logErrors: false } });
+    const yf = await yahooClient();
     const q = (await yf.quote(REFERENCE, {}, { validateResult: false })) as { marketState?: string; regularMarketTime?: Date | number };
     const t = q.regularMarketTime;
     const lastTradeIso = t instanceof Date ? t.toISOString() : typeof t === "number" ? new Date(t * 1000).toISOString() : null;
