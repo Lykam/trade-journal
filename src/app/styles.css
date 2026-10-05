@@ -512,3 +512,7 @@ th.select-cell { width: 28px; }
 .area-loss { fill: var(--loss); opacity: 0.25; }
 rect.bar-on { stroke: var(--accent); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .spark-svg { width: 112px; height: 28px; flex: 0 0 112px; }
+.fchips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.fchips .chip + .chip { margin-left: 0; }
+.bulk-dock { position: sticky; bottom: 0; z-index: 30; padding: 8px 0 0; background: var(--bg); }
+.rv-mark { margin-left: 6px; font-size: 14px; }

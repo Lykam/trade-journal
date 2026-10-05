@@ -57,6 +57,8 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
   const rows = useMemo(() => viewRows(j, view), [j, view]);
   const summary = summarizeRows(rows, view.pnl);
   const { items, page, pages } = paginate(rows, view.page);
+  // Notes were empty on every row in review: the column shows only when this page has one (#21).
+  const showNotes = items.some((r) => r.note);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const href = (v: Partial<ViewState>) => viewHref("#/trades", { ...view, ...v });
@@ -91,7 +93,6 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
 
       </section>
 
-      {selected.size > 0 && <BulkBar data={data} journal={j} selected={selected} onClear={() => setSelected(new Set())} />}
 
       <section className="panel">
         {rows.length === 0 ? (
@@ -104,7 +105,7 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                   <th className="select-cell ph-hide">
                     <input type="checkbox" aria-label="Select all on this page" checked={allOnPage} onChange={(e) => toggle(pageIds, e.target.checked)} />
                   </th>
-                  {COLUMNS.map((c) => {
+                  {COLUMNS.filter((c) => c.key !== "notes" || showNotes).map((c) => {
                     const on = view.sort.key === c.key;
                     return (
                       <th key={c.key} className={`${c.num ? "num" : ""} ${c.phone ? "" : "ph-hide"}`} aria-sort={on ? (view.sort.dir === "asc" ? "ascending" : "descending") : "none"} title={c.title}>
@@ -137,7 +138,8 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                         </td>
                         <td className="muted">
                           {/* The year goes on a phone, where P&L needs the width (#17). */}
-                          {r.firstDate !== r.date ? <>{mmdd(r.firstDate)}→{mmdd(r.date)}</> : <><span className="ph-hide">{r.date.slice(0, 5)}</span>{mmdd(r.date)}</>}
+                          {/* Always the close (or latest) date, so the column scans as one; the range moves to HOLD (#21). */}
+                          <span className="ph-hide">{r.date.slice(0, 5)}</span>{mmdd(r.date)}
                         </td>
                         <td>
                           {isIdea && r.trades.length > 1 && <span className="caret" aria-hidden="true">{isOpen ? "▾" : "▸"} </span>}
@@ -155,12 +157,12 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                         <td className="muted ph-hide">{r.style.toUpperCase()}</td>
                         <td className="num ph-hide">{qty(r.volume)}</td>
                         <td className="num ph-hide">{r.executions}</td>
-                        <td className="muted ph-hide">{rowHold(r)}</td>
+                        <td className="muted ph-hide">{rowHold(r)}{r.firstDate !== r.date ? ` · from ${mmdd(r.firstDate)}` : ""}</td>
                         <td className="num"><Pnl p={groupPnl(j, r.trades, view.pnl)} b /></td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {review ? <a href={reviewLink(review.id)} title="Open review" aria-label="Open review">📄</a> : null}
                         </td>
-                        <td className="note ph-hide" title={r.note}>{r.note}</td>
+                        {showNotes && <td className="note ph-hide" title={r.note}>{r.note}</td>}
                         <td className="ph-hide"><Tags r={r} j={j} /></td>
                       </tr>
                       {isIdea && isOpen && r.trades.map((t) => (
@@ -176,7 +178,8 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                           <td className="muted ph-hide">{t.status === "open" ? "open" : holdLabel(t)}</td>
                           <td className="num"><Pnl p={groupPnl(j, [t], view.pnl)} /></td>
                           <td />
-                          <td className="note ph-hide" title={t.note}>{t.note}</td>
+                          {showNotes && <td className="note ph-hide" title={t.note}>{t.note}</td>}
+
                           <td className="ph-hide" />
 
                         </tr>
@@ -189,6 +192,13 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
           </div>
         )}
       </section>
+
+      {/* Under the table and sticky to the bottom of the screen: ticking a box no longer pushes the rows down (#21). */}
+      {selected.size > 0 && (
+        <div className="bulk-dock">
+          <BulkBar data={data} journal={j} selected={selected} onClear={() => setSelected(new Set())} />
+        </div>
+      )}
 
       {pages > 1 && (
         <nav className="pager" aria-label="Pages">

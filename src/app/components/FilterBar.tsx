@@ -2,7 +2,8 @@
 // can be bookmarked; each control just navigates to the updated URL.
 import { useEffect, useId, useState } from "react";
 import {
-  activeFilterCount, dateRange, emptyFilter, PRESET_LABELS, PRESET_SHORT, PRESETS, queryOf, viewToParams, type Flag, type TradeFilter, type ViewState,
+  activeFilterCount, activeFilterLabels, dateRange,
+ emptyFilter, PRESET_LABELS, PRESET_SHORT, PRESETS, queryOf, viewToParams, type Flag, type TradeFilter, type ViewState,
 } from "../../core/journal/filter";
 import type { Journal } from "../../core/journal/journal";
 import type { TradeResult } from "../../core/types";
@@ -65,7 +66,9 @@ export function FilterBar({
 }) {
   const uid = useId();
   const f = view.filter;
-  const [open, setOpen] = useState(() => defaultOpen ?? (typeof window === "undefined" || window.matchMedia("(min-width: 760px)").matches));
+  const active = activeFilterCount(dates ? f : { ...f, preset: null, from: null, to: null });
+  // Open on desktop only when something is filtered; otherwise one line with the active filters as chips (#21).
+  const [open, setOpen] = useState(() => defaultOpen ?? (active > 0 && (typeof window === "undefined" || window.matchMedia("(min-width: 760px)").matches)));
 
   const [symbol, setSymbol] = useState(f.symbols.join(", "));
   const symbolsKey = f.symbols.join(", ");
@@ -82,7 +85,6 @@ export function FilterBar({
     const symbols = symbol.split(/[\s,]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
     if (symbols.join(",") !== f.symbols.join(",")) set({ symbols });
   };
-  const active = activeFilterCount(dates ? f : { ...f, preset: null, from: null, to: null });
   const range = dateRange(f, journal.today, journal.startsOn);
   const toggleTag = (tag: string) => set({ tags: f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag] });
   const toggleResult = (r: TradeResult) => set({ results: f.results.includes(r) ? f.results.filter((x) => x !== r) : [...f.results, r] });
@@ -93,6 +95,11 @@ export function FilterBar({
         <button type="button" className="btn ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? "▾" : "▸"} {title}{active ? <span className="accent">&nbsp;· {active} ACTIVE</span> : null}
         </button>
+        {!open && active > 0 && (
+          <span className="fchips">
+            {activeFilterLabels(f, journal.today, journal.startsOn, dates).map((l) => <span key={l} className="chip accent">{l}</span>)}
+          </span>
+        )}
         {active > 0 && <button type="button" className="btn ghost" onClick={() => go({ filter: emptyFilter() })}>CLEAR</button>}
         <span className="grow" />
         {pnl && <Seg label="P&L" value={view.pnl} options={[{ value: "net", label: "NET" }, { value: "gross", label: "GROSS" }]} onChange={(p) => go({ pnl: p })} />}

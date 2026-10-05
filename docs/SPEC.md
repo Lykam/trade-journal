@@ -798,7 +798,8 @@ candlestick charts in v1 (see §11).
   - All colors are CSS variables, so a light theme or different palette can be
     added later without touching components.
 - **Global filter bar** on Trades and Reports, kept in the URL so views can be
-  bookmarked:
+  bookmarked. It starts collapsed to one line unless a filter is active (and
+  on desktop), and when collapsed shows the active filters as chips (Q62):
   - **Symbol:** matches the traded symbol *or* the underlying, so `NVQX` finds
     NVQU trades too.
   - **Tags:** multi-select.
@@ -961,7 +962,12 @@ dashboard quick view has, plus:
   in muted text (`open +19.50`, or `open —` without a quote), never colored
   as a win or loss, and they sort after the closed trades on P&L (Q54). The
   Journal list, the review page and the Idea panel do the same.
-- **Bulk select** with checkboxes, then **Add tag / Remove tag / Mark Day /
+- **Date** is always the close date (the open date while open); a multi-day
+  row's range shows under Hold (`27d · from 09-02`). The **Notes** column
+  shows only when a row on the page has a note (Q62).
+- **Bulk select** with checkboxes (the bar docks at the bottom of the
+  screen, below the table, so ticking a box never moves the rows), then
+  **Add tag / Remove tag / Mark Day /
   Mark Swing / Exclude from stats / Include**. Every bulk action is one commit
   to `trade-history/overrides.json`.
 - **Views:** only *Table* in v1. Tradervue's "Charts (large/small)" views are
@@ -1000,7 +1006,10 @@ other than date they read **‹ Prev / Next ›**.
     field). The edit is staged, previewed, then committed (Q32, §4.5A). It also has a **Start review** button that copies
     `/playbook-review <TICKER> <DATE>` to the clipboard to paste into Claude.
     This replaces Tradervue's "Insert template".
-- **Charts section, from your Playbook images:** a gallery of
+- **Keys:** `j` / `k` step to the next / previous trade in the list (not
+  while typing). A 📄 beside the header links to the review.
+- **Charts section, from your Playbook images** (in the left column, under the
+  timeline and idea, beside the review): a gallery of
   `Images/<date>/<UNDERLYING>-daily*` and `-intraday*` (also matching the
   traded ETF symbol). Thumbnails open a full-size lightbox. If there are no
   images, it shows "No charts saved for this trade. Use `/chart-image` in
@@ -1465,6 +1474,8 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q62 | Trades and Trade detail | UX review (#21). The Date column is always one date (close, or open while open), with a multi-day range moved to Hold. The bulk bar docks at the bottom of the screen under the table. Notes hides when the page has none. Filter bars start collapsed unless something is filtered, with the active filters as chips. Trade detail moves the charts into the left column, links its review with 📄 (the one reviewed marker everywhere, replacing the dashboard's `R` and the detail chip), and steps with `j` / `k`. Native date inputs stay (owner decision): a text field would lose the phone date picker. (2026-10-04, #21) |
+
 | Q61 | Breakdowns | UX review (#20). **Entry time:** 15-minute buckets 09:30–11:00, hourly after, pre-market apart (`entryBucket`, from the unit's `entryMinute`). **Best / worst:** `topBottom` splits only above 2 × 20 groups, and the worst list holds losing groups only, worst first; a shorter list is one list, so winners never sit under "worst". **Small samples:** under 10 units, profit factor, SQN and Kelly are grayed with a hover saying so; ∞ is shown as "—" ("No losses"). **Tag vs Category** stay separate (owner decision), with clearer headings. SQN, K-ratio, Kelly % and Chance it's luck each have a one-line hover. (2026-10-04, #20) |
 
 | Q60 | Chart readouts | UX review (#19), within Q22's hand-rolled SVG: every chart shows its top and bottom values on the left edge, first / middle / last dates under it, and a one-line readout of the hovered or tapped point (date and value; P&L and running total on cumulative charts) with a crosshair, instead of slow native tooltips. Daily win % has a legend (green at or above average, gray below) and a minimum bar height so 0% days stay visible; the gauges' 8-week bars put the hovered week in place of their label; breakdown bars read `P&L · count · win %` (win % on desktop only). (2026-10-04, #19) |

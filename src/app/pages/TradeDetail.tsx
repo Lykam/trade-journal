@@ -1,7 +1,8 @@
 // Trade detail (SPEC §6.4): header with Back / Previous / Next following the
 // current filter and sort, stats, executions, timeline, idea, review notes and
 // Playbook charts.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
 import { buyFees, daysHeld, holdLabel } from "../../core/dashboard/dashboard";
 import { quoteStatus } from "../../core/gauge/gauge";
 import { tradeDate, type ViewState } from "../../core/journal/filter";
@@ -32,9 +33,26 @@ function Stat({ label, children, cls }: { label: string; children: React.ReactNo
   );
 }
 
+/** k / j step to the previous / next trade in the list, as in review sessions (#21); ignored while typing. */
+function useStepKeys(prev: string | null, next: string | null) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      const to = e.key === "j" ? next : e.key === "k" ? prev : null;
+      if (to) window.location.hash = to;
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prev, next]);
+}
+
 export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBundle; journal: Journal; id: string; view: ViewState; now: string }) {
   const t = j.tradeById.get(id);
   const rows = useMemo(() => viewRows(j, view), [j, view]);
+  const nb = neighbors(tradeOrder(rows), id);
+  useStepKeys(nb.prev ? tradeLink(nb.prev, view) : null, nb.next ? tradeLink(nb.next, view) : null);
   if (!t) {
     return (
       <main className="page">
@@ -43,10 +61,9 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
       </main>
     );
   }
-  const order = tradeOrder(rows);
-  const nb = neighbors(order, t.id);
   const back = viewHref("#/trades", { ...view, page: pageOf(rows, t.id) });
   // NEWER / OLDER only when the list is in date order, as on the review page; otherwise the steps follow another sort (#13).
+
   const steps = view.sort.key !== "date" ? { prev: "PREV", next: "NEXT" } : view.sort.dir === "desc" ? { prev: "NEWER", next: "OLDER" } : { prev: "OLDER", next: "NEWER" };
   const timed = t.broker === "webull" || j.fillById.get(t.fillIds[0] ?? "")?.timePrecision === "second";
 
@@ -56,6 +73,7 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
         <h1>
           {t.symbol} <span className="sub">· {etDate(t.openedAt)}{timed ? ` ${timeOf(t.openedAt)}` : ""}</span>{" "}
           <EtfBadge t={t} /> {t.status !== "closed" && <span className={`chip ${t.status === "open" ? "accent" : "loss"}`}>{t.status.toUpperCase()}</span>}
+          {reviewsOf(j, t)[0] && <a className="rv-mark" href={reviewLink(reviewsOf(j, t)[0]!.id)} title="Reviewed: open the review" aria-label="Reviewed">📄</a>}
           {t.excluded && <span className="chip">EXCLUDED</span>}
         </h1>
         <nav className="row" aria-label="Trade navigation">
@@ -78,12 +96,14 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
             </div>
           </section>
           <IdeaPanel journal={j} t={t} view={view} />
+          {/* Charts sit beside the review instead of under it (#21). */}
+          <Charts data={data} journal={j} t={t} />
         </div>
         <div className="col">
           <NotesPanel data={data} journal={j} t={t} />
         </div>
       </div>
-      <Charts data={data} journal={j} t={t} />
+
     </main>
   );
 }

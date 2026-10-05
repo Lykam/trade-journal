@@ -4,7 +4,7 @@ import { buyFees, daysHeld, openPositions, rangeStats, sortOpenRows } from "../s
 import { lastImports } from "../src/core/imports";
 import { computeGauge, winsToFull } from "../src/core/gauge/gauge";
 import { importBehind, lastSessionDate } from "../src/core/market";
-import { defaultView } from "../src/core/journal/filter";
+import { activeFilterLabels, defaultView, emptyFilter } from "../src/core/journal/filter";
 import { buildJournal, groupPnl, type Journal } from "../src/core/journal/journal";
 import { buildRows, sortRows, summarizeRows } from "../src/core/journal/rows";
 import { buildUnits, computeGrid } from "../src/core/reports";
@@ -180,5 +180,17 @@ describe("#20 breakdowns", () => {
     expect(small(g(10, 5, 1.5))).toBe(false);
     expect(smallTitle(g(12, 12, null))).toBe("No losses");
     expect(smallTitle(g(12, 6, 1.2))).toBeUndefined();
+  });
+});
+
+describe("#21 trades", () => {
+  it("names each active filter for the chips on a collapsed filter bar", () => {
+    const f = { ...emptyFilter(), symbols: ["ZZTA"], style: "day" as const, instrument: "leveraged_etf" as const, results: ["win" as const, "loss" as const], review: "yes" as const, preset: "week" as const };
+    expect(activeFilterLabels(f, "2026-10-04")).toEqual(["ZZTA", "DAY", "ETF", "WIN + LOSS", "REVIEWED", "THIS WEEK"]);
+    expect(activeFilterLabels({ ...emptyFilter(), from: "2026-09-01", to: "2026-09-30" }, "2026-10-04")).toEqual(["2026-09-01 – 2026-09-30"]);
+    expect(activeFilterLabels({ ...emptyFilter(), from: "2026-09-02", to: "2026-09-02" }, "2026-10-04")).toEqual(["2026-09-02"]);
+    // The calendar ignores dates, so its chips leave them out.
+    expect(activeFilterLabels({ ...emptyFilter(), preset: "week" }, "2026-10-04", "monday", false)).toEqual([]);
+    expect(activeFilterLabels(emptyFilter(), "2026-10-04")).toEqual([]);
   });
 });
