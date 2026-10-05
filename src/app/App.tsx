@@ -1,9 +1,12 @@
 import { useEffect, useMemo } from "react";
 import { parseView } from "../core/journal/filter";
 import { buildJournal } from "../core/journal/journal";
+import { dayOfWeek } from "../core/calendar";
+import { importBehind } from "../core/market";
 import { etDate } from "../core/normalize/util";
+import type { Broker, DataBundle } from "../core/types";
 import { appNow, useBundle, useRoute } from "./data";
-import { timeOf } from "./format";
+import { DOW, stamp } from "./format";
 import { lock } from "./vault";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DeployBanner } from "./components/DeployBanner";
@@ -28,16 +31,44 @@ const NAV = [
   { path: "/settings", label: "SETTINGS" },
 ];
 
+const BROKERS: Broker[] = ["webull", "schwab"];
+
+/**
+ * "PRICES FRI 10-02 16:00 ET · WEBULL 10-02 · SCHWAB 10-02": how fresh the prices and each
+ * broker's last import are. An import older than the latest closed session turns amber (#15).
+ */
+function DataStamps({ data, now }: { data: DataBundle; now: string }) {
+  const asOf = data.quotes?.asOf;
+  return (
+    <span className="stamps">
+      <span className="muted">{asOf ? `PRICES ${DOW[dayOfWeek(etDate(asOf))]} ${stamp(asOf)} ET` : "NO PRICES"}</span>
+      {BROKERS.map((b) => {
+        const at = data.imports?.[b];
+        if (!at) return null;
+        const behind = importBehind(at, now);
+        return (
+          <span key={b} className={behind ? "accent" : "muted"} title={`Last ${b} import ${stamp(at)} ET${behind ? ": older than the last market close" : ""}`}>
+            {b.toUpperCase()} {etDate(at).slice(5)}{behind ? " !" : ""}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export function App() {
   const load = useBundle();
   const { path, params } = useRoute();
   const now = useMemo(appNow, []);
-  const asOf = load.status === "ready" ? load.data.quotes?.asOf : undefined;
+
   const journal = useMemo(() => (load.status === "ready" ? buildJournal(load.data, etDate(now)) : null), [load, now]);
   const view = useMemo(() => parseView(params), [params]);
   useEffect(() => {
     window.scrollTo(0, 0);
+    // On a phone the nav scrolls sideways (#17): keep the active tab in view.
+    document.querySelector(".nav a.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [path]);
+
   const pinned = new URLSearchParams(window.location.search).has("now");
 
   // The encrypted site shows nothing but the passphrase screen until unlocked. (The demo never locks.)
@@ -76,8 +107,8 @@ export function App() {
         ))}
         <span className="spacer" />
         {pinned && <span className="half">NOW PINNED {now.slice(0, 16)}Z</span>}
-        <span className="muted">{asOf ? `QUOTES ${timeOf(asOf)}` : "NO QUOTES"}</span>
-        <a className="btn primary" href="#/import">IMPORT</a>
+        {load.status === "ready" && <DataStamps data={load.data} now={now} />}
+        <a className={`btn primary ${path === "/import" ? "active" : ""}`} href="#/import" aria-current={path === "/import" ? "page" : undefined}>IMPORT</a>
         {__TJ_DEMO__ ? (
           <span className="chip accent chip-lg" title="This demo runs on synthetic data generated in your browser">DEMO</span>
         ) : import.meta.env.DEV ? (

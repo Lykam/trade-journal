@@ -2,27 +2,29 @@
 // paginated at 50, with bulk-select actions previewed against overrides.json.
 import { Fragment, useMemo, useState } from "react";
 import { queryOf, tradeDate, viewToParams, type SortKey, type ViewState } from "../../core/journal/filter";
-import { reviewsOf, type Journal } from "../../core/journal/journal";
+import { groupPnl, reviewsOf, type Journal } from "../../core/journal/journal";
 import { paginate, summarizeRows, viewRows, type Row } from "../../core/journal/rows";
 import { holdLabel } from "../../core/dashboard/dashboard";
 import type { DataBundle, Trade } from "../../core/types";
 import { BulkBar } from "../components/BulkBar";
 import { FilterBar, viewHref } from "../components/FilterBar";
+import { Pnl } from "../components/Pnl";
 import { go } from "../data";
-import { mmdd, money, pct, pnlClass, qty } from "../format";
+import { etfBadge, mmdd, money, pct, pnlClass, qty } from "../format";
 
 export const tradeLink = (id: string, v: ViewState) => `#/trade/${id}${queryOf(viewToParams(v, { page: false }))}`;
 export const reviewLink = (id: string) => `#/journal/${encodeURIComponent(id)}`;
 
-const COLUMNS: Array<{ key: SortKey; label: string; num?: boolean; title?: string }> = [
-  { key: "date", label: "DATE" },
-  { key: "symbol", label: "SYMBOL" },
+/** `phone`: still shown below 640 px, where the other columns are hidden so P&L stays on screen (#17). */
+const COLUMNS: Array<{ key: SortKey; label: string; num?: boolean; title?: string; phone?: boolean }> = [
+  { key: "date", label: "DATE", phone: true },
+  { key: "symbol", label: "SYMBOL", phone: true },
   { key: "style", label: "STYLE" },
   { key: "volume", label: "VOLUME", num: true, title: "Shares bought + sold" },
-  { key: "executions", label: "EXEC", num: true, title: "Fills" },
+  { key: "executions", label: "FILLS", num: true },
   { key: "hold", label: "HOLD" },
-  { key: "pnl", label: "P&L", num: true },
-  { key: "review", label: "REVIEW" },
+  { key: "pnl", label: "P&L", num: true, phone: true },
+  { key: "review", label: "REVIEW", phone: true },
   { key: "notes", label: "NOTES" },
   { key: "tags", label: "TAGS" },
 ];
@@ -31,12 +33,12 @@ function rowHold(r: Row): string {
   if (r.kind === "trade" || r.trades.length === 1) return r.open ? `open ${r.holdDays}d` : holdLabel(r.trades[0]!);
   if (r.open) return `open ${r.holdDays}d`;
   if (r.holdMinutes !== null && r.holdDays === 0) return holdLabel({ ...r.trades[0]!, holdMinutes: r.holdMinutes });
-  return r.holdDays === 0 ? "same day" : `${r.holdDays} day${r.holdDays === 1 ? "" : "s"}`;
+  return r.holdDays === 0 ? "same day" : `${r.holdDays}d`;
 }
 
 export function EtfBadge({ t }: { t: Pick<Trade, "instrument" | "underlying" | "leverage" | "direction"> }) {
   if (t.instrument !== "leveraged_etf") return null;
-  return <span className="chip etf" title={`${t.leverage}x ${t.direction} single-stock ETF`}>ETF→{t.underlying}</span>;
+  return <span className="chip etf" title={`${t.leverage}x ${t.direction} single-stock ETF on ${t.underlying}`}>{etfBadge(t)}</span>;
 }
 
 function Tags({ r, j }: { r: Row; j: Journal }) {
@@ -54,11 +56,11 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
   const rows = useMemo(() => viewRows(j, view), [j, view]);
   const summary = summarizeRows(rows, view.pnl);
   const { items, page, pages } = paginate(rows, view.page);
+  // Notes were empty on every row in review: the column shows only when this page has one (#21).
+  const showNotes = items.some((r) => r.note);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const href = (v: Partial<ViewState>) => viewHref("#/trades", { ...view, ...v });
-  const pnlOf = (r: { gross: number; net: number }) => (view.pnl === "gross" ? r.gross : r.net);
-  const tradePnl = (t: Trade) => (view.pnl === "gross" ? t.grossPnl : t.netPnl);
 
   const pageIds = items.flatMap((r) => r.trades.map((t) => t.id));
   const allOnPage = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
@@ -79,13 +81,16 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
       <FilterBar view={view} journal={j} base="#/trades" />
 
       <section className="panel statrow" aria-label="Summary">
-        <div><div className="label small">{view.pnl.toUpperCase()} P&amp;L</div><div className={`v ${pnlClass(summary.pnl)}`}>{money(summary.pnl)}</div><div className="muted small">REALIZED, CLOSED</div></div>
-        <div><div className="label small">WIN % ({unit})</div><div className="v">{pct(summary.winRate, 1)}</div><div className="muted small">{summary.wins}W {summary.losses}L {summary.breakevens}BE · ON NET</div></div>
-        <div><div className="label small">{unit}</div><div className="v">{summary.rows}</div><div className="muted small">{view.count === "idea" ? `${summary.trades} TRADES` : `${new Set(rows.flatMap((r) => r.trades.map((t) => t.ideaId))).size} IDEAS`}</div></div>
-        <div><div className="label small">VOLUME</div><div className="v">{qty(summary.volume)}</div><div className="muted small">SHARES</div></div>
-      </section>
+        <div><div className="label small">{view.pnl.toUpperCase()} P&amp;L · CLOSED {unit}</div><div className={`v ${pnlClass(summary.pnl)}`}>{money(summary.pnl)}</div></div>
+        <div>
+          <div className="label small">WIN % ({unit})</div><div className="v">{pct(summary.winRate, 1)}</div>
+          <div className="muted small">{summary.wins}W {summary.losses}L{summary.breakevens ? ` ${summary.breakevens}BE` : ""}{view.pnl === "gross" ? " · ON NET" : ""}</div>
+        </div>
+        {/* Open rows are listed but have no result: say how many, so the count matches Reports (closed only) (#16). */}
+        <div><div className="label small">{unit}</div><div className="v">{summary.rows}</div><div className="muted small">{summary.open} OPEN · {summary.rows - summary.open} CLOSED</div></div>
+        <div><div className="label small">SHARES TRADED</div><div className="v">{qty(summary.volume)}</div></div>
 
-      {selected.size > 0 && <BulkBar data={data} journal={j} selected={selected} onClear={() => setSelected(new Set())} />}
+      </section>
 
       <section className="panel">
         {rows.length === 0 ? (
@@ -95,15 +100,16 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
             <table className="grid trades">
               <thead>
                 <tr>
-                  <th style={{ width: 28 }}>
+                  <th className="select-cell ph-hide">
                     <input type="checkbox" aria-label="Select all on this page" checked={allOnPage} onChange={(e) => toggle(pageIds, e.target.checked)} />
                   </th>
-                  {COLUMNS.map((c) => {
+                  {COLUMNS.filter((c) => c.key !== "notes" || showNotes).map((c) => {
                     const on = view.sort.key === c.key;
                     return (
-                      <th key={c.key} className={c.num ? "num" : ""} aria-sort={on ? (view.sort.dir === "asc" ? "ascending" : "descending") : "none"} title={c.title}>
+                      <th key={c.key} className={`${c.num ? "num" : ""} ${c.phone ? "" : "ph-hide"}`} aria-sort={on ? (view.sort.dir === "asc" ? "ascending" : "descending") : "none"} title={c.title}>
                         <button type="button" className={`sort ${on ? "on" : ""}`} onClick={() => sortBy(c.key)}>
-                          {c.key === "pnl" ? `${view.pnl.toUpperCase()} P&L` : c.label}
+                          {c.key === "pnl" ? `${view.pnl.toUpperCase()} P&L` : c.key === "review" ? <><span className="ph-hide">REVIEW</span><span className="ph-only-inline" aria-hidden="true">📄</span></> : c.label}
+
                           <span aria-hidden="true">{on ? (view.sort.dir === "asc" ? " ▲" : " ▼") : ""}</span>
                         </button>
                       </th>
@@ -125,11 +131,13 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                   return (
                     <Fragment key={r.id}>
                       <tr className={`clickable ${first.excluded && !isIdea ? "excluded" : ""}`} onClick={onRow}>
-                        <td onClick={(e) => e.stopPropagation()}>
+                        <td className="ph-hide" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" aria-label={`Select ${r.symbol} ${r.date}`} checked={ids.every((id) => selected.has(id))} onChange={(e) => toggle(ids, e.target.checked)} />
                         </td>
                         <td className="muted">
-                          {r.firstDate !== r.date ? <>{mmdd(r.firstDate)}→{mmdd(r.date)}</> : r.date}
+                          {/* The year goes on a phone, where P&L needs the width (#17). */}
+                          {/* Always the close (or latest) date, so the column scans as one; the range moves to HOLD (#21). */}
+                          <span className="ph-hide">{r.date.slice(0, 5)}</span>{mmdd(r.date)}
                         </td>
                         <td>
                           {isIdea && r.trades.length > 1 && <span className="caret" aria-hidden="true">{isOpen ? "▾" : "▸"} </span>}
@@ -139,36 +147,39 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                           ) : (
                             <EtfBadge t={first} />
                           )}
-                          {r.open && <span className="chip accent">OPEN</span>}
+                          {r.open && <span className="chip accent ph-hide">OPEN</span>}
+
                           {first.status === "unmatched" && <span className="chip loss">UNMATCHED</span>}
                           {first.excluded && !isIdea && <span className="chip">EXCL</span>}
                         </td>
-                        <td className="muted">{r.style.toUpperCase()}</td>
-                        <td className="num">{qty(r.volume)}</td>
-                        <td className="num">{r.executions}</td>
-                        <td className="muted">{rowHold(r)}</td>
-                        <td className={`num b ${pnlClass(pnlOf(r))}`}>{money(pnlOf(r))}</td>
+                        <td className="muted ph-hide">{r.style.toUpperCase()}</td>
+                        <td className="num ph-hide">{qty(r.volume)}</td>
+                        <td className="num ph-hide">{r.executions}</td>
+                        <td className="muted ph-hide">{rowHold(r)}{r.firstDate !== r.date ? ` · from ${mmdd(r.firstDate)}` : ""}</td>
+                        <td className="num"><Pnl p={groupPnl(j, r.trades, view.pnl)} b /></td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {review ? <a href={reviewLink(review.id)} title="Open review" aria-label="Open review">📄</a> : null}
                         </td>
-                        <td className="note" title={r.note}>{r.note}</td>
-                        <td><Tags r={r} j={j} /></td>
+                        {showNotes && <td className="note ph-hide" title={r.note}>{r.note}</td>}
+                        <td className="ph-hide"><Tags r={r} j={j} /></td>
                       </tr>
                       {isIdea && isOpen && r.trades.map((t) => (
                         <tr key={t.id} className="clickable sub" onClick={() => go(tradeLink(t.id, view))}>
-                          <td onClick={(e) => e.stopPropagation()}>
+                          <td className="ph-hide" onClick={(e) => e.stopPropagation()}>
                             <input type="checkbox" aria-label={`Select ${t.symbol} trade`} checked={selected.has(t.id)} onChange={(e) => toggle([t.id], e.target.checked)} />
                           </td>
                           <td className="muted">↳ {mmdd(tradeDate(t))}</td>
                           <td><a className="sym" href={tradeLink(t.id, view)}>{t.symbol}</a> <EtfBadge t={t} /></td>
-                          <td className="muted">{t.style.toUpperCase()}</td>
-                          <td className="num">{qty(t.events.reduce((s, e) => s + e.qty, 0))}</td>
-                          <td className="num">{t.fillIds.length}</td>
-                          <td className="muted">{t.status === "open" ? "open" : holdLabel(t)}</td>
-                          <td className={`num ${pnlClass(tradePnl(t))}`}>{money(tradePnl(t))}</td>
+                          <td className="muted ph-hide">{t.style.toUpperCase()}</td>
+                          <td className="num ph-hide">{qty(t.events.reduce((s, e) => s + e.qty, 0))}</td>
+                          <td className="num ph-hide">{t.fillIds.length}</td>
+                          <td className="muted ph-hide">{t.status === "open" ? "open" : holdLabel(t)}</td>
+                          <td className="num"><Pnl p={groupPnl(j, [t], view.pnl)} /></td>
                           <td />
-                          <td className="note" title={t.note}>{t.note}</td>
-                          <td />
+                          {showNotes && <td className="note ph-hide" title={t.note}>{t.note}</td>}
+
+                          <td className="ph-hide" />
+
                         </tr>
                       ))}
                     </Fragment>
@@ -179,6 +190,13 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
           </div>
         )}
       </section>
+
+      {/* Under the table and sticky to the bottom of the screen: ticking a box no longer pushes the rows down (#21). */}
+      {selected.size > 0 && (
+        <div className="bulk-dock">
+          <BulkBar data={data} journal={j} selected={selected} onClear={() => setSelected(new Set())} />
+        </div>
+      )}
 
       {pages > 1 && (
         <nav className="pager" aria-label="Pages">

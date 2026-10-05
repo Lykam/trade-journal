@@ -1,6 +1,6 @@
 // When the prices workflow should run (SPEC §5.4). The clock check is pure; the
 // holiday check (Yahoo's marketState) lives in build/market-open.ts.
-import { dayOfWeek, etTime } from "./calendar";
+import { addDays, dayOfWeek, etTime } from "./calendar";
 import { etDate } from "./normalize/util";
 
 export type MarketWindow = "regular" | "post-close" | "closed";
@@ -32,4 +32,20 @@ export function shouldPrice(
   return ref.lastTradeIso && etDate(ref.lastTradeIso) === etDate(nowIso)
     ? { run: true, why: "post-close run" }
     : { run: false, why: "no session today (holiday?)" };
+}
+
+/**
+ * ET date of the latest regular session that has closed by `now` (weekdays, 16:00 ET).
+ * Holidays aren't modeled (like Q21), so the day after a holiday asks for the holiday's import.
+ */
+export function lastSessionDate(nowIso: string): string {
+  let d = etDate(nowIso);
+  if (!(dayOfWeek(d) % 6 !== 0 && etTime(nowIso) >= "16:00")) d = addDays(d, -1);
+  while (dayOfWeek(d) % 6 === 0) d = addDays(d, -1);
+  return d;
+}
+
+/** An import is behind when it happened before the latest closed session ended (that session's fills can't be in it). */
+export function importBehind(importedAt: string, nowIso: string): boolean {
+  return etDate(importedAt) < lastSessionDate(nowIso) || (etDate(importedAt) === lastSessionDate(nowIso) && etTime(importedAt) < "16:00");
 }

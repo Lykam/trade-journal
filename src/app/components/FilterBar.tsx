@@ -2,7 +2,7 @@
 // can be bookmarked; each control just navigates to the updated URL.
 import { useEffect, useId, useState } from "react";
 import {
-  activeFilterCount, dateRange, emptyFilter, PRESET_LABELS, PRESETS, queryOf, viewToParams, type Flag, type TradeFilter, type ViewState,
+  activeFilterCount, activeFilterLabels, dateRange, emptyFilter, PRESET_LABELS, PRESET_SHORT, PRESETS, queryOf, viewToParams, type Flag, type TradeFilter, type ViewState,
 } from "../../core/journal/filter";
 import type { Journal } from "../../core/journal/journal";
 import type { TradeResult } from "../../core/types";
@@ -39,11 +39,11 @@ function Seg<T extends string | null>({ label, value, options, onChange }: { lab
 const RESULTS: Array<{ value: TradeResult; label: string; cls: string }> = [
   { value: "win", label: "WIN", cls: "gain" },
   { value: "loss", label: "LOSS", cls: "loss" },
-  { value: "breakeven", label: "BE", cls: "flat" },
+  { value: "breakeven", label: "BREAKEVEN", cls: "flat" },
 ];
 
 export function FilterBar({
-  view, journal, base, extra, count = true, dates = true, pnl = true, controls, hrefFor, title = "FILTERS",
+  view, journal, base, extra, count = true, dates = true, pnl = true, review = true, controls, hrefFor, title = "FILTERS", defaultOpen,
 }: {
   view: ViewState;
   journal: Journal;
@@ -55,15 +55,22 @@ export function FilterBar({
   dates?: boolean;
   /** Show the Gross / Net toggle. */
   pnl?: boolean;
+  /** Show the Reviewed filter (the Journal lists only reviews, so it hides it, #22). */
+  review?: boolean;
   /** Page-specific toggles beside Gross / Net and Count. */
   controls?: React.ReactNode;
   /** Where a change navigates; defaults to `base` with the view and `extra`. */
   hrefFor?: (v: ViewState) => string;
   title?: string;
+  /** Start open or closed; by default open on desktop. */
+  defaultOpen?: boolean;
 }) {
   const uid = useId();
   const f = view.filter;
-  const [open, setOpen] = useState(() => typeof window === "undefined" || window.matchMedia("(min-width: 760px)").matches);
+  const active = activeFilterCount(dates ? f : { ...f, preset: null, from: null, to: null });
+  // Open on desktop only when something is filtered; otherwise one line with the active filters as chips (#21).
+  const [open, setOpen] = useState(() => defaultOpen ?? (active > 0 && (typeof window === "undefined" || window.matchMedia("(min-width: 760px)").matches)));
+
   const [symbol, setSymbol] = useState(f.symbols.join(", "));
   const symbolsKey = f.symbols.join(", ");
   useEffect(() => {
@@ -79,7 +86,6 @@ export function FilterBar({
     const symbols = symbol.split(/[\s,]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
     if (symbols.join(",") !== f.symbols.join(",")) set({ symbols });
   };
-  const active = activeFilterCount(dates ? f : { ...f, preset: null, from: null, to: null });
   const range = dateRange(f, journal.today, journal.startsOn);
   const toggleTag = (tag: string) => set({ tags: f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag] });
   const toggleResult = (r: TradeResult) => set({ results: f.results.includes(r) ? f.results.filter((x) => x !== r) : [...f.results, r] });
@@ -90,11 +96,16 @@ export function FilterBar({
         <button type="button" className="btn ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
           {open ? "▾" : "▸"} {title}{active ? <span className="accent">&nbsp;· {active} ACTIVE</span> : null}
         </button>
+        {!open && active > 0 && (
+          <span className="fchips">
+            {activeFilterLabels(f, journal.today, journal.startsOn, dates).map((l) => <span key={l} className="chip accent">{l}</span>)}
+          </span>
+        )}
         {active > 0 && <button type="button" className="btn ghost" onClick={() => go({ filter: emptyFilter() })}>CLEAR</button>}
         <span className="grow" />
         {pnl && <Seg label="P&L" value={view.pnl} options={[{ value: "net", label: "NET" }, { value: "gross", label: "GROSS" }]} onChange={(p) => go({ pnl: p })} />}
         {count && (
-          <Seg label="COUNT" value={view.count} options={[{ value: "trade", label: "TRADE" }, { value: "idea", label: "IDEA" }]} onChange={(c) => go({ count: c })} />
+          <Seg label="COUNT BY" value={view.count} options={[{ value: "trade", label: "TRADE" }, { value: "idea", label: "IDEA" }]} onChange={(c) => go({ count: c })} />
         )}
         {controls}
       </div>
@@ -119,7 +130,9 @@ export function FilterBar({
             <div className="seg wrap" role="group" aria-label="Date presets">
               <button type="button" aria-pressed={!f.preset && !f.from && !f.to} onClick={() => set({ preset: null, from: null, to: null })}>ALL</button>
               {PRESETS.map((p) => (
-                <button key={p} type="button" aria-pressed={f.preset === p} onClick={() => set({ preset: p, from: null, to: null })}>{PRESET_LABELS[p]}</button>
+                <button key={p} type="button" aria-pressed={f.preset === p} onClick={() => set({ preset: p, from: null, to: null })}>
+                  <span className="ph-hide">{PRESET_LABELS[p]}</span><span className="ph-only-inline">{PRESET_SHORT[p]}</span>
+                </button>
               ))}
             </div>
             <span className="dates">
@@ -129,7 +142,7 @@ export function FilterBar({
             </span>
           </div>}
           <Seg label="STYLE" value={f.style} options={[{ value: null, label: "ALL" }, { value: "day", label: "DAY" }, { value: "swing", label: "SWING" }]} onChange={(style) => set({ style })} />
-          <Seg label="INSTRUMENT" value={f.instrument} options={[{ value: null, label: "ALL" }, { value: "stock", label: "STOCK" }, { value: "leveraged_etf", label: "LEV ETF" }]} onChange={(instrument) => set({ instrument })} />
+          <Seg label="INSTRUMENT" value={f.instrument} options={[{ value: null, label: "ALL" }, { value: "stock", label: "STOCK" }, { value: "leveraged_etf", label: "ETF" }]} onChange={(instrument) => set({ instrument })} />
           <Seg label="BROKER" value={f.broker} options={[{ value: null, label: "ALL" }, { value: "schwab", label: "SCHWAB" }, { value: "webull", label: "WEBULL" }]} onChange={(broker) => set({ broker })} />
           <Seg label="DURATION" value={f.duration} options={[{ value: null, label: "ALL" }, { value: "intraday", label: "INTRADAY" }, { value: "multiday", label: "MULTI-DAY" }]} onChange={(duration) => set({ duration })} />
           <div className="fgroup">
@@ -142,7 +155,7 @@ export function FilterBar({
               ))}
             </div>
           </div>
-          <Seg label="HAS REVIEW" value={f.review} options={[{ value: null, label: "ALL" }, { value: "yes", label: "YES" }, { value: "no", label: "NO" }]} onChange={(review) => set({ review })} />
+          {review && <Seg label="REVIEWED" value={f.review} options={[{ value: null, label: "ALL" }, { value: "yes", label: "YES" }, { value: "no", label: "NO" }]} onChange={(v) => set({ review: v })} />}
           <div className="fgroup">
             <span className="flabel">TAGS</span>
             <details className="dropdown">

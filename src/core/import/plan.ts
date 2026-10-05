@@ -181,3 +181,14 @@ export function exportOrder<T extends { name: string; lastModified?: number }>(f
     return (ta && tb ? ta - tb : 0) || ga - gb || ka.localeCompare(kb) || a.name.localeCompare(b.name);
   });
 }
+
+/**
+ * Whether a new ETF's mapping row starts ticked in the import preview (#23): only when the
+ * guessed underlying is a symbol already traded (as the stock or as an underlying). The row is
+ * still shown, editable, and only written on COMMIT, so mapping stays an explicit choice (Q8).
+ */
+export function preTick(guess: string | null, trades: Pick<Trade, "symbol" | "underlying">[]): boolean {
+  if (!guess) return false;
+  const g = guess.toUpperCase();
+  return trades.some((t) => t.symbol.toUpperCase() === g || t.underlying.toUpperCase() === g);
+}

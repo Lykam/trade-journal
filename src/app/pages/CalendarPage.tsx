@@ -69,6 +69,10 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
           <div className="panel-head">
             <h2>{month.slice(0, 4)} · <span className={pnlClass(total)}>{money(Math.round(total * 100) / 100)}</span></h2>
             <span className="muted small">{months.reduce((s, m) => s + m.green, 0)} GREEN DAYS · {months.reduce((s, m) => s + m.red, 0)} RED DAYS</span>
+            <span className="grow" />
+            <span className="dim small year-legend">
+              <span className="key key-gain" /> green day · <span className="key key-loss" /> red day · darker = bigger · <span className="key key-none" /> no trades
+            </span>
           </div>
           <div className="year">
             {months.map((m) => (
@@ -77,6 +81,10 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                   <b>{MONTH_NAMES[Number(m.month.slice(5)) - 1]!.toUpperCase()}</b>
                   <span className={pnlClass(m.pnl)}>{m.trades ? money(m.pnl) : ""}</span>
                 </a>
+                {/* Weekday letters, in the configured week order (#22). */}
+                <div className="ygrid ydow" aria-hidden="true">
+                  {(startsOn === "sunday" ? "SMTWTFS" : "MTWTFSS").split("").map((l, i) => <span key={i}>{l}</span>)}
+                </div>
                 <div className="ygrid" role="grid" aria-label={monthLabel(m.month)}>
                   {Array.from({ length: m.lead }, (_, i) => <span key={`l${i}`} />)}
                   {m.days.map((d) => (
@@ -84,7 +92,8 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                       title={`${d.date}: ${d.trades ? `${money(d.pnl)} · ${n(d)} ${unit}` : "no trades"}`} aria-label={`${d.date} ${d.trades ? money(d.pnl) : "no trades"}`} />
                   ))}
                 </div>
-                <div className="muted small">{m.trades ? `${n(m)} ${(n(m) === 1 ? unit.slice(0, -1) : unit).toUpperCase()} · ${m.green}↑ ${m.red}↓` : "—"}</div>
+                <div className="muted small">{m.trades ? `${n(m)} ${(n(m) === 1 ? unit.slice(0, -1) : unit).toUpperCase()} · ${m.green} GREEN / ${m.red} RED` : "—"}</div>
+
               </div>
             ))}
           </div>
@@ -104,29 +113,34 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
       <section className="panel" aria-label={monthLabel(month)}>
         <div className="panel-head">
           <h2>{monthLabel(month)} · <span className={pnlClass(total.pnl)}>{money(total.pnl)}</span></h2>
-          <span className="muted small">{n(total)} {unit.toUpperCase()} · CLICK A DAY FOR ITS TRADES</span>
+          <span className="muted small">{n(total)} {unit.toUpperCase()}</span>
         </div>
-        <div className="cal" role="grid">
+        <div className={`cal starts-${startsOn}`} role="grid">
+
           <div className="cal-row head" role="row">
             {dows.map((d) => <div key={d} role="columnheader">{d}</div>)}
             <div role="columnheader">WEEK</div>
           </div>
-          {weeks.map((w) => (
-            <div key={w.start} className="cal-row" role="row">
-              {w.days.map((d) => {
-                const body = (
-                  <>
-                    <span className="cal-date">{Number(d.date.slice(8))}{d.review && <span className="rv" title="Review written this day"> 📄</span>}</span>
-                    {d.trades > 0 && (
-                      <>
-                        <span className={`cal-pnl ${pnlClass(d.pnl)}`}>
-                          <span className="full">{money(d.pnl)}</span>
-                          <span className="compact">{compactMoney(d.pnl)}</span>
-                        </span>
-                        <span className="cal-n muted">{n(d)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(d) === 1 ? "" : "S"}</span></span>
-                      </>
-                    )}
-                  </>
+          {weeks.map((w) => {
+            // A week that reaches into the next or previous month: its total includes those days, so it is dimmed and says so (#16).
+            const other = w.days.filter((d) => !d.inMonth && d.trades > 0).map((d) => MONTH_NAMES[Number(d.date.slice(5, 7)) - 1]!.toUpperCase());
+            const incl = [...new Set(other)].join("/");
+            return (
+              <div key={w.start} className="cal-row" role="row">
+                {w.days.map((d) => {
+                  const body = (
+                    <>
+                      <span className="cal-date">{Number(d.date.slice(8))}{d.review && <span className="rv" title="Review written this day"> 📄</span>}</span>
+                      {d.trades > 0 && (
+                        <>
+                          <span className={`cal-pnl ${pnlClass(d.pnl)}`}>
+                            <span className="full">{money(d.pnl)}</span>
+                            <span className="compact">{compactMoney(d.pnl)}</span>
+                          </span>
+                          <span className="cal-n muted">{n(d)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(d) === 1 ? "" : "S"}</span></span>
+                        </>
+                      )}
+                    </>
                 );
                 const cls = `cal-cell ${d.inMonth ? "" : "out"} ${d.date === j.today ? "today" : ""}`;
                 return d.trades ? (
@@ -136,21 +150,23 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                   <div key={d.date} role="gridcell" className={cls}>{body}</div>
                 );
               })}
-              <a role="gridcell" className="cal-cell week" href={w.trades ? rangeHref(w.start, addDays(w.start, 6)) : undefined} style={bg(w.pnl, weekMax)}
-                aria-label={`Week of ${w.start}: ${money(w.pnl)}`}>
-                <span className="cal-date muted">WK</span>
+              <a role="gridcell" className={`cal-cell week ${incl ? "spans" : ""}`} href={w.trades ? rangeHref(w.start, addDays(w.start, 6)) : undefined} style={incl ? undefined : bg(w.pnl, weekMax)}
+                aria-label={`Week of ${w.start}: ${money(w.pnl)}${incl ? `, including ${incl} days` : ""}`} title={incl ? `Includes ${incl} days` : undefined}>
+                <span className="cal-date muted">WK{incl && <span className="full"> · INCL. {incl}</span>}</span>
                 {w.trades > 0 && (
                   <>
                     <span className={`cal-pnl ${pnlClass(w.pnl)}`}><span className="full">{money(w.pnl)}</span><span className="compact">{compactMoney(w.pnl)}</span></span>
-                    <span className="cal-n muted">{n(w)}</span>
+                    <span className="cal-n muted">{n(w)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(w) === 1 ? "" : "S"}</span></span>
                   </>
                 )}
               </a>
             </div>
-          ))}
+            );
+          })}
+
         </div>
       </section>
-      <div className="dim small">Realized P&amp;L of closed trades by ET close date; tint scales with the size of the day. 📄 = a Playbook review dated that day.</div>
+      <div className="dim small">Closed-trade P&amp;L by close date (ET). Darker = bigger day. 📄 = review.</div>
     </main>
   );
 }

@@ -160,9 +160,10 @@ export function sizeState(delta: number, bands: Config["gauge"]["bands"]): SizeS
 }
 
 const MESSAGES: Record<SizeState, string> = {
-  full: "At or above your average. Full size.",
-  half: "Below average. Trade ½ size until the win rate is back to average.",
-  quarter: "Well below average. Trade ¼ size until the win rate is back to average.",
+  // Sizes are spelled out: at body size "½" reads as "%" in JetBrains Mono (#13). The glyphs stay in the big headline.
+  full: "At or above your average.",
+  half: "Below your average: trade half size.",
+  quarter: "Well below your average: trade quarter size.",
 };
 
 export function windowStats(items: WindowItem[]): WindowStats {
@@ -203,7 +204,6 @@ function winRateOf(trades: Trade[]) {
     winRate: wins + losses ? wins / (wins + losses) : null,
   };
 }
-
 
 export function computeGauge(style: Style, input: GaugeInput): Gauge {
   const { config, now } = input;
@@ -289,6 +289,44 @@ export function computeGauge(style: Style, input: GaugeInput): Gauge {
     style, now, week: { start, end }, items, counts, label: parts.join(" + "), stats, baseline, delta, state, message,
     unpriced, stale, pricesAsOf, sparkline,
   };
+}
+
+/**
+ * How many more wins this week bring the gauge back to full size, all else equal (#15):
+ * each win joins the window and, while backfill is padding it, pushes the oldest prior
+ * trade out. Null when already at full size, without a baseline, or out of reach (> 50).
+ */
+export function winsToFull(g: Gauge, config: Config): { wins: number; w: number; l: number } | null {
+  if (g.state === "full" || g.state === null || g.baseline.winRate === null) return null;
+  const base = g.items.filter((i) => i.source !== "prior" && decisive(i.result));
+  const prior = g.items.filter((i) => i.source === "prior");
+  const min = config.gauge.minSample[g.style];
+  for (let k = 1; k <= 50; k++) {
+    let need = Math.max(0, min - base.length - k);
+    let w = base.filter((i) => i.result === "win").length + k;
+    let l = base.length - (w - k);
+    for (const p of prior) {
+      if (need <= 0) break;
+      if (!decisive(p.result)) continue;
+      if (p.result === "win") w++;
+      else l++;
+      need--;
+    }
+    if (sizeState(round((w / (w + l) - g.baseline.winRate) * 100, 6), config.gauge.bands) === "full") return { wins: k, w, l };
+  }
+  return null;
+}
+
+/** The gauge rules in plain words, from config (Settings, #23). */
+export function gaugeRules(config: Config): string[] {
+  const g = config.gauge;
+  const below = (pts: number) => (pts === 0 ? "below your average" : `${pts}+ points below it`);
+  return [
+    `Average = your win % over the last ${g.baselineDays} days${g.excludeCurrentWeekFromBaseline ? ", this week excluded" : ""}.`,
+    `Half size ${below(g.bands.halfSizeBelowPts)}; quarter size ${below(g.bands.quarterSizeBelowPts)}.`,
+    `Needs ${g.minSample.day} day / ${g.minSample.swing} swing trades this week; earlier trades fill in until then.`,
+    ...(g.swingIncludesOpenPositions ? ["Swing counts open positions at the last price."] : []),
+  ];
 }
 
 export function computeGauges(input: GaugeInput): Record<Style, Gauge> {

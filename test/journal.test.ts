@@ -6,24 +6,14 @@ import { dailyTotals, monthGrid, yearView } from "../src/core/journal/calendar-v
 import {
   dateRange, defaultView, emptyFilter, parseView, queryOf, tradeMatcher, viewToParams, type TradeFilter, type ViewState,
 } from "../src/core/journal/filter";
-import { buildJournal, filterReviews, filterTrades, reviewAttention, type Journal } from "../src/core/journal/journal";
+import { buildJournal, exitMissing, filterReviews, filterTrades, journalOrder, reviewAttention, type Journal } from "../src/core/journal/journal";
 import { applyBulkAction, changedOverrideIds, previewOverrides } from "../src/core/journal/overrides";
 import { buildRows, neighbors, pageOf, paginate, sortRows, summarizeRows, tradeOrder, viewRows } from "../src/core/journal/rows";
 import type { DerivedTrades, Fill, Idea, ReviewFile, Trade } from "../src/core/types";
-import { closed, open } from "./factory";
+import { closed, ideasOf, open } from "./factory";
 import { config, FIXTURES, noOverrides, symbols } from "./helpers";
 
 const TODAY = "2025-04-10";
-
-function ideasOf(trades: Trade[]): Idea[] {
-  const by = new Map<string, Trade[]>();
-  for (const t of trades) by.set(t.ideaId, [...(by.get(t.ideaId) ?? []), t]);
-  return [...by].map(([id, ts]) => ({
-    id, underlying: ts[0]!.underlying, accounts: [ts[0]!.account], symbolsTraded: [...new Set(ts.map((t) => t.symbol))],
-    usedEtf: ts.some((t) => t.instrument === "leveraged_etf"), style: ts[0]!.style, date: ts[0]!.openedAt.slice(0, 10),
-    tradeIds: ts.map((t) => t.id), netPnl: ts.reduce((s, t) => s + t.netPnl, 0), status: ts.some((t) => t.status === "open") ? "open" : "closed",
-  }));
-}
 
 function journal(trades: Trade[], reviews: ReviewFile[] = [], today = TODAY): Journal {
   return buildJournal({ derived: { generated: true, generator: "test", trades, ideas: ideasOf(trades) }, symbols: {}, config, playbook: { reviews, images: [] } }, today);
@@ -419,5 +409,20 @@ describe("bulk overrides (preview only until milestone 5)", () => {
     expect(p.trades).toBeGreaterThanOrEqual(1);
     expect(p.ideasAfter).toBe(p.ideasBefore + 1);
     expect(p.ideasChanged).toBeGreaterThan(0);
+  });
+});
+
+describe("journal list order (#22)", () => {
+  it("puts a review whose exit is missing (OPEN review, closed idea) first, the rest as given", () => {
+    const fixtures = JSON.parse(readFileSync(join(FIXTURES, "expected", "trades.json"), "utf8")) as DerivedTrades;
+    const dir = join(FIXTURES, "playbook", "Reviews");
+    const names = ["2025-03-14-OPSW.md", "2025-03-10-ZZTA.md", "2025-03-14-SDAY.md"];
+    const reviews = names.map((n) => ({ path: `Reviews/${n}`, markdown: readFileSync(join(dir, n), "utf8") }));
+    const j = buildJournal({ derived: fixtures, symbols, config, playbook: { reviews, images: [] } }, "2025-03-20");
+    const list = j.reviews.reviews.filter((r) => names.includes(`${r.id}.md`));
+    expect(list.filter((r) => exitMissing(j, r)).map((r) => r.id)).toEqual(["2025-03-14-SDAY"]);
+    const ordered = journalOrder(j, list).map((r) => r.id);
+    expect(ordered[0]).toBe("2025-03-14-SDAY");
+    expect(ordered.slice(1)).toEqual(list.map((r) => r.id).filter((id) => id !== "2025-03-14-SDAY"));
   });
 });

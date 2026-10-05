@@ -54,12 +54,29 @@ export function byDayOfWeek(units: Unit[], o: ValueOpts): Bucket[] {
   return groupBy(units, (u) => String(dayOfWeek(u.date)), o, [1, 2, 3, 4, 5, 6, 0].map((d) => [String(d), DOW[d]!]));
 }
 
-/** Entry hour (ET) of timed trades; date-only (Schwab) units are counted, not placed. */
+const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const OPEN = 9 * 60 + 30;
+const FINE_UNTIL = 11 * 60;
+
+/**
+ * Entry-time bucket of a timed unit (ET): 15 minutes from 09:30 to 11:00, where a day trader's
+ * edge (or damage) is, then by the hour (#20). Before 09:30 is pre-market; key = start minute.
+ */
+export function entryBucket(minute: number): { key: string; label: string } {
+  if (minute < OPEN) return { key: "0000", label: "pre-market" };
+  const start = minute < FINE_UNTIL ? OPEN + Math.floor((minute - OPEN) / 15) * 15 : Math.floor(minute / 60) * 60;
+  const end = minute < FINE_UNTIL ? start + 15 : start + 60;
+  return { key: String(start).padStart(4, "0"), label: minute < FINE_UNTIL ? `${hm(start)}–${hm(end)}` : hm(start) };
+}
+
+/** Entry time (ET) of timed trades; date-only (Schwab) units are counted, not placed. */
 export function byHour(units: Unit[], o: ValueOpts): { buckets: Bucket[]; untimed: number } {
-  const order = Array.from({ length: 24 }, (_, h): [string, string] => [String(h).padStart(2, "0"), `${String(h).padStart(2, "0")}:00`]);
+  const labels = new Map<string, string>();
+  for (const u of units) if (u.entryMinute !== null) { const b = entryBucket(u.entryMinute); labels.set(b.key, b.label); }
+  const order = [...labels].sort(([a], [b]) => a.localeCompare(b));
   return {
-    buckets: groupBy(units, (u) => (u.entryHour === null ? null : String(u.entryHour).padStart(2, "0")), o, order),
-    untimed: units.filter((u) => u.entryHour === null).length,
+    buckets: groupBy(units, (u) => (u.entryMinute === null ? null : entryBucket(u.entryMinute).key), o, order),
+    untimed: units.filter((u) => u.entryMinute === null).length,
   };
 }
 
@@ -112,18 +129,21 @@ export function byCost(units: Unit[], o: ValueOpts): Bucket[] {
 
 const byTotalDesc = (a: Bucket, b: Bucket) => b.total - a.total || a.key.localeCompare(b.key);
 
-/** Best and worst groups by total; with 40 or fewer groups the two lists share none. */
+/**
+ * Best and worst groups by total (#20). Up to 2n groups: one list, best to worst, and no
+ * "worst" list (splitting a short list in half put winners under "bottom"). More than that:
+ * the best n, and the worst n of the losing groups only, worst first.
+ */
 export function topBottom(buckets: Bucket[], n = 20): { top: Bucket[]; bottom: Bucket[] } {
   const sorted = [...buckets].sort(byTotalDesc);
-  const top = sorted.slice(0, Math.min(n, Math.ceil(sorted.length / 2)));
-  const bottom = sorted.slice(top.length).reverse().slice(0, n);
-  return { top, bottom };
+  if (sorted.length <= 2 * n) return { top: sorted, bottom: [] };
+  return { top: sorted.slice(0, n), bottom: sorted.filter((b) => b.total < 0).reverse().slice(0, n) };
 }
 
 export const bySymbol = (units: Unit[], o: ValueOpts) => groupBy(units, (u) => u.symbol, o);
 export const byUnderlying = (units: Unit[], o: ValueOpts) => groupBy(units, (u) => u.underlying, o);
 
-const INSTRUMENTS: Array<[string, string]> = [["stock", "STOCK"], ["leveraged_etf", "LEV ETF"], ["mixed", "STOCK + ETF"]];
+const INSTRUMENTS: Array<[string, string]> = [["stock", "STOCK"], ["leveraged_etf", "ETF"], ["mixed", "STOCK + ETF"]];
 export const byInstrument = (units: Unit[], o: ValueOpts) => groupBy(units, (u) => u.instrument, o, INSTRUMENTS);
 
 export interface SameUnderlying {
@@ -147,7 +167,7 @@ export function sameUnderlying(units: Unit[], o: ValueOpts): SameUnderlying[] {
     out.push({
       underlying,
       stock: bucketOf("stock", "STOCK", stock, o),
-      etf: bucketOf("leveraged_etf", "LEV ETF", etf, o),
+      etf: bucketOf("leveraged_etf", "ETF", etf, o),
       mixed: mixed.length ? bucketOf("mixed", "STOCK + ETF", mixed, o) : null,
     });
   }

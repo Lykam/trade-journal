@@ -35,7 +35,7 @@ describe("size bands", () => {
 
     const tenBelow = computeGauge("day", { trades: [...baseline60(), ...batch("day", "2026-09-29", 3, 3)], config, now: NOW });
     expect(tenBelow).toMatchObject({ delta: -10, state: "half" });
-    expect(tenBelow.message).toContain("½ size");
+    expect(tenBelow.message).toContain("half size");
 
     const wellBelow = computeGauge("day", { trades: [...baseline60(), ...batch("day", "2026-09-29", 2, 3)], config, now: NOW });
     expect(wellBelow.state).toBe("quarter");

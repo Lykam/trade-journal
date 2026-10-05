@@ -1,11 +1,11 @@
 // Trade detail (SPEC §6.4): header with Back / Previous / Next following the
 // current filter and sort, stats, executions, timeline, idea, review notes and
 // Playbook charts.
-import { useMemo, useState } from "react";
-import { holdLabel } from "../../core/dashboard/dashboard";
+import { useEffect, useMemo, useState } from "react";
+import { buyFees, daysHeld, holdLabel } from "../../core/dashboard/dashboard";
 import { quoteStatus } from "../../core/gauge/gauge";
 import { tradeDate, type ViewState } from "../../core/journal/filter";
-import { reviewsOf, type Journal } from "../../core/journal/journal";
+import { groupPnl, reviewsOf, type Journal } from "../../core/journal/journal";
 import { neighbors, pageOf, tradeOrder, viewRows } from "../../core/journal/rows";
 import { chartsFor } from "../../core/reviews/images";
 import { cents, etDate } from "../../core/normalize/util";
@@ -15,9 +15,11 @@ import { StagedPreview, useStagedOverrides } from "../components/BulkBar";
 import { viewHref } from "../components/FilterBar";
 import { Lightbox, type LightboxImage } from "../components/Lightbox";
 import { Timeline } from "../components/OpenPositions";
+import { Pnl } from "../components/Pnl";
 import { LazyReview } from "../components/LazyReview";
 import { copyText, useImageSrcs } from "../data";
-import { dateOf, longDate, money, pnlClass, price, qty, signedPct, timeOf, whenOf } from "../format";
+import { mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, whenOf } from "../format";
+import { AUTO_TAGS } from "../../core/journal/tags";
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
 
 function Stat({ label, children, cls }: { label: string; children: React.ReactNode; cls?: string }) {
@@ -29,9 +31,26 @@ function Stat({ label, children, cls }: { label: string; children: React.ReactNo
   );
 }
 
+/** k / j step to the previous / next trade in the list, as in review sessions (#21); ignored while typing. */
+function useStepKeys(prev: string | null, next: string | null) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      const to = e.key === "j" ? next : e.key === "k" ? prev : null;
+      if (to) window.location.hash = to;
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prev, next]);
+}
+
 export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBundle; journal: Journal; id: string; view: ViewState; now: string }) {
   const t = j.tradeById.get(id);
   const rows = useMemo(() => viewRows(j, view), [j, view]);
+  const nb = neighbors(tradeOrder(rows), id);
+  useStepKeys(nb.prev ? tradeLink(nb.prev, view) : null, nb.next ? tradeLink(nb.next, view) : null);
   if (!t) {
     return (
       <main className="page">
@@ -40,24 +59,26 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
       </main>
     );
   }
-  const order = tradeOrder(rows);
-  const nb = neighbors(order, t.id);
   const back = viewHref("#/trades", { ...view, page: pageOf(rows, t.id) });
+  // NEWER / OLDER only when the list is in date order, as on the review page; otherwise the steps follow another sort (#13).
+
+  const steps = view.sort.key !== "date" ? { prev: "PREV", next: "NEXT" } : view.sort.dir === "desc" ? { prev: "NEWER", next: "OLDER" } : { prev: "OLDER", next: "NEWER" };
   const timed = t.broker === "webull" || j.fillById.get(t.fillIds[0] ?? "")?.timePrecision === "second";
 
   return (
     <main className="page">
       <header className="page-head">
         <h1>
-          {t.symbol} <span className="sub">· {longDate(etDate(t.openedAt))}{timed ? ` ${timeOf(t.openedAt)}` : ""}</span>{" "}
+          {t.symbol} <span className="sub">· {etDate(t.openedAt)}{timed ? ` ${timeOf(t.openedAt)}` : ""}</span>{" "}
           <EtfBadge t={t} /> {t.status !== "closed" && <span className={`chip ${t.status === "open" ? "accent" : "loss"}`}>{t.status.toUpperCase()}</span>}
+          {reviewsOf(j, t)[0] && <a className="rv-mark" href={reviewLink(reviewsOf(j, t)[0]!.id)} title="Reviewed: open the review" aria-label="Reviewed">📄</a>}
           {t.excluded && <span className="chip">EXCLUDED</span>}
         </h1>
         <nav className="row" aria-label="Trade navigation">
           <a className="btn" href={back}>‹ BACK</a>
-          <a className={`btn ${nb.prev ? "" : "disabled"}`} aria-disabled={!nb.prev} href={nb.prev ? tradeLink(nb.prev, view) : undefined}>‹ PREV</a>
+          <a className={`btn ${nb.prev ? "" : "disabled"}`} aria-disabled={!nb.prev} href={nb.prev ? tradeLink(nb.prev, view) : undefined}>‹ {steps.prev}</a>
           <span className="muted small">{nb.index >= 0 ? `${nb.index + 1} / ${nb.total}` : "NOT IN FILTER"}</span>
-          <a className={`btn ${nb.next ? "" : "disabled"}`} aria-disabled={!nb.next} href={nb.next ? tradeLink(nb.next, view) : undefined}>NEXT ›</a>
+          <a className={`btn ${nb.next ? "" : "disabled"}`} aria-disabled={!nb.next} href={nb.next ? tradeLink(nb.next, view) : undefined}>{steps.next} ›</a>
         </nav>
       </header>
       <TagRow data={data} journal={j} t={t} />
@@ -73,12 +94,14 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
             </div>
           </section>
           <IdeaPanel journal={j} t={t} view={view} />
+          {/* Charts sit beside the review instead of under it (#21). */}
+          <Charts data={data} journal={j} t={t} />
         </div>
         <div className="col">
           <NotesPanel data={data} journal={j} t={t} />
         </div>
       </div>
-      <Charts data={data} journal={j} t={t} />
+
     </main>
   );
 }
@@ -97,7 +120,8 @@ function TagRow({ data, journal: j, t }: { data: DataBundle; journal: Journal; t
   const manual = current.trades[t.id]?.tags ?? t.tags;
   return (
     <section className="tagrow" aria-label="Tags">
-      {tags.auto.map((x) => <span key={x} className="chip auto" title="Automatic tag">{x}</span>)}
+      {/* Style, ETF and Reviewed already show in the header and stats (#13 row 107); a review Category stays. */}
+      {tags.auto.filter((x) => !(AUTO_TAGS as readonly string[]).includes(x)).map((x) => <span key={x} className="chip auto" title="Automatic tag (review category)">{x}</span>)}
       {manual.map((x) => <span key={x} className="chip">{x}</span>)}
       {adding ? (
         <form className="row" onSubmit={(e) => { e.preventDefault(); if (tag.trim()) apply([t], { kind: "addTag", tag: tag.trim() }); setTag(""); }}>
@@ -119,38 +143,47 @@ function StatsPanel({ data, t, now, view }: { data: DataBundle; t: Trade; now: s
   const cost = bought.reduce((s, e) => s + e.qty * e.price, 0);
   const volume = t.events.reduce((s, e) => s + e.qty, 0) + t.unmatchedQty;
   const q = data.quotes?.quotes[t.symbol];
-  const mark = t.status === "open" && q ? markToMarket(t, q.price) : null;
+  const open = t.status === "open";
+  const mark = open && q ? markToMarket(t, q.price) : null;
   const qs = q ? quoteStatus(q, now) : null;
-  const hold = t.status === "open" ? `open ${Math.max(0, Math.round((Date.parse(now) - Date.parse(t.openedAt)) / 86_400_000))} days` : holdLabel(t);
+  const hold = open ? `open ${daysHeld(t, now)}d` : holdLabel(t);
   const emph = (mode: "gross" | "net") => (view.pnl === mode ? "b" : "");
+  // An open trade has no result yet: its mark comes first, and the closed-trade figures wait for the close (#14).
+  const result = (n: number) => (open ? "—" : money(n));
   return (
     <section className="panel" aria-label="Stats">
       <div className="panel-head"><h2>Stats</h2></div>
       <div className="stats">
-        <Stat label="SHARES TRADED">{qty(volume)} <span className="dim">(max {qty(t.maxPosition)})</span></Stat>
-        <Stat label="EXECUTIONS">{t.fillIds.length}</Stat>
+        {open && (
+          <>
+            <Stat label="TOTAL OPEN P&L" cls={`b ${pnlClass(mark?.total)}`}>{mark ? money(mark.total) : "—"}</Stat>
+            <Stat label="UNREALIZED" cls={pnlClass(mark?.unrealized)}>{mark ? money(mark.unrealized) : "—"}</Stat>
+            <Stat label="REALIZED">
+              <span className={pnlClass(t.realizedPnl)}>{money(t.realizedPnl)}</span>{" "}
+              <span className="dim">{realizedNote(t.events.filter((e) => e.kind === "trim").length, buyFees(t))}</span>
+            </Stat>
+            <Stat label="OPEN SHARES">{qty(t.openQty)} @ {price(t.avgCost)} avg</Stat>
+            <Stat label="LAST">
+              {q ? <>{price(q.price)} <span className={qs?.isStale ? "half" : "dim"}>{qs?.isStale ? `· STALE (${stamp(q.time)})` : stamp(q.time)}</span></> : <span className="half">not priced</span>}
+            </Stat>
+          </>
+        )}
+        <Stat label="SIZE">{qty(t.maxPosition)} sh</Stat>
+        <Stat label="VOLUME">{qty(volume)}</Stat>
+        <Stat label="FILLS">{t.fillIds.length}</Stat>
         <Stat label="AVG ENTRY">{price(t.avgEntry)}</Stat>
         <Stat label="AVG EXIT">{price(t.avgExit)}</Stat>
-        <Stat label="GROSS P&L" cls={`${pnlClass(t.grossPnl)} ${emph("gross")}`}>{money(t.grossPnl)}</Stat>
+        <Stat label="GROSS P&L" cls={open ? "muted" : `${pnlClass(t.grossPnl)} ${emph("gross")}`}>{result(t.grossPnl)}</Stat>
         <Stat label="FEES">{money(t.fees, { sign: false })}</Stat>
-        <Stat label="NET P&L" cls={`${pnlClass(t.netPnl)} ${emph("net")}`}>{money(t.netPnl)}</Stat>
-        <Stat label="RETURN ON COST" cls={pnlClass(t.netPnl)}>{cost ? signedPct(t.netPnl / cost) : "—"}</Stat>
+        <Stat label="NET P&L" cls={open ? "muted" : `${pnlClass(t.netPnl)} ${emph("net")}`}>{result(t.netPnl)}</Stat>
+        <Stat label="RETURN ON COST" cls={open ? "muted" : pnlClass(t.netPnl)}>{!open && cost ? signedPct(t.netPnl / cost) : "—"}</Stat>
         <Stat label="HOLD">{hold}</Stat>
         <Stat label="STYLE">{t.style.toUpperCase()}{t.sameDay && t.style === "swing" ? <span className="dim"> · same day</span> : null}</Stat>
         <Stat label="BROKER">{t.broker.toUpperCase()}</Stat>
         <Stat label="ACCOUNT">{t.account}</Stat>
-        <Stat label="RESULT" cls={t.result ? (t.result === "win" ? "gain" : t.result === "loss" ? "loss" : "flat") : "muted"}>{t.result?.toUpperCase() ?? (t.status === "open" ? "OPEN" : "—")}</Stat>
+        <Stat label="RESULT" cls={t.result ? (t.result === "win" ? "gain" : t.result === "loss" ? "loss" : "flat") : "muted"}>{t.result?.toUpperCase() ?? (open ? "OPEN" : "—")}</Stat>
         {t.instrument === "leveraged_etf" && (
           <Stat label="UNDERLYING">{t.underlying} · {t.leverage}x {t.direction === "inverse" ? "inverse" : "long"}</Stat>
-        )}
-        {t.status === "open" && (
-          <>
-            <Stat label="OPEN SHARES">{qty(t.openQty)} @ {price(t.avgCost)} avg</Stat>
-            <Stat label="LAST">{q ? <>{price(q.price)} <span className="dim">{timeOf(q.time)} {dateOf(q.time).slice(5)}{qs?.isStale ? " · stale" : ""}</span></> : <span className="half">not priced</span>}</Stat>
-            <Stat label="UNREALIZED" cls={pnlClass(mark?.unrealized)}>{mark ? money(mark.unrealized) : "—"}</Stat>
-            <Stat label="REALIZED (TRIMS)" cls={pnlClass(t.realizedPnl)}>{money(t.realizedPnl)}</Stat>
-            <Stat label="TOTAL OPEN P&L" cls={`b ${pnlClass(mark?.total)}`}>{mark ? money(mark.total) : "—"}</Stat>
-          </>
         )}
       </div>
     </section>
@@ -164,7 +197,7 @@ function Executions({ journal: j, t, timed }: { journal: Journal; t: Trade; time
   const opening = !t.fillIds.includes(t.id) && t.events[0];
   return (
     <section className="panel" aria-label="Executions">
-      <div className="panel-head"><h2>Executions · {t.fillIds.length}</h2></div>
+      <div className="panel-head"><h2>Fills · {t.fillIds.length}</h2></div>
       <div className="scroll-x">
         <table className="grid dense">
           <thead><tr><th>{timed ? "TIME (ET)" : "DATE"}</th><th>SIDE</th><th className="num">QTY</th><th className="num">PRICE</th><th className="num">FEES</th><th className="num">VALUE</th></tr></thead>
@@ -199,12 +232,10 @@ function IdeaPanel({ journal: j, t, view }: { journal: Journal; t: Trade; view: 
   if (!idea) return null;
   const trades = idea.tradeIds.map((id) => j.tradeById.get(id)).filter((x) => x !== undefined);
   const counts = [...new Set(trades.map((x) => x.symbol))].map((s) => `${trades.filter((x) => x.symbol === s).length} ${s}`);
-  const total = (mode: "gross" | "net") => cents(trades.reduce((s, x) => s + (mode === "gross" ? x.grossPnl : x.netPnl), 0));
-  const pnl = (x: Trade) => (view.pnl === "gross" ? x.grossPnl : x.netPnl);
   return (
     <section className="panel" aria-label="Idea">
       <div className="panel-head">
-        <h2>Idea: {idea.underlying} · {trades.length} trade{trades.length === 1 ? "" : "s"} · <span className={pnlClass(total(view.pnl))}>{money(total(view.pnl))}</span> {trades.length > 1 || idea.usedEtf ? `(${counts.join(", ")})` : ""}</h2>
+        <h2>Idea: {idea.underlying} · {trades.length} trade{trades.length === 1 ? "" : "s"} · <Pnl p={groupPnl(j, trades, view.pnl)} /> {trades.length > 1 || idea.usedEtf ? `(${counts.join(", ")})` : ""}</h2>
         <span className="grow" />
         <span className="muted small">{idea.style.toUpperCase()} · OPENED {idea.date} · {idea.status.toUpperCase()}</span>
       </div>
@@ -215,8 +246,8 @@ function IdeaPanel({ journal: j, t, view }: { journal: Journal; t: Trade; view: 
               <td style={{ width: 14 }}>{x.id === t.id ? <span className="accent">▶</span> : null}</td>
               <td>{x.id === t.id ? <b>{x.symbol}</b> : <a className="sym" href={tradeLink(x.id, view)}>{x.symbol}</a>} <EtfBadge t={x} /></td>
               <td className="muted">{tradeDate(x)}</td>
-              <td className="muted">{x.status === "open" ? "open" : holdLabel(x)}</td>
-              <td className={`num ${pnlClass(pnl(x))}`}>{money(pnl(x))}</td>
+              <td className="muted ph-hide">{x.status === "open" ? "open" : holdLabel(x)}</td>
+              <td className="num"><Pnl p={groupPnl(j, [x], view.pnl)} /></td>
             </tr>
           ))}
         </tbody>
@@ -239,10 +270,9 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
         {reviews.map((r) => (
           <div key={r.id}>
             <div className="panel-head">
-              <h2>Review · {r.date} {r.ticker}</h2>
-              {r.header.status && <span className={`chip ${r.header.status === "open" ? "accent" : ""}`}>{r.header.status.toUpperCase()}</span>}
+              <h2>Idea review · {r.date ? mmdd(r.date) : "no date"}{r.header.status ? ` · ${r.header.status}` : ""}</h2>
               <span className="grow" />
-              <a href={reviewLink(r.id)}>OPEN FULL REVIEW ›</a>
+              <a href={reviewLink(r.id)}>FULL REVIEW ›</a>
             </div>
             <div className="md-wrap"><LazyReview path={r.path} markdown={r.markdown} /></div>
           </div>
@@ -252,13 +282,13 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
   }
   return (
     <section className="panel notes" aria-label="Notes">
-      <div className="panel-head"><h2>Notes</h2><span className="grow" /><span className="dim small">NO PLAYBOOK REVIEW</span></div>
+      <div className="panel-head"><h2>Notes</h2><span className="grow" /><span className="dim small">NOT REVIEWED YET</span></div>
       <div className="notes-body">
         <label className="label small" htmlFor="quick-note">QUICK NOTE</label>
         <textarea id="quick-note" className="input" rows={2} value={note} placeholder="One or two lines…" onChange={(e) => setNote(e.target.value)} />
         <div className="row">
-          <button type="button" className="btn" disabled={locked || note === (t.note ?? "")} onClick={() => apply([t], { kind: "setNote", note })}>STAGE NOTE</button>
-          {staged && <span className="dim small">staged, not saved</span>}
+          <button type="button" className="btn" disabled={locked || note === (t.note ?? "")} onClick={() => apply([t], { kind: "setNote", note })}>SAVE NOTE</button>
+          {staged && <span className="dim small">previewed below; commit to save</span>}
         </div>
         <StagedPreview data={data} staging={staging} onDiscard={() => setNote(t.note ?? "")} />
         <div className="start-review">

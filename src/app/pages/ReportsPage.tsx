@@ -5,14 +5,14 @@ import { useMemo } from "react";
 import { dateRange, type TradeFilter, type ViewState } from "../../core/journal/filter";
 import { filterTrades, type Journal } from "../../core/journal/journal";
 import {
-  applyPreset, buildUnits, byBroker, byCost, byDayOfWeek, byEntryPrice, byHour, byInstrument, byMonth, byShares, bySymbol, byStyle,
+  applyPreset, buildUnits, byBroker, compareLabels, byCost, byDayOfWeek, byEntryPrice, byHour, byInstrument, byMonth, byShares, bySymbol, byStyle,
   byUnderlying, COMPARE_PRESETS, computeGrid, distribution, drawdownReport, parseReport, reportExtra, sameUnderlying, SUB_LABELS, SUBS,
   TAB_LABELS, TABS, tagGroups, topBottom, winLossDays, type Grid, type ReportState, type Unit, type ValueOpts,
 } from "../../core/reports";
 import { BucketBars, BucketTable, Underwater, VBars } from "../components/ReportCharts";
-import { GridColumns, holdFmt, StatsGrid, type Fmt } from "../components/StatsGrid";
+import { GridColumns, holdText, small, smallTitle, StatsGrid, type Fmt } from "../components/StatsGrid";
 import { FilterBar, viewHref } from "../components/FilterBar";
-import { CumulativeChart, Widget, WinByDay } from "../components/Widgets";
+import { CumulativeChart, dateTicks, Widget, WinByDay } from "../components/Widgets";
 import { money, pct, pnlClass, qty, signedPct } from "../format";
 
 const MINUS = "−";
@@ -55,10 +55,13 @@ function Totals({ items }: { items: Array<{ label: string; value: React.ReactNod
 
 function headline(g: Grid, c: Ctx) {
   return [
-    { label: `${c.view.pnl.toUpperCase()} ${c.r.mode === "pct" ? "Σ RETURN" : "P&L"}`, value: c.f.v(g.total), cls: pnlClass(g.total), sub: `${g.days} DAYS` },
-    { label: `WIN % (${c.f.unit}S)`, value: pct(g.winRate, 1), sub: `${g.wins}W ${g.losses}L ${g.breakevens}BE · ON NET` },
+    {
+      label: `${c.view.pnl.toUpperCase()} ${c.f.pct ? `SUM OF ${c.f.unit} %` : "P&L"}`, value: c.f.v(g.total), cls: pnlClass(g.total), sub: `${g.days} DAYS TRADED`,
+      title: c.f.pct ? "A sum of per-trade % returns, not a return on the account" : undefined,
+    },
+    { label: `WIN % (${c.f.unit}S)`, value: pct(g.winRate, 1), sub: `${g.wins}W ${g.losses}L${g.breakevens ? ` ${g.breakevens}BE` : ""}${c.view.pnl === "gross" ? " · ON NET" : ""}` },
     { label: `${c.f.unit}S`, value: String(g.count), sub: c.f.unit === "IDEA" ? `${c.units.reduce((s, u) => s + u.trades.length, 0)} TRADES` : `${new Set(c.units.map((u) => u.trades[0]!.ideaId)).size} IDEAS` },
-    { label: "PROFIT FACTOR", value: g.profitFactor?.toFixed(2) ?? (g.wins ? "∞" : "—"), sub: "WINS / |LOSSES|" },
+    { label: "PROFIT FACTOR", value: g.profitFactor?.toFixed(2) ?? (g.wins ? "∞" : "—") },
     { label: "EXPECTANCY", value: c.f.v(g.expectancy), cls: pnlClass(g.expectancy), sub: `PER ${c.f.unit}` },
   ];
 }
@@ -72,19 +75,19 @@ function Overview({ c, g }: { c: Ctx; g: Grid }) {
     <>
       <Totals items={headline(g, c)} />
       <div className="widgets">
-        <Widget title={<>Cumulative {c.view.pnl} {c.r.mode === "pct" ? "return" : "P&L"} · <span className={pnlClass(g.total)}>{c.f.v(g.total)}</span></>}>
+        <Widget title={<>Cumulative {c.f.pct ? `sum of ${c.f.unit.toLowerCase()} %` : "P&L"} · <span className={pnlClass(g.total)}>{c.f.v(g.total)}</span></>}>
           <CumulativeChart pts={d} fmt={fmt} label="Cumulative P&L" />
         </Widget>
         <Widget title={<>Daily {c.r.mode === "pct" ? "return" : "P&L"} · avg {c.f.v(g.avgDaily)}</>}>
           <VBars label="Daily P&L" bars={d.map((x) => ({ key: x.date, value: x.value, cls: x.value > 0 ? "gain" : x.value < 0 ? "loss" : "flat", title: `${x.date}: ${fmt(x.value)} · ${x.units} ${c.f.unit.toLowerCase()}s` }))}
-            height={200} axis={d.length ? [d[0]!.date, d[d.length - 1]!.date] : undefined} />
+            height={200} ticks={dateTicks(d.map((x) => x.date))} fmt={fmt} />
         </Widget>
-        <Widget title={<>Win % / day · avg {pct(g.winRate)} <span className="accent">┄</span></>}>
+        <Widget title={<>Daily win % · avg {pct(g.winRate)} <span className="accent">┄</span></>}>
           <WinByDay days={d} avg={g.winRate} fmt={fmt} />
         </Widget>
         <Widget title={<>Volume / day (shares) · avg {g.avgDailyVolume === null ? "—" : qty(Math.round(g.avgDailyVolume))}</>}>
           <VBars label="Shares traded per day" bars={d.map((x) => ({ key: x.date, value: x.volume, cls: "border-strong", title: `${x.date}: ${qty(x.volume)} shares` }))}
-            height={200} axis={d.length ? [d[0]!.date, d[d.length - 1]!.date] : undefined} />
+            height={200} ticks={dateTicks(d.map((x) => x.date))} fmt={(n) => qty(Math.round(n))} />
         </Widget>
       </div>
     </>
@@ -102,7 +105,7 @@ function Breakdowns({ c }: { c: Ctx }) {
     body = (
       <>
         {W("By day of week (close date)", <BucketBars buckets={byDayOfWeek(units, o)} fmt={fmt} unit={unit} />)}
-        {W(<>By hour of entry (ET) {h.untimed > 0 && <span className="dim">· {h.untimed} Schwab {unit}{h.untimed === 1 ? "" : "s"} without times left out</span>}</>,
+        {W(<>By entry time (ET) {h.untimed > 0 && <span className="dim">· {h.untimed} Schwab {unit}{h.untimed === 1 ? " has" : "s have"} no time</span>}</>,
           <BucketBars buckets={h.buckets} fmt={fmt} unit={unit} empty="No timed (Webull) trades in range" />)}
         {W("By month (close date)", <BucketBars buckets={byMonth(units, o)} fmt={fmt} unit={unit} />)}
       </>
@@ -121,10 +124,11 @@ function Breakdowns({ c }: { c: Ctx }) {
     const same = sameUnderlying(units, o);
     body = (
       <>
-        {W("By symbol · top 20", <BucketBars buckets={sym.top} fmt={fmt} unit={unit} />)}
-        {W("By symbol · bottom 20", <BucketBars buckets={sym.bottom} fmt={fmt} unit={unit} empty="—" />)}
-        {W("By underlying · top 20", <BucketBars buckets={und.top} fmt={fmt} unit={unit} />)}
-        {W("By underlying · bottom 20", <BucketBars buckets={und.bottom} fmt={fmt} unit={unit} empty="—" />)}
+        {/* Up to 40 groups: one list, best to worst. More: best 20 and the losing ones, worst first (#20). */}
+        {W(sym.bottom.length ? "Best symbols" : "By symbol", <BucketBars buckets={sym.top} fmt={fmt} unit={unit} />)}
+        {sym.bottom.length > 0 && W("Worst symbols", <BucketBars buckets={sym.bottom} fmt={fmt} unit={unit} />)}
+        {W(und.bottom.length ? "Best underlyings" : "By underlying", <BucketBars buckets={und.top} fmt={fmt} unit={unit} />)}
+        {und.bottom.length > 0 && W("Worst underlyings", <BucketBars buckets={und.bottom} fmt={fmt} unit={unit} />)}
         {W("Stock vs leveraged ETF", <BucketTable buckets={byInstrument(units, o)} fmt={fmt} unit={f.unit} />)}
         {W("Same underlying · stock vs ETF", same.length === 0 ? <div className="empty">No underlying traded both ways in range</div> : (
           <div className="scroll-x">
@@ -155,10 +159,10 @@ function Breakdowns({ c }: { c: Ctx }) {
     body = (
       <>
         {W(<>Distribution of {unit} {c.r.mode === "pct" ? "returns" : "P&L"}</>, (
-          <VBars label={`Distribution of ${unit} P&L`} height={180}
+          <VBars label={`Distribution of ${unit} P&L`} height={180} fmt={(n) => `${Math.round(n)} ${unit}s`}
             bars={dist.bins.map((b) => ({
               key: String(b.from), value: b.count, cls: b.from >= 0 ? "gain" : "loss",
-              title: `${binLabel(b.from)} to ${binLabel(b.to)}: ${b.count} ${unit}${b.count === 1 ? "" : "s"} (${b.wins}W/${b.losses}L)`,
+              title: `${binLabel(b.from)} to ${binLabel(b.to)}: ${b.count} ${unit}${b.count === 1 ? "" : "s"} (${b.wins}W ${b.losses}L)`,
             }))}
             axis={dist.bins.length ? [binLabel(dist.bins[0]!.from), binLabel(dist.bins[dist.bins.length - 1]!.to),
               ...(dist.bins[0]!.from < 0 && dist.bins[dist.bins.length - 1]!.to > 0 ? [{ text: binLabel(0), frac: -dist.bins[0]!.from / (dist.bins[dist.bins.length - 1]!.to - dist.bins[0]!.from) }] : [])] as [string, string, { text: string; frac: number }?] : undefined} />
@@ -194,18 +198,18 @@ function WinLossDays({ c }: { c: Ctx }) {
     ["Volume per day (shares)", (s) => (s.perDay.volume === null ? "—" : qty(Math.round(s.perDay.volume)))],
     [`Avg shares bought per ${u}`, (s) => s.perDay.shares?.toFixed(1) ?? "—"],
     [`Avg $ bought per ${u}`, (s) => money(s.perDay.cost, { sign: false })],
-    ["Avg hold", (s) => holdFmt(s.perDay.hold)],
+    ["Avg hold", (s) => holdText(s.grid.hold, "all")],
   ];
   return (
     <>
       <Totals items={[
         { label: "GREEN DAYS", value: String(w.green.days), cls: "gain", sub: c.f.v(w.green.grid.total) },
         { label: "RED DAYS", value: String(w.red.days), cls: "loss", sub: c.f.v(w.red.grid.total) },
-        { label: "FLAT DAYS", value: String(w.flatDays), sub: "NET $0.00" },
-        { label: "DAY WIN %", value: pct(w.green.days + w.red.days ? w.green.days / (w.green.days + w.red.days) : null, 1), sub: "GREEN ÷ (GREEN + RED)" },
+        { label: "FLAT DAYS", value: String(w.flatDays) },
+        { label: "GREEN-DAY %", value: pct(w.green.days + w.red.days ? w.green.days / (w.green.days + w.red.days) : null, 1), title: "Green days ÷ (green + red days); flat days left out" },
       ]} />
       <section className="panel scroll-x">
-        <h2 className="panel-pad">Behavior · green days vs red days <span className="dim">(a day's color is its net P&amp;L)</span></h2>
+        <h2 className="panel-pad" title="A day's color is its net P&L">Green vs red days</h2>
         <table className="grid dense">
           <thead><tr><th></th><th className="num gain">GREEN DAYS</th><th className="num loss">RED DAYS</th></tr></thead>
           <tbody>
@@ -229,22 +233,27 @@ function DrawdownTab({ c }: { c: Ctx }) {
   return (
     <>
       <Totals items={[
-        { label: "MAX DRAWDOWN $", value: m ? money(-m.depth) : "—", cls: m ? "loss" : "", sub: usd.maxPctOfPeak !== null ? `${pct(usd.maxPctOfPeak, 1)} OF THE $ PEAK` : m ? "PEAK ≤ $0" : "NONE", title: "Deepest fall of cumulative P&L below a running peak" },
-        { label: "MAX DRAWDOWN %", value: ret.max ? signedPts(-ret.max.depth) : "—", cls: ret.max ? "loss" : "", sub: "Σ % RETURNS", title: "The same on the curve of summed % returns per unit (points)" },
-        { label: "MAX DD DATES", value: m ? `${(m.peakDate || c.units[0]!.date).slice(5)}→${m.troughDate.slice(5)}` : "—", sub: m ? `${usd.declineDays} DAY${usd.declineDays === 1 ? "" : "S"} DOWN · ${m.recoveredDate ? `BACK ${m.recoveredDate.slice(5)}` : "NOT RECOVERED"}` : "" },
-        { label: "RECOVERY", value: usd.recoveryDays === null ? "—" : `${usd.recoveryDays}d`, sub: "TROUGH → BACK AT PEAK" },
+        {
+          label: "MAX DRAWDOWN", value: m ? money(-m.depth) : "—", cls: m ? "loss" : "",
+          // A share of peak profit, not of the account; left out in % mode, where it would read as an account figure (#16).
+          sub: c.f.pct ? "" : usd.maxPctOfPeak !== null ? `${pct(usd.maxPctOfPeak, 1)} OF PEAK PROFIT` : m ? "PEAK ≤ 0" : "NONE",
+          title: "Deepest fall of cumulative P&L below a running peak",
+        },
+        { label: "MAX DRAWDOWN %", value: ret.max ? signedPts(-ret.max.depth).toUpperCase() : "—", cls: ret.max ? "loss" : "", sub: `SUM OF ${c.f.unit} %`, title: "The same on the curve of summed % returns (points), not a share of the account" },
+        { label: "WORST DRAWDOWN", value: m ? `${(m.peakDate || c.units[0]!.date).slice(5)}→${m.troughDate.slice(5)}` : "—", sub: m ? (m.recoveredDate ? `RECOVERED ${m.recoveredDate.slice(5)}` : "NOT RECOVERED") : "", title: m ? `${usd.declineDays} day${usd.declineDays === 1 ? "" : "s"} from peak to low` : undefined },
+        { label: "RECOVERY", value: usd.recoveryDays === null ? "—" : `${usd.recoveryDays}d`, sub: "LOW TO NEW HIGH" },
         { label: "LONGEST DRAWDOWN", value: usd.longest ? `${usd.longest.days}d` : "—", sub: usd.longest ? `${(usd.longest.peakDate || c.units[0]!.date).slice(5)}→${usd.longest.recoveredDate?.slice(5) ?? "NOW"}` : "" },
-        { label: "NOW", value: d.current ? fmt(d.current) : "AT PEAK", cls: d.current ? "loss" : "gain", sub: "BELOW PEAK" },
+        { label: "NOW", value: d.current ? fmt(d.current).toUpperCase() : "AT PEAK", cls: d.current ? "loss" : "gain", sub: "BELOW PEAK" },
       ]} />
       <div className="widgets">
-        <Widget title={<>Cumulative {c.r.mode === "pct" ? "Σ return" : "P&L"} (end of day)</>} wide>
+        <Widget title={<>Cumulative {c.f.pct ? `sum of ${c.f.unit.toLowerCase()} %` : "P&L"}</>} wide>
           <CumulativeChart pts={d.days.map((x, i) => ({ date: x.date, cum: x.equity, value: x.equity - (d.days[i - 1]?.equity ?? 0) }))} fmt={fmt} label="Cumulative P&L" height={180} />
         </Widget>
-        <Widget title={<>Underwater · below running peak (deepest point each day)</>} wide>
+        <Widget title={<>Below peak (worst point each day)</>} wide>
           <Underwater days={d.days} fmt={fmt} height={160} />
         </Widget>
       </div>
-      <div className="dim small">Each closed {c.f.unit.toLowerCase()} is a step, in close order, so a dip inside a day counts. The curve starts at 0, so an opening loss is a drawdown.</div>
+      <div className="dim small">Measured {c.f.unit.toLowerCase()} by {c.f.unit.toLowerCase()} from 0, so intraday dips count.</div>
     </>
   );
 }
@@ -255,10 +264,8 @@ function Compare({ c }: { c: Ctx }) {
   const bUnits = useMemo(() => buildUnits(bTrades, c.view.count), [bTrades, c.view.count]);
   const ga = useMemo(() => computeGrid(c.units, c.o), [c.units, c.o]);
   const gb = useMemo(() => computeGrid(bUnits, c.o), [bUnits, c.o]);
-  const range = (f: TradeFilter) => {
-    const d = dateRange(f, c.j.today, c.j.startsOn);
-    return d.from || d.to ? `${d.from ?? "…"} – ${d.to ?? "…"}` : "ALL DATES";
-  };
+  // Each side is named by what differs from the other (#18), and the date range is always named.
+  const names = compareLabels(c.view.filter, c.r.b, c.j.today, c.j.startsOn);
   const presetHref = (p: (typeof COMPARE_PRESETS)[number]) => {
     const { a, b } = applyPreset(c.view, p);
     return c.href({ b }, { ...c.view, filter: a });
@@ -267,20 +274,26 @@ function Compare({ c }: { c: Ctx }) {
   return (
     <>
       <div className="row">
-        <span className="label small">PRESETS</span>
+        <span className="label small" title="Each preset replaces the style, instrument, broker and dates of both sides; other filters stay">PRESETS</span>
         {COMPARE_PRESETS.map((p) => <a key={p.key} className="btn" href={presetHref(p)}>{p.label}</a>)}
       </div>
-      <FilterBar view={bView} journal={c.j} base="#/reports" title="SET B FILTERS" pnl={false} count={false}
+      <FilterBar view={bView} journal={c.j} base="#/reports" title="B FILTERS" pnl={false} count={false} defaultOpen={false}
         hrefFor={(v) => c.href({ b: v.filter })} />
-      <div className="two-col">
-        <Widget title={<><span className="accent">A</span> · global filter · {range(c.view.filter)} · <span className={pnlClass(ga.total)}>{c.f.v(ga.total)}</span></>}>
-          <CumulativeChart pts={ga.daily} fmt={fmt} label="Set A cumulative P&L" height={160} />
-        </Widget>
-        <Widget title={<><span className="accent">B</span> · {range(c.r.b)} · <span className={pnlClass(gb.total)}>{c.f.v(gb.total)}</span></>}>
-          <CumulativeChart pts={gb.daily} fmt={fmt} label="Set B cumulative P&L" height={160} />
-        </Widget>
-      </div>
-      <GridColumns f={c.f} sides={[{ label: "A", g: ga }, { label: "B", g: gb }]} />
+      {names.same ? (
+        <div className="panel empty">A and B are the same filter. Pick a preset above, or change B's filters, to compare.</div>
+      ) : (
+        <>
+          <div className="two-col">
+            <Widget title={<><span className="accent">A</span> · {names.a.join(" · ")} · <span className={pnlClass(ga.total)}>{c.f.v(ga.total)}</span></>}>
+              <CumulativeChart pts={ga.daily} fmt={fmt} label="Set A cumulative P&L" height={160} />
+            </Widget>
+            <Widget title={<><span className="accent">B</span> · {names.b.join(" · ")} · <span className={pnlClass(gb.total)}>{c.f.v(gb.total)}</span></>}>
+              <CumulativeChart pts={gb.daily} fmt={fmt} label="Set B cumulative P&L" height={160} />
+            </Widget>
+          </div>
+          <GridColumns f={c.f} diff sides={[{ label: <>A · {names.a[0]}</>, g: ga }, { label: <>B · {names.b[0]}</>, g: gb }]} />
+        </>
+      )}
     </>
   );
 }
@@ -290,8 +303,8 @@ function TagBreakdown({ c }: { c: Ctx }) {
   const keyOf = (g: (typeof groups)[number]) => `${g.kind}:${g.tag}`;
   const sel = groups.find((g) => keyOf(g) === c.r.tag) ?? null;
   const KINDS: Array<[(typeof groups)[number]["kind"], string, string]> = [
-    ["manual", "Manual tags", "No manual tags on these trades"],
-    ["category", "Review category", "No reviewed trades with a Category here"],
+    ["manual", "Tag (manual)", "No manual tags on these trades"],
+    ["category", "Category (from review)", "No reviewed trades with a Category here"],
     ["style", "Style", ""],
   ];
   return (
@@ -305,7 +318,7 @@ function TagBreakdown({ c }: { c: Ctx }) {
                 <div className="scroll-x">
                   <table className="grid dense">
                     <thead>
-                      <tr><th>TAG</th><th className="num">{c.f.unit}S</th><th className="num">WIN %</th><th className="num">P&amp;L</th><th className="num">EXPECTANCY</th><th className="num">PF</th><th className="num">SQN</th></tr>
+                      <tr><th>{kind === "manual" ? "TAG" : kind === "category" ? "CATEGORY" : "STYLE"}</th><th className="num">{c.f.unit}S</th><th className="num">WIN %</th><th className="num">P&amp;L</th><th className="num">EXPECTANCY</th><th className="num">PF</th><th className="num">SQN</th></tr>
                     </thead>
                     <tbody>
                       {gs.map((g) => (
@@ -315,8 +328,9 @@ function TagBreakdown({ c }: { c: Ctx }) {
                           <td className="num">{pct(g.grid.winRate, 1)}</td>
                           <td className={`num b ${pnlClass(g.grid.total)}`}>{c.f.v(g.grid.total)}</td>
                           <td className="num">{c.f.v(g.grid.expectancy)}</td>
-                          <td className="num">{g.grid.profitFactor?.toFixed(2) ?? (g.grid.wins ? "∞" : "—")}</td>
-                          <td className="num">{g.grid.sqn?.toFixed(2).replace("-", MINUS) ?? "—"}</td>
+                          {/* Under 10 trades these ratios mean little: grayed, with ∞ shown as "—" (#20). */}
+                          <td className={`num ${small(g.grid) ? "dim" : ""}`} title={smallTitle(g.grid)}>{g.grid.profitFactor?.toFixed(2) ?? "—"}</td>
+                          <td className={`num ${small(g.grid) ? "dim" : ""}`} title={smallTitle(g.grid)}>{g.grid.sqn?.toFixed(2).replace("-", MINUS) ?? "—"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -333,7 +347,7 @@ function TagBreakdown({ c }: { c: Ctx }) {
           <StatsGrid g={sel.grid} f={c.f} />
         </>
       ) : (
-        <div className="dim small">Pick a tag for its full stats grid. A trade with several tags counts in each.</div>
+        <div className="dim small">Click a tag for full stats. Multi-tag trades count in each.</div>
       )}
     </>
   );
@@ -349,16 +363,16 @@ export function ReportsPage({ journal: j, view, params }: { journal: Journal; vi
   const grid = useMemo(() => computeGrid(units, o), [units, o]);
   const href = (patch: Partial<ReportState>, v: ViewState = view) => viewHref("#/reports", v, reportExtra({ ...r, ...patch }));
   const unit = view.count === "idea" ? "IDEA" : "TRADE";
-  const f: Fmt = { v: r.mode === "pct" ? (n) => signedPct(n ?? null, 2) : (n) => money(n), unit, view };
+  const f: Fmt = { v: r.mode === "pct" ? (n) => signedPct(n ?? null, 2) : (n) => money(n), unit, view, pct: r.mode === "pct" };
   const c: Ctx = { j, view, r, o, f, units, trades, href };
   const range = dateRange(view.filter, j.today, j.startsOn);
 
   const modeSeg = (
     <div className="fgroup">
-      <span className="flabel">VIEW</span>
+      <span className="flabel">SHOW</span>
       <div className="seg" role="group" aria-label="Values">
-        <a className="segl" href={href({ mode: "usd" })} aria-current={r.mode === "usd" ? "true" : undefined}>$ VALUE</a>
-        <a className="segl" href={href({ mode: "pct" })} aria-current={r.mode === "pct" ? "true" : undefined}>% RETURN</a>
+        <a className="segl" href={href({ mode: "usd" })} aria-current={r.mode === "usd" ? "true" : undefined} title="Dollar values">$</a>
+        <a className="segl" href={href({ mode: "pct" })} aria-current={r.mode === "pct" ? "true" : undefined} title="% return on the cost of the shares bought">%</a>
       </div>
     </div>
   );
@@ -380,12 +394,12 @@ export function ReportsPage({ journal: j, view, params }: { journal: Journal; vi
           {r.mode === "pct" ? " · % RETURN ON COST" : ""}</span>
         </h1>
       </header>
-      <FilterBar view={view} journal={j} base="#/reports" extra={reportExtra(r)} controls={modeSeg} title={r.tab === "compare" ? "SET A FILTERS (GLOBAL)" : "FILTERS"} />
+      <FilterBar view={view} journal={j} base="#/reports" extra={reportExtra(r)} controls={modeSeg} title={r.tab === "compare" ? "A FILTERS" : "FILTERS"} />
       <Tabs items={TABS} labels={TAB_LABELS} on={r.tab} href={(t) => href({ tab: t })} label="Report" />
       {body}
       <div className="dim small">
-        Closed, matched, non-excluded trades only. Results and win % always use net P&amp;L.{" "}
-        {r.mode === "pct" ? "% return = P&L ÷ cost of the shares bought; totals add the returns. " : ""}
+        Closed trades only. Win/loss always uses net P&amp;L.{" "}
+        {r.mode === "pct" ? "% return = P&L ÷ cost of the shares bought; totals are sums of those returns, not account returns. " : ""}
         {view.count === "idea" ? "Each idea counts once, scored on its trades that pass the filter." : ""}
       </div>
     </main>

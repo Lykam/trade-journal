@@ -2,9 +2,11 @@
 import { describe, expect, it } from "vitest";
 import { etOffset } from "../src/core/normalize/util";
 import {
-  applyPreset, buildUnits, byDayOfWeek, byEntryPrice, byHour, byInstrument, byShares, COMPARE_PRESETS, computeGrid, daily, distribution,
+  applyPreset, buildUnits, compareLabels,
+ byDayOfWeek, byEntryPrice, byHour, byInstrument, byShares, COMPARE_PRESETS, computeGrid, daily, distribution,
   drawdownReport, drawdowns, holdOf, incompleteBeta, kelly, kRatio, maxStreaks, niceStep, parseReport, randomChance, regress,
-  reportExtra, sameUnderlying, sqn, stdDev, tagGroups, topBottom, tTwoSided, valueOf, winLossDays,
+  entryBucket, reportExtra, sameUnderlying,
+ sqn, stdDev, tagGroups, topBottom, tTwoSided, valueOf, winLossDays,
 } from "../src/core/reports";
 import { defaultView, parseView } from "../src/core/journal/filter";
 import { tradeTags } from "../src/core/journal/tags";
@@ -221,11 +223,18 @@ describe("breakdowns", () => {
   ];
   const units = buildUnits(trades, "trade");
 
-  it("day of week (Monday first) and entry hour (timed only)", () => {
+  it("day of week (Monday first) and entry time: 15 minutes to 11:00, then hourly (timed only, #20)", () => {
     expect(byDayOfWeek(units, NET).map((b) => [b.label, b.total])).toEqual([["MON", 5], ["TUE", -2], ["WED", 2], ["FRI", 9]]);
     const h = byHour(units, NET);
-    expect(h.buckets.map((b) => [b.label, b.count])).toEqual([["09:00", 2], ["10:00", 1], ["13:00", 1]]);
+    // Entries at 09:35 and 09:40, 10:00, 13:10.
+    expect(h.buckets.map((b) => [b.label, b.count])).toEqual([["09:30–09:45", 2], ["10:00–10:15", 1], ["13:00", 1]]);
     expect(h.untimed).toBe(1);
+  });
+
+  it("entry-time buckets", () => {
+    const at = (h: number, m: number) => entryBucket(h * 60 + m).label;
+    expect([at(9, 15), at(9, 30), at(9, 44), at(9, 45), at(10, 59), at(11, 0), at(15, 59)])
+      .toEqual(["pre-market", "09:30–09:45", "09:30–09:45", "09:45–10:00", "10:45–11:00", "11:00", "15:00"]);
   });
 
   it("entry price and size buckets", () => {
@@ -234,13 +243,19 @@ describe("breakdowns", () => {
   });
 
   it("instrument, same underlying, top / bottom", () => {
-    expect(byInstrument(units, NET).map((b) => [b.label, b.total])).toEqual([["STOCK", 15], ["LEV ETF", -1]]);
+    expect(byInstrument(units, NET).map((b) => [b.label, b.total])).toEqual([["STOCK", 15], ["ETF", -1]]);
     const same = sameUnderlying(units, NET);
     expect(same).toHaveLength(1);
     expect(same[0]).toMatchObject({ underlying: "FAKE", stock: { count: 1, total: 3 }, etf: { count: 1, total: -1 }, mixed: null });
+    // A short list is one list, best to worst: no winners under "worst" (#20).
     const tb = topBottom([{ key: "a", total: 3 }, { key: "b", total: -5 }, { key: "c", total: 1 }] as never);
-    expect(tb.top.map((b) => b.key)).toEqual(["a", "c"]);
-    expect(tb.bottom.map((b) => b.key)).toEqual(["b"]);
+    expect(tb.top.map((b) => b.key)).toEqual(["a", "c", "b"]);
+    expect(tb.bottom).toEqual([]);
+    // A long list: the best n, and only the losing groups as worst, worst first.
+    const many = Array.from({ length: 7 }, (_, i) => ({ key: `k${i}`, total: [5, 4, 3, 2, 1, -1, -2][i]! }));
+    const long = topBottom(many as never, 3);
+    expect(long.top.map((b) => b.key)).toEqual(["k0", "k1", "k2"]);
+    expect(long.bottom.map((b) => b.key)).toEqual(["k6", "k5"]);
   });
 
   it("P&L distribution in nice bins with 0 as an edge", () => {
@@ -310,11 +325,28 @@ describe("report URL state", () => {
     expect(reportExtra({ ...parseReport(new URLSearchParams("")), tab: "tags", tag: "chase" })).toEqual({ tab: "tags", tag: "chase" });
   });
 
-  it("compare presets keep the rest of the current filter on both sides", () => {
-    const view = { ...defaultView(), filter: { ...parseView(new URLSearchParams("symbol=ZZTA&style=day")).filter } };
+  it("compare presets keep the rest of the current filter on both sides, but reset what presets set (#18)", () => {
+    const view = { ...defaultView(), filter: { ...parseView(new URLSearchParams("symbol=ZZTA&style=day&result=win")).filter } };
     const { a, b } = applyPreset(view, COMPARE_PRESETS.find((x) => x.key === "instrument")!);
-    expect(a).toMatchObject({ symbols: ["ZZTA"], style: "day", instrument: "stock" });
-    expect(b).toMatchObject({ symbols: ["ZZTA"], style: "day", instrument: "leveraged_etf" });
+    // Symbol and result stay; style is a preset field, so a left-over DAY from DAY VS SWING doesn't carry over.
+    expect(a).toMatchObject({ symbols: ["ZZTA"], results: ["win"], style: null, instrument: "stock" });
+    expect(b).toMatchObject({ symbols: ["ZZTA"], results: ["win"], style: null, instrument: "leveraged_etf" });
+  });
+
+  it("compare presets don't stack: DAY VS SWING then THIS MONTH VS LAST MONTH compares all styles", () => {
+    const first = applyPreset(defaultView(), COMPARE_PRESETS.find((x) => x.key === "style")!);
+    // The first preset becomes the global filter (side A), as the page does.
+    const second = applyPreset({ ...defaultView(), filter: first.a }, COMPARE_PRESETS.find((x) => x.key === "month")!);
+    expect(second.a).toMatchObject({ style: null, preset: "month" });
+    expect(second.b).toMatchObject({ style: null, preset: "lastmonth" });
+  });
+
+  it("names what tells the two Compare sides apart", () => {
+    const { a, b } = applyPreset(defaultView(), COMPARE_PRESETS.find((x) => x.key === "style")!);
+    expect(compareLabels(a, b, "2026-10-04")).toEqual({ a: ["DAY", "ALL DATES"], b: ["SWING", "ALL DATES"], same: false });
+    const m = applyPreset(defaultView(), COMPARE_PRESETS.find((x) => x.key === "month")!);
+    expect(compareLabels(m.a, m.b, "2026-10-04")).toMatchObject({ a: ["THIS MONTH"], b: ["LAST MONTH"] });
+    expect(compareLabels(a, a, "2026-10-04").same).toBe(true);
   });
 });
 

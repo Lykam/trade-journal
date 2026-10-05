@@ -2,6 +2,7 @@
 // for in-browser import and override edits, and read-only views of config.json
 // and symbols.json.
 import { useState } from "react";
+import { gaugeRules } from "../../core/gauge/gauge";
 import type { DataBundle } from "../../core/types";
 import { DEMO_TOKEN_NOTE } from "../demo-text";
 import { dateTimeOf } from "../format";
@@ -164,15 +165,35 @@ function DemoSettingsPage({ data }: { data: DataBundle }) {
           <div className="panel-head"><h2>Data</h2></div>
           <div className="body">
             <dl className="kv">
-              <dt>Generated</dt><dd>{dateTimeOf(data.loadedAt)}, in this browser</dd>
-              <dt>Quotes as of</dt><dd>{data.quotes ? dateTimeOf(data.quotes.asOf) : "none"}</dd>
+              <dt>Built</dt><dd>{dateTimeOf(data.loadedAt)}</dd>
+              <dt>Prices</dt><dd>{data.quotes ? dateTimeOf(data.quotes.asOf) : "none"}</dd>
             </dl>
           </div>
         </section>
-        <JsonPanel title="config.json" file="config.json" value={data.config} />
-        <JsonPanel title="symbols.json" file="symbols.json" value={data.symbols} />
+        <GaugeRules data={data} />
+        <JsonPair data={data} />
       </div>
     </main>
+  );
+}
+
+/** The gauge rules in plain words above the raw JSON (#23). */
+function GaugeRules({ data }: { data: DataBundle }) {
+  return (
+    <section className="panel" aria-label="Gauge rules">
+      <div className="panel-head"><h2>Gauge rules</h2></div>
+      <div className="body">{gaugeRules(data.config).map((l) => <p key={l} className="text-2">{l}</p>)}</div>
+    </section>
+  );
+}
+
+/** config.json and symbols.json side by side across the page, instead of one left alone below (#23). */
+function JsonPair({ data }: { data: DataBundle }) {
+  return (
+    <div className="json-pair">
+      <JsonPanel title="config.json" file="config.json" value={data.config} />
+      <JsonPanel title="symbols.json" file="symbols.json" value={data.symbols} />
+    </div>
   );
 }
 
@@ -216,16 +237,15 @@ function RealSettingsPage({ data }: { data: DataBundle }) {
           <div className="body">
             <dl className="kv">
               <dt>{dev ? "Loaded" : "Built"}</dt><dd>{dateTimeOf(data.loadedAt)}</dd>
-              <dt>Quotes as of</dt><dd>{data.quotes ? dateTimeOf(data.quotes.asOf) : "none"}</dd>
+              <dt>Prices</dt><dd>{data.quotes ? dateTimeOf(data.quotes.asOf) : "none"}</dd>
               <dt>Generator</dt><dd>{data.derived.generator}</dd>
             </dl>
           </div>
         </section>
 
         <TokenPanel />
-
-        <JsonPanel title="config.json" file="config.json" value={data.config} />
-        <JsonPanel title="symbols.json" file="symbols.json" value={data.symbols} />
+        <GaugeRules data={data} />
+        <JsonPair data={data} />
       </div>
     </main>
   );

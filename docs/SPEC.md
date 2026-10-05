@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.12)
+# Trade Journal — Spec (v0.13)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -668,9 +668,10 @@ MZRT +$10 (W). The window is 3W / 2L = 60%.
 
 | State | Condition | Example, baseline 60% | Message |
 |---|---|---|---|
-| 🟢 **Full size** | Δ ≥ 0 | ≥ 60% | "At or above your average. Full size." |
-| 🟡 **½ size** | −10 ≤ Δ < 0 | 50–59.9% | "Below average. Trade ½ size until the win rate is back to average." |
-| 🔴 **¼ size** | Δ < −10 | < 50% | "Well below average. Trade ¼ size until the win rate is back to average." |
+| 🟢 **Full size** | Δ ≥ 0 | ≥ 60% | "At or above your average." |
+| 🟡 **½ size** | −10 ≤ Δ < 0 | 50–59.9% | "Below your average: trade half size." |
+| 🔴 **¼ size** | Δ < −10 | < 50% | "Well below your average: trade quarter size." |
+
 
 - Full size requires being at or above the average, so recovery means getting
   "back to average+" by definition, and no extra hysteresis is needed. The
@@ -744,10 +745,21 @@ fully static.
 
 - A semicircle dial with the needle at the window win rate. The colored bands
   are positioned relative to the baseline, and a marker sits at the baseline.
-- A large label shows the size recommendation.
-- Window stats: W/L count (swing shows closed vs. open separately), realized
-  and unrealized P&L, avg win / avg loss, profit factor, and expectancy per
-  trade.
+- A large label shows the size recommendation (½ / ¼ glyphs only here;
+  sentences spell out "half size" / "quarter size", since ½ reads as % at
+  body size in JetBrains Mono).
+- Under it: the gap (`−4.3 PTS VS AVG`), what the window holds
+  (`11 CLOSED THIS WEEK`, `1 CLOSED, 6 OPEN`, `+ 4 EARLIER` when backfilled),
+  and, below full size, the wins that would get back to it, all else equal:
+  `FULL SIZE AT 8W 5L (+2 WINS)` (`winsToFull`; each added win pushes the
+  oldest backfilled trade out, Q55).
+- Window stats: W/L count as `6W 5L` (swing: `CLOSED 1W 0L · OPEN 4W 2L`),
+  realized and unrealized P&L, avg win / avg loss, profit factor, and
+  expectancy per trade, all spelled out. Notes say when earlier trades fill
+  in the window (`4 EARLIER TRADES FILL IN UNTIL THIS WEEK HAS 5`) and that
+  open positions count at the last price.
+- At phone width the gauge is compact: a small dial beside the call, with the
+  stats behind a **STATS** toggle.
 - A sparkline of the last 8 weeks' win rates against the baseline, from
   closed trades only. The 8th bar is the current (partial) week.
 - **Open swing positions table** under the swing gauge: symbol, open date,
@@ -777,23 +789,29 @@ candlestick charts in v1 (see §11).
   - **Green `#22c55e` gains / red `#ef4444` losses.** Yellow `#facc15` is used
     only for the "½ size" state.
   - **Top navigation bar** instead of a sidebar: DASH · OPEN · CAL · TRADES ·
-    REPORTS · JOURNAL · SETTINGS, with IMPORT and LOCK on the right. It wraps
-    at phone width.
+    REPORTS · JOURNAL · SETTINGS, with IMPORT and LOCK on the right. Beside
+    them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
+    SCHWAB 10-02`, the last import per broker turning amber with `!` when it
+    is older than the latest closed session (Q55). At phone width it is one
+    line that scrolls sideways, IMPORT included, with the active tab kept in
+    view (Q57).
   - All colors are CSS variables, so a light theme or different palette can be
     added later without touching components.
 - **Global filter bar** on Trades and Reports, kept in the URL so views can be
-  bookmarked:
+  bookmarked. It starts collapsed to one line unless a filter is active (and
+  on desktop), and when collapsed shows the active filters as chips (Q62):
   - **Symbol:** matches the traded symbol *or* the underlying, so `NVQX` finds
     NVQU trades too.
   - **Tags:** multi-select.
   - **Style:** All / Day / Swing (this replaces Tradervue's "Side", since
     everything is long).
-  - **Instrument:** All / Stock / Leveraged ETF.
+  - **Instrument:** All / Stock / ETF (leveraged single-stock ETFs).
   - **Broker:** All / Schwab / Webull.
   - **Duration:** All / Intraday / Multi-day.
   - **Result:** Win / Loss / Breakeven.
-  - **Has review.**
-  - **Date range:** From – To, with presets.
+  - **Reviewed:** All / Yes / No.
+  - **Date range:** From – To, with presets spelled out (THIS WEEK, LAST
+    MONTH…; the short forms THIS WK, LAST MO only below 640 px).
 - **Gross / Net toggle:** on Trades, Trade detail, Calendar and Journal, kept
   in the URL (`pnl=gross`). The default is Net. Results (win / loss /
   breakeven) and win rates always use net P&L, in both modes (Q2). The
@@ -814,19 +832,30 @@ candlestick charts in v1 (see §11).
 
 From top to bottom:
 
-The first three blocks answer, at a glance: *what size should I trade, what am
-I holding, and how are my latest trades going?* They sit at the top, above
-everything else, and are never hidden.
+The first blocks answer, at a glance: *what size should I trade, what needs
+checking, what am I holding, and how are my latest trades going?* They sit at
+the top, above everything else, in the same order at phone width.
 
 1. **Temperature gauges:** Day and Swing side by side (§5). This is the
    centerpiece, and it is not in Tradervue.
+1a. **Needs attention** (Q55): one line under the gauges, `! NEEDS ATTENTION
+   3 ITEMS ›`, that opens into the list; hidden when nothing needs
+   attention. It lists unmatched fills, unpriced open positions, stale prices
+   (with their stamp), day trades held overnight, today's unreviewed trades
+   (`2 unreviewed trades today REVIEW ›`, the Trades view
+   `range=today&review=no`), and the review checks: OPEN swing reviews whose
+   idea has closed (`NVQX idea from 08-25 closed 09-23: write the exit`),
+   reviews that match no idea, and ideas with more than one review. Unmapped
+   ETFs need the broker's name column, which fills don't store, so they
+   surface in the import preview.
 2. **Open positions (quick view):** every open position, all on the main
    page.
-   - **Header totals:** count, **Unrealized**, **Realized (from trims)**,
-     **Total open P&L**, "as of HH:MM ET" for the prices, and a
-     **DETAILS ›** link to the Open Positions page (§6.1a).
+   - **Header totals:** count, **Unrealized**, **Realized** (trims, less buy fees; Q54),
+     **Total open P&L**, and an **ALL OPEN ›** link to the Open Positions
+     page (§6.1a). The price stamp is in the top bar.
    - **One row per position:**
-     - Symbol (with `→UNDERLYING 2x` for ETFs) and style.
+     - Symbol (with the `2x→UNDERLYING` badge for ETFs, `−2x→` for inverse)
+       and style.
      - **Opened** date (plus days held) and **Trims** (date, −qty, @price for
        each partial sell).
      - Shares now / max held, avg cost, last price.
@@ -837,55 +866,58 @@ everything else, and are never hidden.
    - **Day:** the last 10 closed day trades. **Swing:** the last 10 closed
      swing trades.
    - **Each column's header:**
-     - A **10-square streak strip**, oldest → newest, colored win / loss /
-       breakeven (gray).
+     - A **10-square streak strip**, newest first (left), like the list,
+       colored win / loss / breakeven (gray).
      - The W/L(/BE) count, win %, and net $.
-     - An **ALL ›** link to Trades, filtered to that style.
+     - An **ALL TRADES ›** link to Trades, filtered to that style.
    - **Each row:** a result dot, date, symbol (with underlying for ETFs), hold
-     time ("same day" / "3 days" for Schwab), an R marker if reviewed, and
-     net P&L. Clicking a row opens Trade detail.
+     time ("same day" / "3d" for Schwab), 📄 if reviewed, and net P&L.
+     Clicking a row opens Trade detail.
    - This always counts **trades** (round trips), not ideas, and ignores the
      30/60/90 range.
-4. **Week strip:** seven day cards for the gauge week (`weekStartsOn`,
-   Mon–Sun by default, Q19). Each shows the date, net P&L
-   (colored) and the number of trades. A 📄 icon appears if any review exists
-   for that day. Clicking a card opens the Trades page filtered to that day.
-   Arrows step to previous weeks.
-5. **Range selector:** **30 / 60 / 90 days** (top right). It drives every
-   widget below it.
+4. **Week strip:** day cards for the gauge week (`weekStartsOn`, Mon–Sun by
+   default, Q19), all styles (labeled). Saturday and Sunday get a card only
+   when something closed on them. Each shows the date, net P&L (colored) and
+   the number of trades. A 📄 icon appears if any review exists for that day.
+   Clicking a card opens the Trades page filtered to that day. Arrows step to
+   previous weeks. At phone width the cards show the weekday only.
+5. **Range selector:** **30 / 60 / 90 days** (top right), plus **ALL / DAY /
+   SWING** (Q55), both remembered per browser. They drive every widget below.
 6. **Widget grid:**
+   - **Key stats row:** net P&L, win %, profit factor, avg win / loss (with
+     the ratio), day hold (win / loss), best / worst trade.
    - **Cumulative P&L** line chart.
-   - **Win % by day** bar chart.
+   - **Daily win %** bar chart.
    - **Winning vs Losing trades:** a donut with counts and %. Breakevens are a
      thin gray slice.
    - **Hold time, winners vs losers:** two bars (e.g. "about 3 hours" vs
      "about 1 hour"), with day and swing hold times computed separately.
      Schwab trades without times show as multi-day or same-day only.
    - **Average winning vs losing trade:** two bars.
-   - **Largest gain vs largest loss:** a half-gauge, with links to both
-     trades.
-   - **Performance by day of week:** P&L and % of total, one bar per day.
-   - **Performance by duration:** buckets of < 5 min, 5–30 min, 30 min–2 h,
-     2 h to close, 1–5 days, 1–4 weeks, > 4 weeks.
-   - **Needs attention:** unmatched fills, unmapped ETF symbols, unpriced
-     open positions (and stale quotes), day trades held overnight, and OPEN
-     swing reviews whose position has closed. Unmapped ETFs need the broker's
-     name column, which fills don't store, so they surface in the import
-     preview. Review checks: OPEN swing reviews whose idea has closed,
-     reviews that match no idea, and ideas with more than one review.
+   - **Largest gain vs largest loss:** two bars from one zero line, with
+     links to both trades.
+   - **P&L by weekday:** P&L and trade count, one bar per day.
+   - **P&L by hold time:** buckets of < 5 min, 5–30 min, 30 min–2 h,
+     2h – close, 1–5 days, 1–4 weeks, > 4 weeks.
 7. **Edit Layout** (show, hide and reorder widgets, saved per browser) is a
    v1.1 nice-to-have, not v1. Blocks 1–3 stay pinned at the top regardless.
+
 
 ### 6.1a Open Positions page (in-depth)
 
 Nav item **OPEN**, the second item in the top bar. It holds everything the
 dashboard quick view has, plus:
 
-- **Totals strip:** unrealized, realized from trims, total open P&L, market
-  value vs cost, and the count of green vs red positions.
-- **Filter:** All / Swing / Day.
+- **Totals strip:** unrealized, realized (with its trim count and buy fees,
+  e.g. `0 TRIMS · 0.65 FEES`, Q54), total open P&L, market value vs cost, and
+  the count of green vs red positions.
+- **Filter:** All / Swing / Day. **Sortable** on every column; unpriced
+  values sort last.
+- **Last price:** a stale quote shows its own stamp on the row
+  (`9.80 * 10-01 14:00`).
 - **Per position,** extra columns: **Market value** and **Unrealized %**,
-  plus a **timeline** of every event:
+  plus a **timeline** of every event, shown only when the position has adds
+  or trims (and not at phone width):
   - `OPEN date BUY qty @ price`.
   - `ADD date BUY qty @ price`.
   - `TRIM date SELL qty @ price  +realized`.
@@ -907,14 +939,20 @@ dashboard quick view has, plus:
 
 - A month grid. Each day cell shows net P&L (green or red background tint),
   the number of trades, and 📄 if a review exists. A weekly total column sits
-  on the right.
-- Clicking a day opens the Trades page filtered to that date. Arrows step
-  between months, and a **year view** shows a 12-month heatmap.
+  on the right; a week that reaches into another month is dimmed and says
+  so (`WK · INCL. SEP`), since its total includes those days. At phone width
+  amounts are whole dollars (`+16`, `−43`) and the weekend columns are
+  narrower.
+- Clicking a day opens the Trades page filtered to that date. Today's cell
+  has an amber outline. Arrows step between months, and a **year view**
+  shows a 12-month heatmap with weekday letters above each month and a
+  one-line color legend.
 
 ### 6.3 Trades
 
-- **Table** columns: Date, Symbol (with an `ETF→NVQX` badge on leveraged
-  ETFs), Style, Volume (shares), Executions (fill count), Hold, Gross/Net P&L,
+- **Table** columns: Date, Symbol (with a `2x→NVQX` badge on leveraged
+  ETFs, `−2x→NVQX` on inverse ones), Style, Volume (shares), Fills, Hold,
+  Gross/Net P&L,
   Review (📄 links to the review), Notes (short note, truncated), and Tags.
   - **Removed from Tradervue's table:** "Shared".
 - **Rows** are one per trade by default, matching Tradervue (e.g. two MZRU
@@ -922,39 +960,58 @@ dashboard quick view has, plus:
   which expands to show its trades.
 - **Sortable** on every column. Paginated at 50 per page, or virtualized if
   that's simpler.
-- **Bulk select** with checkboxes, then **Add tag / Remove tag / Set style /
-  Exclude**. Every bulk action is one commit to `trade-history/overrides.json`.
+- **Open trades** have no result yet: P&L shows their mark at the last price
+  in muted text (`open +19.50`, or `open —` without a quote), never colored
+  as a win or loss, and they sort after the closed trades on P&L (Q54). The
+  Journal list, the review page and the Idea panel do the same.
+- **Date** is always the close date (the open date while open); a multi-day
+  row's range shows under Hold (`27d · from 09-02`). The **Notes** column
+  shows only when a row on the page has a note (Q62).
+- **Bulk select** with checkboxes (the bar docks at the bottom of the
+  screen, below the table, so ticking a box never moves the rows), then
+  **Add tag / Remove tag / Mark Day /
+  Mark Swing / Exclude from stats / Include**. Every bulk action is one commit
+  to `trade-history/overrides.json`.
 - **Views:** only *Table* in v1. Tradervue's "Charts (large/small)" views are
   dropped until charts exist.
 
 ### 6.4 Trade detail
 
-The header is the symbol and date-time ("MZRU · Jan 15, 2026"; day-precision
-Schwab trades show the date only). Below it are the tag chips, with an
-**Add tags +** control. The top right has **Back**, **Previous trade** and
-**Next trade**, which follow the current filter and sort.
+The header is the symbol and date-time ("MZRU · 2026-01-15 15:41 ET";
+day-precision Schwab trades show the date only). Below it are the manual tag
+chips and any review Category, with an **Add tags +** control (style, ETF and
+reviewed already show in the header and stats). The top right has **Back** and
+**‹ Newer / Older ›**, which follow the current filter and sort; under a sort
+other than date they read **‹ Prev / Next ›**.
 
 - **Stats panel:**
-  - Shares traded, executions, avg entry, avg exit, gross / fees / net P&L,
+  - Size (max shares held), volume, fills, avg entry, avg exit, gross / fees / net P&L,
     % return on cost, hold time, style, broker and account.
   - The underlying and leverage, for ETF trades.
-  - Unrealized P&L at the latest quote, for open swing positions.
+  - Unrealized P&L at the latest quote, for open swing positions. For an
+    open trade, Total open P&L, Unrealized and Realized come first, and
+    Gross / Net P&L and % return on cost show "—" until it closes (Q54).
+    Hold is "open 17d" in whole ET calendar days, the same count as the
+    dashboard.
   - **Not shown in v1:** MFE/MAE ("best exit", position and price
     MFE/MAE). Those need intraday price history (§11).
-- **Executions table:** time, side, qty, price and fees for every fill.
+- **Fills table:** time, side, qty, price and fees for every fill.
 - **Idea panel:** the other trades in the same idea, with their P&L and a
   combined idea total. For example, "Idea: NVQX · 3 trades · +$85 (2 NVQX,
   1 NVQU)".
 - **Notes panel (right side), from your Playbook review:**
   - If a review is linked to this trade's idea (§6.11), it is rendered here:
     headings, the Finviz `<details>` block, and images inline, with template
-    HTML comments hidden. An **Open full review** link goes to the Journal.
+    HTML comments hidden. A **Full review ›** link goes to the Journal.
   - If there is no review, the panel shows a short **quick note**, editable
     and saved to `overrides.json` (one or two lines, like Tradervue's notes
     field). The edit is staged, previewed, then committed (Q32, §4.5A). It also has a **Start review** button that copies
     `/playbook-review <TICKER> <DATE>` to the clipboard to paste into Claude.
     This replaces Tradervue's "Insert template".
-- **Charts section, from your Playbook images:** a gallery of
+- **Keys:** `j` / `k` step to the next / previous trade in the list (not
+  while typing). A 📄 beside the header links to the review.
+- **Charts section, from your Playbook images** (in the left column, under the
+  timeline and idea, beside the review): a gallery of
   `Images/<date>/<UNDERLYING>-daily*` and `-intraday*` (also matching the
   traded ETF symbol). Thumbnails open a full-size lightbox. If there are no
   images, it shows "No charts saved for this trade. Use `/chart-image` in
@@ -979,35 +1036,42 @@ Schwab trades show the date only). Below it are the tag chips, with an
   | Total gain/loss | Largest gain ↗ | Largest loss ↗ |
   | Avg daily gain/loss | Avg daily volume | Avg per-share gain/loss |
   | Avg trade gain/loss | Avg winning trade | Avg losing trade |
-  | Total trades | # winning (%) | # losing (%) |
+  | Total trades | Winners | Losers |
   | Avg hold (all) | Avg hold (winners) | Avg hold (losers) |
-  | # breakeven ($0.00) | Max consecutive wins ↗ | Max consecutive losses ↗ |
-  | Trade P&L std dev | SQN | Probability of random chance |
+  | Breakeven | Max consecutive wins ↗ | Max consecutive losses ↗ |
+  | Trade P&L std dev | SQN | Chance it's luck |
   | Kelly % | K-ratio | Profit factor |
-  | Fees & commissions | Win % (excl. BE) | Expectancy |
+  | Fees & commissions | Win % | Expectancy |
 
   ↗ links to the trade (Trade detail, carrying the filter) or the streak (the
   Trades page for the streak's dates under the same filter). MFE/MAE rows are
   left out until price history exists. The exports carry one combined
   "Fees & Comm" figure, so commissions and fees are one stat, and the freed
-  cell shows the win rate as defined in §4.4 (Q42).
+  cell shows the win rate as defined in §4.4 (Q42). Win % appears once, as
+  wins ÷ (wins + losses), the same figure as the dashboard tile, its donut
+  and the gauges; the counts rows carry no second percentage (Q56). When
+  both styles are in the grid, the three hold cells split by style
+  (`day 1h 08m · swing 16.0d`).
 - **What counts:** closed, matched, non-excluded trades that pass the global
   filter (`isScored`). In the Idea view each idea is one unit built from its
   trades that pass (Q28). Results always come from net P&L; Gross / Net only
   changes the values. Formulas are in Q42 and `src/core/reports/`.
 - **$ / % return:** % mode replaces each unit's P&L by P&L ÷ the cost of the
   shares it bought (every open and add), and totals, averages, std dev, SQN and
-  the curves use those returns (totals add them). Per-share P&L, volume and
+  the curves use those returns (totals add them). Totals are labeled **sum of
+  trade %** (not an account return; Q56). Per-share P&L, volume and
   fees stay in dollars. URL: `#/reports?tab=detailed&sub=price&mode=pct&…`,
   plus `b=` (Compare's second filter, as its own query string) and `tag=`
   (Tag Breakdown's open grid).
 - **Breakdown sub-tabs** under the grid. Each is a set of horizontal bar
   charts of P&L, with win rate, trade count and expectancy on hover:
-  - **Days/Times:** day of week, hour of day (Webull only; Schwab is
-    excluded and labeled), month.
+  - **Days/Times:** day of week, entry time (15-minute buckets from 09:30
+    to 11:00, then hourly, with pre-market apart; Webull only, Schwab is
+    excluded and labeled; Q61), month.
   - **Price/Volume:** entry price buckets and position size buckets.
   - **Instrument:**
-    - Performance by symbol, **Top 20 / Bottom 20**.
+    - Performance by symbol: up to 40 symbols, one list best to worst;
+      more, the **best 20** and the **worst 20 of the losing ones** (Q61).
     - The same by **underlying**.
     - **Stock vs leveraged ETF**.
     - **"Same underlying, stock vs ETF":** for each underlying traded both
@@ -1022,17 +1086,27 @@ Schwab trades show the date only). Below it are the tag chips, with an
   counted as flat.
 - **Drawdown:** an underwater equity curve, max drawdown $ and %, the longest
   drawdown in days, and recovery time. Max drawdown % is the drawdown of the
-  summed % returns (points), with the $ drawdown as a share of its peak shown
-  beside it when that peak is above $0 (Q42).
+  summed % returns (points), with the $ drawdown as a share of its peak
+  (`OF PEAK PROFIT`) shown beside it when that peak is above $0 and the view
+  is in $ (Q42, Q56).
 - **Compare:** two filter sets side by side, each with its own stats grid and
   cumulative P&L. Examples are "Day vs Swing", "Stock vs ETF", or "this month
-  vs last month". Set A is the global filter; set B has its own filter bar.
-  The presets (Day vs Swing, Stock vs ETF, Schwab vs Webull, This month vs Last
-  month) put their difference on top of the current filter on both sides.
+  vs last month". Set A is the global filter; set B has its own filter bar
+  (collapsed at first). The presets (Day vs Swing, Stock vs ETF, Schwab vs
+  Webull, This month vs Last month) first reset the fields any preset sets
+  (style, instrument, broker, dates) and then put their difference on top of
+  the rest of the current filter on both sides, so presets never stack (Q59).
+  Each side is named by what differs from the other plus its dates
+  (`A · DAY · ALL DATES`), the grid has a **B − A** column, and when A and B
+  are the same filter a one-line hint replaces the duplicate grids.
 - **Tag Breakdown:** the stats grid for each tag, plus each review
   `Category`, plus each style. A summary table per kind (count, win %, P&L,
   expectancy, profit factor, SQN); picking a tag opens its full grid. A trade
-  with several tags counts in each.
+  with several tags counts in each. The tables are headed **Tag (manual)** and
+  **Category (from review)**, kept apart even when names match (owner
+  decision). Profit factor, SQN and Kelly are grayed under 10 units, and a
+  group without losses shows "—" for profit factor with the hover "No
+  losses" (Q61).
 
 ### 6.6 Tags
 
@@ -1049,19 +1123,29 @@ Schwab trades show the date only). Below it are the tag chips, with an
 ### 6.7 Journal (Playbook reviews)
 
 - A list of reviews, newest first, with the date, ticker, Trade Type,
-  Status (OPEN / CLOSED), the linked idea's P&L and the trade count. It is
-  filterable by the global filter bar.
+  review status (with the idea's folded in: `CLOSED · idea open`), category,
+  the linked idea's P&L and the trade count. An OPEN review whose idea has
+  closed shows **EXIT MISSING** in the loss color and sorts to the top
+  (Q63). It is filterable by the global filter bar, without the Reviewed
+  filter (every row is a review).
 - The review page renders the full markdown with images. A header strip
-  shows the linked idea's trades and P&L, with links to each trade.
+  shows the linked idea's trades and P&L (`DAY · 10-01 → 10-01 · CLOSED`, how
+  it was linked on hover), with links to each trade.
 - Read-only. Reviews are written in Playbook with the `playbook-review`
   skill.
 
 ### 6.8 Import
 
-See §4.5A. Drag-and-drop CSVs, then a preview (new, duplicate and skipped
-counts, errors, Webull ticker changes, new ETF symbols to map with a guess,
-new or changed trades with P&L, and the full `--dry-run` report), then
-**Commit**. Errors block the commit. Needs the browser token.
+See §4.5A. Drag-and-drop CSVs, then a preview (new fills and trades, with
+changed, removed, duplicate and skipped counts shown only when above zero and
+errors always; Webull ticker changes; new ETF symbols to map with a guess;
+new or changed trades with P&L; and the full `--dry-run` report, collapsed,
+carrying the commit it was computed against), then **Commit** (the files it
+writes in a collapsed list). Errors block the commit. Needs the browser token.
+A new ETF row starts ticked when its guessed underlying is a symbol already
+traded, and unticked otherwise; it is only written on Commit (Q64). After a
+commit the page offers **BACK TO DASH ›**, and IMPORT shows as active in the
+top bar.
 
 ### 6.9 Settings
 
@@ -1071,8 +1155,11 @@ new or changed trades with P&L, and the full `--dry-run` report), then
   GitHub's new-token page with name, description, expiry and permissions
   pre-filled (`?name=…&target_name=Lykam&expires_in=90&contents=write`);
   repository access can't be pre-filled and is picked by hand.
-- A read-only view of `config.json` and `symbols.json`, with links to edit
-  them on GitHub.
+- **Gauge rules** in plain words, from `config.json` ("Average = your win %
+  over the last 90 days, this week excluded. Half size below your average;
+  quarter size 10+ points below it…", Q64).
+- A read-only view of `config.json` and `symbols.json` side by side, with
+  links to edit them on GitHub.
 
 ### 6.10 Not in v1 (compared with Tradervue)
 
@@ -1403,10 +1490,24 @@ the commit leaves the private repo.
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
 | Q53 | Tradervue import | One-time CLI import of a Tradervue **trades** export (§4.7), owner decisions 2026-10-04. Tradervue wins for **tags** (union of duplicate copies; automatic tags such as `Swing` aren't stored) and **style** (the `Swing` tag means swing, its absence day; overrides only where it differs from the account default). Its **notes** become quick notes as plain text, capped at 500 characters. The broker fills stay the truth for P&L and quantities: discrepancies are listed, never applied. The export has no executions and only one trade predated the broker exports (a position opened before the Schwab export starts), so **no synthetic fills** and no schema change; the owner left that position out for now, to reconcile later. Matching uses the exact second for timed trades, regardless of symbol (Webull renames, Q18), and symbol + dates + shares + P&L for date-only ones. Not in the web app: it runs once, from the CLI, behind the usual dry-run-and-OK step (Q14). (2026-10-04) |
+| Q54 | Open trades in tables | UX review (#14): an open trade has no result, so tables never show its booked P&L (often 0.00, or a red buy fee) as if it were one. Trades, the Journal list, the review page and the Idea panel show the mark at the last price in muted text (`open +19.50`; `open —` without a quote); an idea with closed and open trades adds the closed results and the open marks, and still reads as open. Open rows sort after closed ones on P&L in both directions. Buy fees stay in realized P&L (Q44, average-cost basis unchanged), labeled `REALIZED · 0 TRIMS · 0.65 FEES`. Days held are whole ET calendar days everywhere (`daysHeld`). Stops and risk are deferred (§11). (2026-10-04, #14) |
+| Q55 | Dashboard top | UX review (#15), owner decisions 2026-10-04. **Needs attention** joins the pinned top blocks as one line under the gauges that opens into the list, hidden when empty, and adds today's unreviewed trades. **Backfill stays** (Q13, Q20): there is no "not enough trades" state, since earlier trades always fill the window; the gauge says so instead (`1 CLOSED THIS WEEK, 4 EARLIER` and a note). **Full-size target:** the fewest extra wins this week that reach Δ ≥ 0 with nothing else changing, each win pushing the oldest backfilled trade out; none at full size, without a baseline or beyond 50. **Imports:** the bundle carries the latest `importedAt` per broker (`imports`; fills keep theirs blank), and the top bar flags one older than the latest closed session (weekdays 16:00 ET, no holidays, like Q21). The 30/60/90 block gets an ALL / DAY / SWING toggle; the week strip hides empty weekend days and says it covers all styles; the Recent 10 strip runs newest first like its list; largest gain / loss are two bars instead of a half-gauge. (2026-10-04, #15) |
+| Q56 | One set of numbers | UX review (#16). **Win %** is always wins ÷ (wins + losses): the dashboard donut's legend shows counts only and its center the tile's figure, and the Detailed grid shows Winners / Losers / Breakeven as counts with Win % once. **% mode** (owner decision): totals stay, labeled `SUM OF TRADE %`, with a hover saying it is not an account return; drawdown drops "of peak" in % mode. **Hold** splits by style whenever both are in a grid (Detailed, Compare, Win vs Loss Days). The Trades tile counts open rows apart (`8 OPEN · 296 CLOSED`), so its closed count matches Reports. A calendar week that spans two months is dimmed and names the other month. (2026-10-04, #16) |
+| Q57 | Phone layout | UX review (#17), at 390 px. **P&L never leaves the screen:** below 640 px every table hides its middle columns instead of becoming cards (Dashboard open positions: symbol, %, total; OPEN: symbol, days, unrealized %, total; Trades: date without the year, symbol, P&L, 📄; Journal: date, ticker, status, P&L; Recent 10 drops the hold), and the Trades select column goes, since bulk edits are a desktop task. The OPEN timeline is hidden. **Order** stays the desktop one (owner decision), with compact gauges (Q55). The nav is one scrolling line. The week strip shows weekdays only; the calendar uses whole dollars and narrow weekends. (2026-10-04, #17) |
+| Q58 | Wording | UX review (#13): the find-and-replace table applied, with owner changes (`UNREALIZED`, not `OPEN P&L`, which would clash with Total open P&L; `DAYS TRADED`; Newer / Older only under a date sort). Rules: no "CUM"; W/L as `6W 5L` (`1BE` when there are breakevens); holds `6m 28s`, `1h 09m`, multi-day `17d`; ISO dates in headers and detail pages, `09-21` in dense tables; one price stamp `PRICES 10-02 16:00`; one ETF badge `2x→MZRT` / `−2x→NVQX`; sentences spell out half / quarter size; footnotes in sentence case. Kept short forms: P&L, AVG, ET, sh, 30D/60D/90D, PF in the Tag Breakdown table, SQN, K-ratio, Kelly %, and the nav and logo. (2026-10-04, #13) |
+| Q59 | Compare presets | UX review (#18), owner decision 2026-10-04: a preset resets the fields presets own (style, instrument, broker, date preset and range) on both sides before applying its own, keeping every other filter. Before, DAY VS SWING set STYLE = DAY on the global filter and THIS MONTH VS LAST MONTH then compared day trades only, without saying so. Side names come from `compareLabels` (the fields that differ, then the dates); B − A is shown for the numeric stats (win % in points). (2026-10-04, #18) |
+| Q60 | Chart readouts | UX review (#19), within Q22's hand-rolled SVG: every chart shows its top and bottom values on the left edge, first / middle / last dates under it, and a one-line readout of the hovered or tapped point (date and value; P&L and running total on cumulative charts) with a crosshair, instead of slow native tooltips. Daily win % has a legend (green at or above average, gray below) and a minimum bar height so 0% days stay visible; the gauges' 8-week bars put the hovered week in place of their label; breakdown bars read `P&L · count · win %` (win % on desktop only). (2026-10-04, #19) |
+| Q61 | Breakdowns | UX review (#20). **Entry time:** 15-minute buckets 09:30–11:00, hourly after, pre-market apart (`entryBucket`, from the unit's `entryMinute`). **Best / worst:** `topBottom` splits only above 2 × 20 groups, and the worst list holds losing groups only, worst first; a shorter list is one list, so winners never sit under "worst". **Small samples:** under 10 units, profit factor, SQN and Kelly are grayed with a hover saying so; ∞ is shown as "—" ("No losses"). **Tag vs Category** stay separate (owner decision), with clearer headings. SQN, K-ratio, Kelly % and Chance it's luck each have a one-line hover. (2026-10-04, #20) |
+| Q62 | Trades and Trade detail | UX review (#21). The Date column is always one date (close, or open while open), with a multi-day range moved to Hold. The bulk bar docks at the bottom of the screen under the table. Notes hides when the page has none. Filter bars start collapsed unless something is filtered, with the active filters as chips. Trade detail moves the charts into the left column, links its review with 📄 (the one reviewed marker everywhere, replacing the dashboard's `R` and the detail chip), and steps with `j` / `k`. Native date inputs stay (owner decision): a text field would lose the phone date picker. (2026-10-04, #21) |
+| Q63 | Journal and Calendar | UX review (#22). The Journal's REVIEW column folds in the idea status; an OPEN review on a closed idea (`exitMissing`, the same check Needs attention uses) reads EXIT MISSING and sorts first (`journalOrder`). The second IDEA column is gone and the Reviewed filter is hidden there. The review page header gives the idea's date span. The calendar outlines today and the year view gets weekday letters and a legend. (2026-10-04, #22) |
+| Q64 | Import and Settings | UX review (#23), owner decision 2026-10-04: a new ETF mapping row is pre-ticked when its guessed underlying is already traded (`preTick`). It stays visible and editable and is written only on Commit, so Q8's explicit mapping holds. Import plumbing (file list, ref) is collapsed; a commit ends with a link back to the dashboard; IMPORT shows as active on its page. Settings states the gauge rules from config (`gaugeRules`) and puts the two JSON views side by side. (2026-10-04, #23) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open
 
+- UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
+  desktop and 390 px width; the owner checks the real site after the merge.
+  #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
   sequence against the real checkouts with public logs. After merge, check
   live: the deploy log, `/trade-journal/demo/` at desktop and phone width, and
@@ -1431,7 +1532,21 @@ the commit leaves the private repo.
   import of Tradervue's tags and notes is built: §4.7, Q53.)
 - Live browser-side quotes (Finnhub free key, stored encrypted) layered on top
   of the scheduled Action prices, if 15–30 min delay ever proves too slow.
-- R-multiples, if a planned stop is recorded per trade.
+- R-multiples, if a planned stop is recorded per trade. Stops would also give
+  the open-position views STOP, RISK $ (`shares × (avg − stop)`) and % TO
+  STOP (UX review #14 item 5, #24; owner deferred them, 2026-10-04).
 - Short selling and options. `assetType` is reserved, and grouping would need
   signed positions.
 - Auto-suggest "worth reviewing" trades.
+- **From the UX review (#24, 2026-10-04),** things other journals have, each
+  a scope decision for later (owner: none in this round): initial risk / stop
+  and R-multiples (above, the trader's top pick); an **account balance**, so
+  % views and drawdown are measured against the account rather than peak
+  profit; execution markers on an intraday chart (the TradingView item
+  above); MFE / MAE (needs intraday prices); an **entry time column** on
+  Trades for day trades; a **daily note / pre-market plan**, perhaps in
+  Playbook like reviews; a **"mistakes cost" line** (e.g. a tag's P&L this
+  month) on the dashboard; a **daily loss limit** with breached days flagged
+  on the calendar; the **current streak** on the dashboard; **saved filter
+  views** and **CSV export** of the filtered trades; and a long / short side
+  column, if shorts or inverse ETFs ever count as short.

@@ -14,6 +14,10 @@ export type Flag = "overnight" | "unmatched" | "open" | "excluded";
 export const PRESETS = ["today", "week", "lastweek", "month", "lastmonth", "30d", "90d", "ytd"] as const;
 export type Preset = (typeof PRESETS)[number];
 export const PRESET_LABELS: Record<Preset, string> = {
+  today: "TODAY", week: "THIS WEEK", lastweek: "LAST WEEK", month: "THIS MONTH", lastmonth: "LAST MONTH", "30d": "30D", "90d": "90D", ytd: "YTD",
+};
+/** The short forms, used only below 640 px (#13). */
+export const PRESET_SHORT: Record<Preset, string> = {
   today: "TODAY", week: "THIS WK", lastweek: "LAST WK", month: "THIS MO", lastmonth: "LAST MO", "30d": "30D", "90d": "90D", ytd: "YTD",
 };
 
@@ -196,6 +200,31 @@ export function tradeMatcher(f: TradeFilter, ctx: MatchContext): (t: Trade) => b
     }
     return true;
   };
+}
+
+/**
+ * One short label per active filter, for the chips on a collapsed filter bar (#21):
+ * "NVQX", "DAY", "ETF", "WIN + LOSS", "REVIEWED", "THIS WEEK", "09-01 – 09-30".
+ */
+export function activeFilterLabels(f: TradeFilter, today: string, startsOn: "monday" | "sunday" = "monday", dates = true): string[] {
+  const out: string[] = [];
+  if (f.symbols.length) out.push(f.symbols.join(", "));
+  if (f.tags.length) out.push(`TAGS ${f.tags.join(f.tagMode === "all" ? " & " : ", ")}`);
+  if (f.style) out.push(f.style.toUpperCase());
+  if (f.instrument) out.push(f.instrument === "leveraged_etf" ? "ETF" : "STOCK");
+  if (f.broker) out.push(f.broker.toUpperCase());
+  if (f.duration) out.push(f.duration === "intraday" ? "INTRADAY" : "MULTI-DAY");
+  if (f.results.length) out.push(f.results.map((r) => r.toUpperCase()).join(" + "));
+  if (f.review) out.push(f.review === "yes" ? "REVIEWED" : "NOT REVIEWED");
+  if (dates) {
+    if (f.preset) out.push(PRESET_LABELS[f.preset]);
+    else if (f.from || f.to) {
+      const r = dateRange(f, today, startsOn);
+      out.push(r.from === r.to ? r.from! : `${r.from ?? "…"} – ${r.to ?? "…"}`);
+    }
+  }
+  if (f.flag) out.push(f.flag.toUpperCase());
+  return out;
 }
 
 /** Number of active filter fields (for the "N FILTERS · CLEAR" control). */
