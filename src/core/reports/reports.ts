@@ -1,7 +1,8 @@
 // Reports page state and the analyses beyond the grid (SPEC §6.5): Win vs Loss
 // Days, Drawdown, Compare and Tag Breakdown.
 import { daysBetween } from "../calendar";
-import { parseView, viewToParams, type TradeFilter, type ViewState } from "../journal/filter";
+import { dateRange, emptyFilter, parseView, PRESET_LABELS, viewToParams, type TradeFilter, type ViewState } from "../journal/filter";
+
 import { AUTO_TAGS, type TradeTags } from "../journal/tags";
 import type { Trade } from "../types";
 import { computeGrid, type Grid } from "./grid";
@@ -71,9 +72,48 @@ export const COMPARE_PRESETS: ComparePreset[] = [
   { key: "month", label: "THIS MONTH VS LAST MONTH", a: { preset: "month", from: null, to: null }, b: { preset: "lastmonth", from: null, to: null } },
 ];
 
-/** Apply a preset on top of the current filter: both sides keep everything else. */
+/** Every field any preset sets. A preset first clears them, so presets never stack (#18). */
+const PRESET_FIELDS = [...new Set(COMPARE_PRESETS.flatMap((p) => [...Object.keys(p.a), ...Object.keys(p.b)]))] as Array<keyof TradeFilter>;
+
+/**
+ * Apply a preset on top of the current filter. The fields presets own (style, instrument,
+ * broker, dates) are reset first, so DAY VS SWING then THIS MONTH VS LAST MONTH compares
+ * months over all styles instead of quietly keeping STYLE = DAY (#18). Everything else
+ * (symbol, tags, result…) is kept on both sides.
+ */
 export function applyPreset(view: ViewState, p: ComparePreset): { a: TradeFilter; b: TradeFilter } {
-  return { a: { ...view.filter, ...p.a }, b: { ...view.filter, ...p.b } };
+  const base: TradeFilter = { ...view.filter };
+  const empty = emptyFilter();
+  for (const k of PRESET_FIELDS) (base as unknown as Record<string, unknown>)[k] = empty[k];
+  return { a: { ...base, ...p.a }, b: { ...base, ...p.b } };
+}
+
+const sameFilter = (a: TradeFilter, b: TradeFilter) => filterQuery(a) === filterQuery(b);
+
+/** Short labels for a filter's fields, as the Compare headers name them. */
+function fieldLabels(f: TradeFilter, today: string, startsOn: "monday" | "sunday"): Record<string, string> {
+  const r = dateRange(f, today, startsOn);
+  return {
+    symbols: f.symbols.length ? f.symbols.join(", ") : "ALL SYMBOLS",
+    tags: f.tags.length ? `TAGS ${f.tags.join(", ")}` : "ANY TAG",
+    style: f.style ? f.style.toUpperCase() : "ALL STYLES",
+    instrument: f.instrument === "leveraged_etf" ? "ETF" : f.instrument === "stock" ? "STOCK" : "ALL INSTRUMENTS",
+    broker: f.broker ? f.broker.toUpperCase() : "ALL BROKERS",
+    duration: f.duration ? f.duration.toUpperCase() : "ANY DURATION",
+    results: f.results.length ? f.results.join(" + ").toUpperCase() : "ALL RESULTS",
+    review: f.review === "yes" ? "REVIEWED" : f.review === "no" ? "NOT REVIEWED" : "REVIEWED OR NOT",
+    dates: f.preset ? PRESET_LABELS[f.preset] : r.from || r.to ? `${r.from ?? "…"} – ${r.to ?? "…"}` : "ALL DATES",
+  };
+}
+
+/**
+ * What tells Compare's two sides apart, e.g. A "DAY", B "SWING" (#18). The date range is
+ * always named. `same` when the two filters are identical (nothing to compare yet).
+ */
+export function compareLabels(a: TradeFilter, b: TradeFilter, today: string, startsOn: "monday" | "sunday" = "monday"): { a: string[]; b: string[]; same: boolean } {
+  const la = fieldLabels(a, today, startsOn), lb = fieldLabels(b, today, startsOn);
+  const keys = Object.keys(la).filter((k) => k !== "dates" && la[k] !== lb[k]);
+  return { a: [...keys.map((k) => la[k]!), la.dates!], b: [...keys.map((k) => lb[k]!), lb.dates!], same: sameFilter(a, b) };
 }
 
 // ---------------------------------------------------------------- win vs loss days

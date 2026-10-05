@@ -43,7 +43,7 @@ const RESULTS: Array<{ value: TradeResult; label: string; cls: string }> = [
 ];
 
 export function FilterBar({
-  view, journal, base, extra, count = true, dates = true, pnl = true, controls, hrefFor, title = "FILTERS",
+  view, journal, base, extra, count = true, dates = true, pnl = true, controls, hrefFor, title = "FILTERS", defaultOpen,
 }: {
   view: ViewState;
   journal: Journal;
@@ -60,10 +60,13 @@ export function FilterBar({
   /** Where a change navigates; defaults to `base` with the view and `extra`. */
   hrefFor?: (v: ViewState) => string;
   title?: string;
+  /** Start open or closed; by default open on desktop. */
+  defaultOpen?: boolean;
 }) {
   const uid = useId();
   const f = view.filter;
-  const [open, setOpen] = useState(() => typeof window === "undefined" || window.matchMedia("(min-width: 760px)").matches);
+  const [open, setOpen] = useState(() => defaultOpen ?? (typeof window === "undefined" || window.matchMedia("(min-width: 760px)").matches));
+
   const [symbol, setSymbol] = useState(f.symbols.join(", "));
   const symbolsKey = f.symbols.join(", ");
   useEffect(() => {

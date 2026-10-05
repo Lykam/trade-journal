@@ -5,7 +5,8 @@ import { useMemo } from "react";
 import { dateRange, type TradeFilter, type ViewState } from "../../core/journal/filter";
 import { filterTrades, type Journal } from "../../core/journal/journal";
 import {
-  applyPreset, buildUnits, byBroker, byCost, byDayOfWeek, byEntryPrice, byHour, byInstrument, byMonth, byShares, bySymbol, byStyle,
+  applyPreset, buildUnits, byBroker, compareLabels,
+ byCost, byDayOfWeek, byEntryPrice, byHour, byInstrument, byMonth, byShares, bySymbol, byStyle,
   byUnderlying, COMPARE_PRESETS, computeGrid, distribution, drawdownReport, parseReport, reportExtra, sameUnderlying, SUB_LABELS, SUBS,
   TAB_LABELS, TABS, tagGroups, topBottom, winLossDays, type Grid, type ReportState, type Unit, type ValueOpts,
 } from "../../core/reports";
@@ -264,10 +265,8 @@ function Compare({ c }: { c: Ctx }) {
   const bUnits = useMemo(() => buildUnits(bTrades, c.view.count), [bTrades, c.view.count]);
   const ga = useMemo(() => computeGrid(c.units, c.o), [c.units, c.o]);
   const gb = useMemo(() => computeGrid(bUnits, c.o), [bUnits, c.o]);
-  const range = (f: TradeFilter) => {
-    const d = dateRange(f, c.j.today, c.j.startsOn);
-    return d.from || d.to ? `${d.from ?? "…"} – ${d.to ?? "…"}` : "ALL DATES";
-  };
+  // Each side is named by what differs from the other (#18), and the date range is always named.
+  const names = compareLabels(c.view.filter, c.r.b, c.j.today, c.j.startsOn);
   const presetHref = (p: (typeof COMPARE_PRESETS)[number]) => {
     const { a, b } = applyPreset(c.view, p);
     return c.href({ b }, { ...c.view, filter: a });
@@ -276,20 +275,26 @@ function Compare({ c }: { c: Ctx }) {
   return (
     <>
       <div className="row">
-        <span className="label small">PRESETS</span>
+        <span className="label small" title="Each preset replaces the style, instrument, broker and dates of both sides; other filters stay">PRESETS</span>
         {COMPARE_PRESETS.map((p) => <a key={p.key} className="btn" href={presetHref(p)}>{p.label}</a>)}
       </div>
-      <FilterBar view={bView} journal={c.j} base="#/reports" title="SET B FILTERS" pnl={false} count={false}
+      <FilterBar view={bView} journal={c.j} base="#/reports" title="B FILTERS" pnl={false} count={false} defaultOpen={false}
         hrefFor={(v) => c.href({ b: v.filter })} />
-      <div className="two-col">
-        <Widget title={<><span className="accent">A</span> · global filter · {range(c.view.filter)} · <span className={pnlClass(ga.total)}>{c.f.v(ga.total)}</span></>}>
-          <CumulativeChart pts={ga.daily} fmt={fmt} label="Set A cumulative P&L" height={160} />
-        </Widget>
-        <Widget title={<><span className="accent">B</span> · {range(c.r.b)} · <span className={pnlClass(gb.total)}>{c.f.v(gb.total)}</span></>}>
-          <CumulativeChart pts={gb.daily} fmt={fmt} label="Set B cumulative P&L" height={160} />
-        </Widget>
-      </div>
-      <GridColumns f={c.f} sides={[{ label: "A", g: ga }, { label: "B", g: gb }]} />
+      {names.same ? (
+        <div className="panel empty">A and B are the same filter. Pick a preset above, or change B's filters, to compare.</div>
+      ) : (
+        <>
+          <div className="two-col">
+            <Widget title={<><span className="accent">A</span> · {names.a.join(" · ")} · <span className={pnlClass(ga.total)}>{c.f.v(ga.total)}</span></>}>
+              <CumulativeChart pts={ga.daily} fmt={fmt} label="Set A cumulative P&L" height={160} />
+            </Widget>
+            <Widget title={<><span className="accent">B</span> · {names.b.join(" · ")} · <span className={pnlClass(gb.total)}>{c.f.v(gb.total)}</span></>}>
+              <CumulativeChart pts={gb.daily} fmt={fmt} label="Set B cumulative P&L" height={160} />
+            </Widget>
+          </div>
+          <GridColumns f={c.f} diff sides={[{ label: <>A · {names.a[0]}</>, g: ga }, { label: <>B · {names.b[0]}</>, g: gb }]} />
+        </>
+      )}
     </>
   );
 }
@@ -390,7 +395,7 @@ export function ReportsPage({ journal: j, view, params }: { journal: Journal; vi
           {r.mode === "pct" ? " · % RETURN ON COST" : ""}</span>
         </h1>
       </header>
-      <FilterBar view={view} journal={j} base="#/reports" extra={reportExtra(r)} controls={modeSeg} title={r.tab === "compare" ? "SET A FILTERS (GLOBAL)" : "FILTERS"} />
+      <FilterBar view={view} journal={j} base="#/reports" extra={reportExtra(r)} controls={modeSeg} title={r.tab === "compare" ? "A FILTERS" : "FILTERS"} />
       <Tabs items={TABS} labels={TAB_LABELS} on={r.tab} href={(t) => href({ tab: t })} label="Report" />
       {body}
       <div className="dim small">

@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { etOffset } from "../src/core/normalize/util";
 import {
-  applyPreset, buildUnits, byDayOfWeek, byEntryPrice, byHour, byInstrument, byShares, COMPARE_PRESETS, computeGrid, daily, distribution,
+  applyPreset, buildUnits, compareLabels,
+ byDayOfWeek, byEntryPrice, byHour, byInstrument, byShares, COMPARE_PRESETS, computeGrid, daily, distribution,
   drawdownReport, drawdowns, holdOf, incompleteBeta, kelly, kRatio, maxStreaks, niceStep, parseReport, randomChance, regress,
   reportExtra, sameUnderlying, sqn, stdDev, tagGroups, topBottom, tTwoSided, valueOf, winLossDays,
 } from "../src/core/reports";
@@ -310,11 +311,28 @@ describe("report URL state", () => {
     expect(reportExtra({ ...parseReport(new URLSearchParams("")), tab: "tags", tag: "chase" })).toEqual({ tab: "tags", tag: "chase" });
   });
 
-  it("compare presets keep the rest of the current filter on both sides", () => {
-    const view = { ...defaultView(), filter: { ...parseView(new URLSearchParams("symbol=ZZTA&style=day")).filter } };
+  it("compare presets keep the rest of the current filter on both sides, but reset what presets set (#18)", () => {
+    const view = { ...defaultView(), filter: { ...parseView(new URLSearchParams("symbol=ZZTA&style=day&result=win")).filter } };
     const { a, b } = applyPreset(view, COMPARE_PRESETS.find((x) => x.key === "instrument")!);
-    expect(a).toMatchObject({ symbols: ["ZZTA"], style: "day", instrument: "stock" });
-    expect(b).toMatchObject({ symbols: ["ZZTA"], style: "day", instrument: "leveraged_etf" });
+    // Symbol and result stay; style is a preset field, so a left-over DAY from DAY VS SWING doesn't carry over.
+    expect(a).toMatchObject({ symbols: ["ZZTA"], results: ["win"], style: null, instrument: "stock" });
+    expect(b).toMatchObject({ symbols: ["ZZTA"], results: ["win"], style: null, instrument: "leveraged_etf" });
+  });
+
+  it("compare presets don't stack: DAY VS SWING then THIS MONTH VS LAST MONTH compares all styles", () => {
+    const first = applyPreset(defaultView(), COMPARE_PRESETS.find((x) => x.key === "style")!);
+    // The first preset becomes the global filter (side A), as the page does.
+    const second = applyPreset({ ...defaultView(), filter: first.a }, COMPARE_PRESETS.find((x) => x.key === "month")!);
+    expect(second.a).toMatchObject({ style: null, preset: "month" });
+    expect(second.b).toMatchObject({ style: null, preset: "lastmonth" });
+  });
+
+  it("names what tells the two Compare sides apart", () => {
+    const { a, b } = applyPreset(defaultView(), COMPARE_PRESETS.find((x) => x.key === "style")!);
+    expect(compareLabels(a, b, "2026-10-04")).toEqual({ a: ["DAY", "ALL DATES"], b: ["SWING", "ALL DATES"], same: false });
+    const m = applyPreset(defaultView(), COMPARE_PRESETS.find((x) => x.key === "month")!);
+    expect(compareLabels(m.a, m.b, "2026-10-04")).toMatchObject({ a: ["THIS MONTH"], b: ["LAST MONTH"] });
+    expect(compareLabels(a, a, "2026-10-04").same).toBe(true);
   });
 });
 

@@ -1078,9 +1078,14 @@ other than date they read **‹ Prev / Next ›**.
   is in $ (Q42, Q56).
 - **Compare:** two filter sets side by side, each with its own stats grid and
   cumulative P&L. Examples are "Day vs Swing", "Stock vs ETF", or "this month
-  vs last month". Set A is the global filter; set B has its own filter bar.
-  The presets (Day vs Swing, Stock vs ETF, Schwab vs Webull, This month vs Last
-  month) put their difference on top of the current filter on both sides.
+  vs last month". Set A is the global filter; set B has its own filter bar
+  (collapsed at first). The presets (Day vs Swing, Stock vs ETF, Schwab vs
+  Webull, This month vs Last month) first reset the fields any preset sets
+  (style, instrument, broker, dates) and then put their difference on top of
+  the rest of the current filter on both sides, so presets never stack (Q59).
+  Each side is named by what differs from the other plus its dates
+  (`A · DAY · ALL DATES`), the grid has a **B − A** column, and when A and B
+  are the same filter a one-line hint replaces the duplicate grids.
 - **Tag Breakdown:** the stats grid for each tag, plus each review
   `Category`, plus each style. A summary table per kind (count, win %, P&L,
   expectancy, profit factor, SQN); picking a tag opens its full grid. A trade
@@ -1454,6 +1459,8 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q59 | Compare presets | UX review (#18), owner decision 2026-10-04: a preset resets the fields presets own (style, instrument, broker, date preset and range) on both sides before applying its own, keeping every other filter. Before, DAY VS SWING set STYLE = DAY on the global filter and THIS MONTH VS LAST MONTH then compared day trades only, without saying so. Side names come from `compareLabels` (the fields that differ, then the dates); B − A is shown for the numeric stats (win % in points). (2026-10-04, #18) |
+
 | Q58 | Wording | UX review (#13): the find-and-replace table applied, with owner changes (`UNREALIZED`, not `OPEN P&L`, which would clash with Total open P&L; `DAYS TRADED`; Newer / Older only under a date sort). Rules: no "CUM"; W/L as `6W 5L` (`1BE` when there are breakevens); holds `6m 28s`, `1h 09m`, multi-day `17d`; ISO dates in headers and detail pages, `09-21` in dense tables; one price stamp `PRICES 10-02 16:00`; one ETF badge `2x→MZRT` / `−2x→NVQX`; sentences spell out half / quarter size; footnotes in sentence case. Kept short forms: P&L, AVG, ET, sh, 30D/60D/90D, PF in the Tag Breakdown table, SQN, K-ratio, Kelly %, and the nav and logo. (2026-10-04, #13) |
 
 | Q57 | Phone layout | UX review (#17), at 390 px. **P&L never leaves the screen:** below 640 px every table hides its middle columns instead of becoming cards (Dashboard open positions: symbol, %, total; OPEN: symbol, days, unrealized %, total; Trades: date without the year, symbol, P&L, 📄; Journal: date, ticker, status, P&L; Recent 10 drops the hold), and the Trades select column goes, since bulk edits are a desktop task. The OPEN timeline is hidden. **Order** stays the desktop one (owner decision), with compact gauges (Q55). The nav is one scrolling line. The week strip shows weekdays only; the calendar uses whole dollars and narrow weekends. (2026-10-04, #17) |
