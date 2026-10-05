@@ -400,6 +400,13 @@ Amount`.
 - An existing `id` whose content differs (a hash collision, or a broker
   changing a past row) is an **error**, never silently merged. A file with
   any error is not imported at all.
+- **Webull partial fills (Q45):** an order exported while partly filled and
+  again once finished has a different id each time (Filled, Avg Price and
+  Filled Time change). When a new Webull fill's order (account, side, placed
+  time) already has a stored fill that the export no longer lists, the import
+  stops with an error ("same order seen with a different filled qty"). The
+  check re-hashes the stored fill with the incoming placed time, so fills
+  still don't store it.
 - Re-importing any file is idempotent.
 
 ### 4.4 Grouping (fills → trades → ideas)
@@ -1254,6 +1261,7 @@ the commit leaves the private repo.
 | Q42 | Report stats | Every stat is computed over **units** (scored trades, or ideas in the Idea view) in close order, on the unit's value ($ gross / net, or % return on the cost bought). **Std dev:** sample (n − 1). **SQN:** √n × mean ÷ std dev, n not capped at 100, on $ P&L since no R is recorded. **Probability of random chance:** two-sided p-value of a one-sample t-test that mean P&L is 0 (t = SQN, df = n − 1). **Kelly %:** W − (1 − W) ÷ (avg win ÷ \|avg loss\|), W = wins ÷ (wins + losses). **K-ratio:** Kestner's 2003 form, slope ÷ (standard error × n) of a least-squares line through cumulative P&L at the end of each trading day (no account size, so not log equity); needs 3 days. **Expectancy:** W × avg win + (1 − W) × avg loss, per decisive unit, so it agrees with the win rate; "avg trade" is the plain mean including breakevens. **Streaks:** a breakeven ends a run of wins or losses. **Avg hold:** timed minutes, else whole calendar days for multi-day date-only trades; same-day Schwab trades have no hold and are left out. **Avg per-share:** $ P&L ÷ shares bought. **Avg daily:** total ÷ ET dates with a close. **Drawdown:** from the running peak of cumulative P&L starting at 0 (an opening loss counts), each unit a step so a dip within a day counts; longest = calendar days from the peak until back at it (or to the last close); recovery = trough to back at peak. With no account size, max drawdown % is taken on the summed % returns. Fees and commissions are one figure, since both brokers report them combined. (2026-10-04, milestone 7) |
 | Q43 | Public error messages | A data file that fails to parse or validate throws a `DataFileError` carrying the file label and the kind (`invalid JSON` / `schema mismatch`). Node's `JSON.parse` quotes its input and an Ajv instance path starts with the object key (a ticker or fill id), so with `TJ_PUBLIC_LOG=1` the workflow scripts print only "`<script>: <file>: <kind>`" (or the error type), never the message or a stack, and exit non-zero; fixed messages with no data in them (`PublicError`) still print. Locally, and in the browser, the full message is kept. A test runs each entry point against a temp history carrying a canary ticker. (2026-10-04, milestone 8, #1) |
 | Q44 | Buy fees on events | Open and add events carry the buy's `fees` (only when non-zero, so $0 fills keep their bytes), because `realizedPnl` already subtracts buy fees while trim / close `realized` holds sell fees only. `positionAt` subtracts them, so a swing gauge mark rebuilt for a past week agrees with Open Positions. Additive and optional in `trades.schema.json`; it reaches trade-history with the next regenerated `derived/trades.json`. Also: a trade's volume is the sum of its event quantities (a sell event already holds oversold shares). (2026-10-04, milestone 8, #4) |
+| Q45 | Webull partial fills | **Detect and error only** (owner, 2026-10-04): a Webull fill whose order already has a different stored fill missing from the export is an import error, which blocks the commit; the fix is to remove the stored partial by hand and import the finished export. No order key is stored, so the fills contract (§3.1) is unchanged; the order is recognized by re-hashing the stored fill's id with the incoming `Placed Time` (§4.3). Checked against every real export in Downloads: no false positives. (2026-10-04, milestone 8, #2) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open

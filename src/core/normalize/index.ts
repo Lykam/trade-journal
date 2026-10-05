@@ -1,6 +1,7 @@
 import type { Broker, Config, Fill, SymbolsMap } from "../types";
 import { mergeFills } from "./dedupe";
 import { guessLeveragedEtf, type EtfGuess } from "./etf";
+import { partialFillErrors } from "./partial";
 import { parseSchwab, schwabAccountId, SCHWAB_HEADER } from "./schwab";
 import { parseCsv } from "./util";
 import { parseWebull, WEBULL_HEADER } from "./webull";
@@ -99,6 +100,12 @@ export function importFiles(
     Object.assign(report, { rows: parsed.rows, parsed: parsed.fills.length, skipped: parsed.skipped, errors: parsed.errors });
     if (parsed.errors.length) continue; // never import a partially understood file
 
+    // A Webull order seen with a different filled qty would be counted twice (#2).
+    const partial = broker === "webull" ? partialFillErrors(fills, parsed.fills) : [];
+    if (partial.length) {
+      report.errors.push(...partial);
+      continue;
+    }
     for (const f of parsed.fills) if (f.name && !names.has(f.symbol)) names.set(f.symbol, f.name);
     const merged = mergeFills(fills, parsed.fills);
     if (merged.conflicts.length) {

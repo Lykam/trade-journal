@@ -21,6 +21,8 @@ export function parseWebullTime(raw: string): string {
 export interface WebullFill extends Fill {
   /** The export's Name column; used for ETF detection, not stored. */
   name: string;
+  /** The order's Placed Time, part of the id; used to spot partial fills (partialFillErrors), not stored. */
+  placedAt: string;
 }
 
 export function parseWebull(
@@ -85,6 +87,6 @@ export function parseWebull(
   const fills = assignIds(
     raw.map(({ name: _n, placedAt: _p, ...f }) => f),
     raw.map((f) => f.placedAt),
-  ).map((f, i) => ({ ...f, name: raw[i]!.name }));
+  ).map((f, i) => ({ ...f, name: raw[i]!.name, placedAt: raw[i]!.placedAt }));
   return { fills, rows: rows.length, skipped, errors };
 }
