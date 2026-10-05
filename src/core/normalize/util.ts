@@ -33,20 +33,19 @@ export function round(n: number, places: number): number {
 export const cents = (n: number) => round(n, 2);
 
 /** The ET calendar date (YYYY-MM-DD) of an ISO timestamp. */
+// Formatters are created once: constructing an Intl.DateTimeFormat is far slower than using one.
+const ET_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" });
+const ET_OFFSET = new Intl.DateTimeFormat("en-US", { timeZone: TIMEZONE, timeZoneName: "shortOffset" });
+
 export function etDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(iso));
+  return ET_DATE.format(new Date(iso));
 }
 
 /** UTC offset ("-04:00" / "-05:00") of New York at the given local wall-clock time. */
 export function etOffset(date: string, time = "12:00:00"): string {
   // Guess the instant as EST, then ask Intl what New York's offset is at that instant.
   const guess = new Date(`${date}T${time}-05:00`);
-  const name = new Intl.DateTimeFormat("en-US", { timeZone: TIMEZONE, timeZoneName: "shortOffset" })
+  const name = ET_OFFSET
     .formatToParts(guess)
     .find((p) => p.type === "timeZoneName")?.value; // e.g. "GMT-4"
   const m = /GMT([+-])(\d{1,2})(?::(\d{2}))?/.exec(name ?? "");

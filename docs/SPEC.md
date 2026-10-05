@@ -1238,6 +1238,18 @@ the commit leaves the private repo.
 6. **Playbook integration:** the review skill reads `derived/trades.json` and
    lists ideas; `Idea ID` in the template (§4.6).
 7. **Reports** (§6.5: Overview, Detailed grid, breakdowns, Win vs Loss Days, Drawdown, Compare, Tag Breakdown).
+8. **Review fixes** (2026-10-04 review, issues #1–#6): public-safe error
+   messages in CI (Q43), staged edits during a commit preview, unmatched
+   volume, buy fees in past marks (Q44), one export order, Webull partial-fill
+   detection (Q45), CSP and self-hosted font (Q46), scan coverage (Q47), the
+   shared Pages origin guard (Q48), pinned actions, cleanups.
+9. **Demo build mode** (#7): a build that runs on synthetic data in the
+   browser, with write features disabled and a "DEMO · synthetic data" line.
+10. **Synthetic data generator** (#8, Q49): `src/demo/`.
+11. **Demo hosting** (#9): `lykam.github.io/trade-journal/demo/` in the same
+    Pages deploy, built before private data is checked out.
+12. **Public repo polish** (#10): README, CI badge, metadata, fake tickers in
+    the docs.
 
 ---
 
@@ -1292,6 +1304,7 @@ the commit leaves the private repo.
 | Q46 | CSP | The built site has a strict CSP (§8) with no `unsafe-inline` / `unsafe-eval`: the inline cache-reload script is allowed by a SHA-256 hash computed at build time (`build/csp-plugin.ts`), the font is self-hosted (`@fontsource/jetbrains-mono`, Latin, 400/500/700), and the browser's JSON Schema validators are precompiled by Ajv's standalone mode (`build/validators-plugin.ts`, `virtual:tj-validators`) because Ajv otherwise compiles with `new Function`. The CLI still compiles the same schema files at runtime; a test checks both give the same result. The dev server gets no CSP (hot reload needs inline styles). Ajv is no longer bundled, so `check-dist` no longer exempts its code (supersedes Q39's `VENDOR_DIRS`). (2026-10-04, milestone 8, #5) |
 | Q47 | Scan coverage | `npm run scan` also checks Schwab account ids (in their `XXX<id>`, masked `...<id>` and quoted forms; a bare number is too common to match) and stored fill ids, and matches 1–2 letter symbols as whole words outside a fixed list of common words (`SHORT_WORDS`, not derived from the data). `check-dist` keeps its quoted-only rule for short symbols, since minified code is full of short identifiers. (2026-10-04, milestone 8, #5) |
 | Q48 | Shared Pages origin | No repo of the account other than trade-journal may enable GitHub Pages, because every project site shares `lykam.github.io` with the stored key and token. `build-deploy.yml` checks the public repo list (`has_pages`) before checking out private data and fails the deploy otherwise. (2026-10-04, milestone 8, #5) |
+| Q49 | Demo data | The public demo runs on **synthetic** data only (owner decision): real data with renamed tickers would still identify the stocks by price and date and publish real P&L, and the generator is not calibrated from real files. `src/demo/generate.ts` makes about 6 months of fills ending at "now" (ET) from a seeded PRNG (mulberry32) keyed by trading days before the anchor date, so a date always gives the same bundle and a later date shifts it; nothing is dated after now. A Webull-style day account (about 250 trades, timed to the second, partial scale-outs, one trade held overnight) and a Schwab-style swing account (about 50 trades, date-only, adds, trims, small fees, 6 open positions) trade 12 made-up tickers plus two 2x ETFs and an inverse ETF (`src/demo/tickers.ts`); trades and ideas come from the real `buildTrades`. The current week is scripted by searching the outcomes of the trades the gauges read, so Day shows ½ size (¼ if ½ can't be reached) and Swing Full size. Overrides sit on trades older than the baseline window. 9 reviews are built mechanically from the template's sections with fixed placeholder lines and a Category from a fixed list (no narrative); charts are generated SVG candlesticks from the same prices, with entry and exit markers, under the usual `Images/<date>/<TICKER>-daily.png` paths so the real site's image rules don't change. It runs in about 100 ms. (2026-10-04, milestone 10, #8) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open

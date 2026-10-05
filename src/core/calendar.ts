@@ -31,11 +31,11 @@ export function etInstant(date: string, time = "00:00:00"): number {
   return Date.parse(`${date}T${time}${etOffset(date, time)}`);
 }
 
+const ET_TIME = new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
+
 /** HH:MM in ET. */
 export function etTime(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" }).format(
-    new Date(iso),
-  );
+  return ET_TIME.format(new Date(iso));
 }
 
 const isWeekday = (date: string) => dayOfWeek(date) % 6 !== 0;

@@ -50,8 +50,8 @@ export interface Unit {
 
 const closeTime = (t: Trade) => Date.parse(t.closedAt!);
 const bought = (t: Trade) => t.events.filter((e) => e.kind === "open" || e.kind === "add");
-const etHour = (iso: string) =>
-  Number(new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", hourCycle: "h23" }).format(new Date(iso)));
+const ET_HOUR = new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", hourCycle: "h23" });
+const etHour = (iso: string) => Number(ET_HOUR.format(new Date(iso)));
 
 function makeUnit(kind: Unit["kind"], id: string, trades: Trade[], order: Map<string, number>): Unit {
   const ts = [...trades].sort((a, b) => Date.parse(a.openedAt) - Date.parse(b.openedAt) || order.get(a.id)! - order.get(b.id)!);
