@@ -11,6 +11,7 @@ import {
   DATA_BUCKET, decodeHeader, HEADER_BYTES, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, IMAGE_NAME_RE, KIND_DATA, KIND_IMAGE, TAG_BYTES,
 } from "../src/core/crypto";
 import { resolveQuotesFile } from "./fetch-quotes";
+import { checkDemoDist, DEMO_SHELL_RE } from "./demo-dist.ts";
 import { resolvePlaybookDir } from "./playbook";
 import { findLeaks, privateTokens } from "./private-tokens";
 import { isPublicLog, runMain } from "./public-log";
@@ -61,7 +62,11 @@ export function checkEncFile(bytes: Uint8Array, kind: number): string[] {
 /** App-shell files vite emits; anything else in an encrypted dist (a .json, .md, image…) is a leak. */
 const SHELL_RE = /^(index\.html|favicon\.(ico|svg)|assets\/[\w.-]+\.(js|css|svg|woff2?))$/;
 
-/** Structure of an encrypted dist (Q34). Returns problems as "<file>: <what>". */
+/**
+ * Structure of an encrypted dist (Q34). Returns problems as "<file>: <what>".
+ * The public demo may sit under demo/ (Q51): app-shell files only, and they
+ * must pass the demo checks (no vault, no data.enc, no GitHub code).
+ */
 export function checkEncrypted(distDir: string): string[] {
   const problems: string[] = [];
   if (!existsSync(join(distDir, "data.enc"))) problems.push("data.enc: missing (run npm run encrypt)");
@@ -75,10 +80,13 @@ export function checkEncrypted(distDir: string): string[] {
       const name = rel.slice(4).replace(/\.enc$/, "");
       if (!rel.endsWith(".enc") || !IMAGE_NAME_RE.test(name)) problems.push(`${rel}: image file not named <32 hex>.enc`);
       problems.push(...checkEncFile(readFileSync(f), KIND_IMAGE).map((p) => `${rel}: ${p}`));
+    } else if (rel.startsWith("demo/")) {
+      if (!DEMO_SHELL_RE.test(rel.slice(5))) problems.push(`${rel}: unexpected file in the demo`);
     } else if (!SHELL_RE.test(rel)) {
       problems.push(`${rel}: unexpected file in an encrypted dist`);
     }
   }
+  if (existsSync(join(distDir, "demo"))) problems.push(...checkDemoDist(join(distDir, "demo")).map((p) => `demo/${p}`));
   if (imgs % IMAGE_COUNT_BUCKET !== 0 || imgs === 0) problems.push(`img/: file count not padded to a multiple of ${IMAGE_COUNT_BUCKET}`);
   return problems;
 }

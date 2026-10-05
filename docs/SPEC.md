@@ -61,7 +61,8 @@ There are three repos, each with one job:
         → bundle data → ENCRYPT → actions/deploy-pages
                        │
                        ▼
- GitHub Pages: index.html, assets/*.js, data.enc, img/<hash>.enc
+ GitHub Pages: index.html, assets/*.js, data.enc, img/<hash>.enc,
+              demo/ (public demo: app shell only, synthetic data)
                        │  browser: passphrase → key → decrypt in memory
                        ▼
        Dashboard / Journal / Reviews
@@ -138,6 +139,10 @@ such ref) rather than 403. The client sends it only to `https://api.github.com`.
   words).
 - The published site contains no plaintext tickers, dates, file names or
   counts. Image file names are hashes.
+- **Public demo (Q51):** `lykam.github.io/trade-journal/demo/` serves a
+  separate build of the app on synthetic data generated in the visitor's
+  browser (§7). It holds no data and no code that reads `data.enc`, `img/`,
+  the stored key or the token.
 
 ### Cost
 
@@ -1145,7 +1150,10 @@ All of this lives in the reusable `build-deploy.yml`; `deploy.yml` and
 1. Check that the deploy-key secrets and `SITE_PASSPHRASE` exist, check out
    `trade-journal`, `npm ci`, `npm test` (synthetic fixtures only), then
    `npm run pages-guard`: fail if any other repo of the account serves GitHub
-   Pages (Q48).
+   Pages (Q48), then `npm run build:demo` (`dist-demo/`, checked by
+   `check-demo`; Q51). The demo is built before any private data is on disk
+   and without `SITE_PASSPHRASE` in its environment; a broken demo fails the
+   deploy.
 2. Only then check out `trade-history` and `Playbook` into `./_data/` using
    their read-only deploy keys (`persist-credentials: false`), so neither the install
    nor the tests ever have the private data on disk (Q36).
@@ -1170,6 +1178,11 @@ All of this lives in the reusable `build-deploy.yml`; `deploy.yml` and
    runs. It skips a symbol that
    is also a word in the app's own source (e.g. a UI label), since the source
    is public and ticker-scanned before every commit (Q24).
+   After `encrypt`, `dist-demo/` is copied to `dist/demo/`; `check:dist --
+   --encrypted` allows only demo app-shell files there (`demo/index.html`,
+   `demo/assets/*.{js,css,svg,woff2}`), reruns the demo checks on them, and
+   its plaintext leak scan covers `demo/` too, so a demo ticker that is
+   really traded fails the deploy.
 7. `actions/upload-pages-artifact` → `actions/deploy-pages`.
 8. The job uses `concurrency: pages` (not cancelling), so back-to-back imports
    and price runs queue and a newer pending run replaces an older one.
@@ -1227,6 +1240,15 @@ the commit leaves the private repo.
   workflow, since the deploy job holds the deploy keys and `SITE_PASSPHRASE`.
   Owner setting: Settings → Actions → General → allow GitHub-owned actions
   only.
+- **The demo shares the site's origin (Q51).** `/trade-journal/demo/` is on
+  `lykam.github.io`, where the owner's browser keeps the site key and sealed
+  token. Visitors' browsers hold neither, so the demo can't expose data to
+  anyone else; the remaining risk is demo code misusing the key in the
+  owner's browser. The demo is built from this repo with the vault, token and
+  GitHub code compiled out, its CSP allows no network beyond its own origin,
+  its UI preferences use `tj.demo.*` keys, and tests plus `check-demo` /
+  `check-dist` fail any build that references `data.enc`, `img/`, `tj.key`,
+  `tj.gh` or the dev data.
 - **Checkout SHAs in the log.** `actions/checkout` prints the trade-history
   and Playbook HEAD commit ids in the public log. They reveal only timing,
   which the run timestamps already show; accepted.
@@ -1323,6 +1345,7 @@ the commit leaves the private repo.
 | Q48 | Shared Pages origin | No repo of the account other than trade-journal may enable GitHub Pages, because every project site shares `lykam.github.io` with the stored key and token. `build-deploy.yml` checks the public repo list (`has_pages`) before checking out private data and fails the deploy otherwise. (2026-10-04, milestone 8, #5) |
 | Q49 | Demo data | The public demo runs on **synthetic** data only (owner decision): real data with renamed tickers would still identify the stocks by price and date and publish real P&L, and the generator is not calibrated from real files. `src/demo/generate.ts` makes about 6 months of fills ending at "now" (ET) from a seeded PRNG (mulberry32) keyed by trading days before the anchor date, so a date always gives the same bundle and a later date shifts it; nothing is dated after now. A Webull-style day account (about 250 trades, timed to the second, partial scale-outs, one trade held overnight) and a Schwab-style swing account (about 50 trades, date-only, adds, trims, small fees, 6 open positions) trade 12 made-up tickers plus two 2x ETFs and an inverse ETF (`src/demo/tickers.ts`); trades and ideas come from the real `buildTrades`. The current week is scripted by searching the outcomes of the trades the gauges read, so Day shows ½ size (¼ if ½ can't be reached) and Swing Full size. Overrides sit on trades older than the baseline window. 9 reviews are built mechanically from the template's sections with fixed placeholder lines and a Category from a fixed list (no narrative); charts are generated SVG candlesticks from the same prices, with entry and exit markers, under the usual `Images/<date>/<TICKER>-daily.png` paths so the real site's image rules don't change. It runs in about 100 ms. (2026-10-04, milestone 10, #8) |
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
+| Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open

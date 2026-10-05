@@ -59,6 +59,14 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: npm run pages-guard
 
+      # The public demo (synthetic data, Q51): built and checked here, before any private
+      # data is on disk and without SITE_PASSPHRASE in its environment. A broken demo fails
+      # the deploy. It is copied into dist/demo/ after the main build below.
+      - name: Build the public demo
+        env:
+          TJ_PUBLIC_LOG: "1"
+        run: npm run build:demo
+
       # Read-only deploy keys, one per private repo (Q37).
       - name: Check out trade-history (read-only)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -99,6 +107,8 @@ jobs:
           npm run quotes || echo "quotes: fetch failed; deploying without fresh prices"
           npm run quotes:cache -- save --cache _cache/quotes-cache.enc
           npm run encrypt
+          # The demo built before the private checkout; check:dist allows only its app shell under demo/.
+          cp -r dist-demo dist/demo
           npm run check:dist -- --encrypted
           rm -rf _data
 

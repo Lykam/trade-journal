@@ -215,6 +215,20 @@ describe("demo build (Q50)", () => {
     }
   });
 
+  it("check-dist --encrypted accepts the demo under demo/ and nothing else there (Q51)", () => {
+    const site = join(tmp, "dist-site");
+    cpSync(encDir, site, { recursive: true });
+    cpSync(demoDir, join(site, "demo"), { recursive: true });
+    expect(checkEncrypted(site)).toEqual([]);
+    const logs: string[] = [];
+    expect(checkDist(site, new Set([CANARY]), (s) => logs.push(s), undefined, new Set(), { encrypted: true })).toBe(0);
+    writeFileSync(join(site, "demo", "bundle.json"), "{}");
+    writeFileSync(join(site, "demo", "assets", "y.js"), 'fetch("data.enc")');
+    const problems = checkEncrypted(site).join("\n");
+    expect(problems).toContain("demo/bundle.json: unexpected file in the demo");
+    expect(problems).toContain('demo/assets/y.js: contains "data.enc"');
+  });
+
   it("check-demo rejects a planted data file or vault reference", () => {
     const bad = join(tmp, "dist-demo-bad");
     cpSync(demoDir, bad, { recursive: true });
