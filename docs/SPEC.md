@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.11)
+# Trade Journal — Spec (v0.12)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -561,6 +561,59 @@ commit path can be tried on a throwaway repo; a commit there never appears in
   `test/fixtures/expected/review-join.json`, a golden file the journal's tests
   generate from the synthetic fixtures.
 
+### 4.7 One-time Tradervue import (Q53)
+
+`npm run import:tradervue -- [file] [--dry-run]` reads a Tradervue **trades**
+export (one row per trade: `Open Datetime`, `Close Datetime`, `Symbol`, `Side`,
+`Volume`, `Exec Count`, `Entry Price`, `Exit Price`, `Gross P&L`, `Notes`,
+`Tags`, plus % and MFE/MAE columns it ignores). With no file it uses the one
+CSV in `~/Downloads` with that header. Code: `src/core/tradervue/`
+(`parse.ts`, `match.ts`, `plan.ts`), `cli/import-tradervue.ts`.
+
+- **What it changes:** `overrides.json` only, plus the regenerated
+  `derived/trades.json`, the schema copies (Q17) and the archived export under
+  `imports/raw/`, through the same writers as §4.5. It never adds or edits
+  fills: a trades export has no executions, and the broker fills stay the
+  source of truth for prices, quantities and P&L.
+- **Reading the export:** times are ET wall-clock. Date-only trades (Schwab)
+  are logged at `12:00:00` on both ends. `Volume` counts both sides, so a
+  closed trade bought `Volume ÷ 2` shares. Short rows (`Side` = `S`) are
+  skipped. Notes are HTML and are converted to plain text.
+- **Matching:** timed trades match a journal trade on the exact ET open and
+  close second plus shares bought, whatever the symbol. Webull renames past
+  rows (Q18), and Tradervue may hold the new ticker, or both. Date-only trades
+  match on symbol, open and close date and shares; several same-day round
+  trips are told apart by gross P&L, then paired in order. A Tradervue row
+  that fits an already matched trade is a **duplicate copy** (Tradervue keeps
+  one per overlapping file it imported).
+- **Tradervue wins for tags and style:**
+  - A matched trade's manual tags become the union of its Tradervue copies'
+    tags, minus automatic tags (§6.6).
+  - Its style is `swing` if a copy has the style tag (`Swing`, `--style-tag`)
+    and `day` otherwise, stored only where it differs from the account default.
+  - Its quick note becomes the Tradervue note (distinct notes of all copies
+    joined with " · "), cut at a word boundary to 500 characters
+    (`--note-max`). An existing journal note stays when Tradervue has none.
+  - Unmatched journal trades are left alone.
+- **Preview** (`--dry-run`, local terminal only):
+  - fills added (always 0)
+  - matches, duplicates and ticker changes
+  - unmatched Tradervue trades, with a reason: before broker fills,
+    split or quantity differs, or no journal trade
+  - journal trades in the export's dates with no Tradervue trade
+  - trades changed, ideas regrouped and style changes
+  - tags added, and **journal tags that would be removed**
+  - notes set, replaced and cut
+  - discrepancies: P&L equal after rounding, same-day lots paired
+    differently, P&L differs, execution count differs (fees aren't in the
+    export)
+  - the gauges' 90-day baselines before and after
+  - the style × broker summary before and after
+- **Trades from before the broker exports:** these exist only in Tradervue.
+  Representing them would need synthetic fills (a new `source` and id prefix)
+  or `openingPositions`; neither was needed for the first import, so neither
+  is built. Such trades are listed as unmatched ("before broker fills").
+
 ---
 
 ## 5. Temperature gauges (dashboard centerpiece)
@@ -991,7 +1044,7 @@ Schwab trades show the date only). Below it are the tag chips, with an
     trade in the idea.
 - **Manual tags** are free text, stored in `overrides.json`, and added from
   Trade detail or bulk select. Your existing Tradervue tags
-  carry over this way.
+  carry over this way, through the one-time import (§4.7, Q53).
 
 ### 6.7 Journal (Playbook reviews)
 
@@ -1349,6 +1402,7 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q53 | Tradervue import | One-time CLI import of a Tradervue **trades** export (§4.7), owner decisions 2026-10-04. Tradervue wins for **tags** (union of duplicate copies; automatic tags such as `Swing` aren't stored) and **style** (the `Swing` tag means swing, its absence day; overrides only where it differs from the account default). Its **notes** become quick notes as plain text, capped at 500 characters. The broker fills stay the truth for P&L and quantities: discrepancies are listed, never applied. The export has no executions and only one trade predated the broker exports (a position opened before the Schwab export starts), so **no synthetic fills** and no schema change; the owner left that position out for now, to reconcile later. Matching uses the exact second for timed trades, regardless of symbol (Webull renames, Q18), and symbol + dates + shares + P&L for date-only ones. Not in the web app: it runs once, from the CLI, behind the usual dry-run-and-OK step (Q14). (2026-10-04) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open
@@ -1373,8 +1427,8 @@ the commit leaves the private repo.
   `lightweight-charts` library with execution markers. This needs intraday
   bars from a market-data source, which would also unlock MFE/MAE,
   "best exit", and the Market Behavior and Liquidity reports.
-- Dashboard **Edit Layout**, manual **New Trade** entry, and a one-time
-  **import of Tradervue's tags and notes** from a Tradervue export.
+- Dashboard **Edit Layout** and manual **New Trade** entry. (The one-time
+  import of Tradervue's tags and notes is built: §4.7, Q53.)
 - Live browser-side quotes (Finnhub free key, stored encrypted) layered on top
   of the scheduled Action prices, if 15–30 min delay ever proves too slow.
 - R-multiples, if a planned stop is recorded per trade.
