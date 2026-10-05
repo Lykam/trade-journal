@@ -4,7 +4,6 @@ import { needsAttention, openPositions, openTotals, rangeStats, recentTrades } f
 import { computeGauges } from "../../core/gauge/gauge";
 import { emptyFilter } from "../../core/journal/filter";
 import { filterTrades, reviewAttention, reviewDates, type Journal } from "../../core/journal/journal";
-
 import { etDate } from "../../core/normalize/util";
 import type { DataBundle } from "../../core/types";
 import { GaugeCard } from "../components/Gauge";

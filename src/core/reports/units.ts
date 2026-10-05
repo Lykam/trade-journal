@@ -92,7 +92,6 @@ function makeUnit(kind: Unit["kind"], id: string, trades: Trade[], order: Map<st
     entryPrice: first.avgEntry,
     entryHour: first.holdMinutes === null ? null : etHour(first.openedAt),
     entryMinute: first.holdMinutes === null ? null : etMinute(first.openedAt),
-
   };
 }
 

@@ -2,7 +2,6 @@
 // current filter and sort, stats, executions, timeline, idea, review notes and
 // Playbook charts.
 import { useEffect, useMemo, useState } from "react";
-
 import { buyFees, daysHeld, holdLabel } from "../../core/dashboard/dashboard";
 import { quoteStatus } from "../../core/gauge/gauge";
 import { tradeDate, type ViewState } from "../../core/journal/filter";
@@ -21,7 +20,6 @@ import { LazyReview } from "../components/LazyReview";
 import { copyText, useImageSrcs } from "../data";
 import { mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, whenOf } from "../format";
 import { AUTO_TAGS } from "../../core/journal/tags";
-
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
 
 function Stat({ label, children, cls }: { label: string; children: React.ReactNode; cls?: string }) {

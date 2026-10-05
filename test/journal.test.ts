@@ -11,11 +11,9 @@ import { applyBulkAction, changedOverrideIds, previewOverrides } from "../src/co
 import { buildRows, neighbors, pageOf, paginate, sortRows, summarizeRows, tradeOrder, viewRows } from "../src/core/journal/rows";
 import type { DerivedTrades, Fill, Idea, ReviewFile, Trade } from "../src/core/types";
 import { closed, ideasOf, open } from "./factory";
-
 import { config, FIXTURES, noOverrides, symbols } from "./helpers";
 
 const TODAY = "2025-04-10";
-
 
 function journal(trades: Trade[], reviews: ReviewFile[] = [], today = TODAY): Journal {
   return buildJournal({ derived: { generated: true, generator: "test", trades, ideas: ideasOf(trades) }, symbols: {}, config, playbook: { reviews, images: [] } }, today);

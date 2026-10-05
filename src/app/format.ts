@@ -61,14 +61,12 @@ export function minutes(m: number | null): string {
   return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, "0")}m`;
 }
 
-
 export const days = (d: number | null) => (d === null ? "—" : `${d.toFixed(1)}d`);
 
 export const DOW = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export const MONTH_NAMES = MONTHS;
-
 
 /** "2026-09" → "SEP 2026". */
 export const monthLabel = (month: string) => `${MONTHS[Number(month.slice(5, 7)) - 1]!.toUpperCase()} ${month.slice(0, 4)}`;
@@ -83,4 +81,3 @@ export function compactMoney(n: number): string {
   const body = a >= 1000 ? `${(a / 1000).toFixed(a >= 10000 ? 0 : 1)}k` : String(Math.round(a));
   return n < 0 ? `${MINUS}${body}` : n > 0 ? `+${body}` : body;
 }
-

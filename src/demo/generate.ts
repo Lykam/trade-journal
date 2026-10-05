@@ -12,7 +12,6 @@
 import { addDays, dayOfWeek, etInstant, weekStart } from "../core/calendar";
 import { computeGauge } from "../core/gauge/gauge";
 import { lastSessionDate } from "../core/market";
-
 import { assignIds, type RawFill } from "../core/normalize/ids";
 import { compareFills } from "../core/normalize/dedupe";
 import { cents, etDate, etOffset, round } from "../core/normalize/util";

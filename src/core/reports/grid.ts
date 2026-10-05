@@ -4,7 +4,6 @@ import { kelly, kRatio, maxStreaks, mean, randomChance, sqn, stdDev, sum } from 
 import type { Style } from "../types";
 import { holdOf, valueOf, type Unit, type ValueOpts } from "./units";
 
-
 export interface DayPoint {
   date: string;
   /** Sum of the day's unit values ($ or % return). */

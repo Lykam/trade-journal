@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { sortOpenRows, type OpenRow, type OpenSort, type OpenTotals } from "../../core/dashboard/dashboard";
-
 import type { Trade, TradeEvent } from "../../core/types";
 import { dateOf, mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, etfBadge } from "../format";
 

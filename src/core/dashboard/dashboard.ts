@@ -5,8 +5,6 @@ import { cents, etDate, round } from "../normalize/util";
 import { byCloseDesc, heldOvernightDayTrades, isScored, markToMarket, summarize, type Summary } from "../trades/stats";
 import type { Quote, Style, Trade, TradeEvent } from "../types";
 
-
-
 // ---------------------------------------------------------------- open positions
 
 /** Fees paid on a position's buys (open and add events). Realized P&L already subtracts them (Q44). */
@@ -92,7 +90,6 @@ export function sortOpenRows(rows: OpenRow[], key: OpenSort, dir: 1 | -1): OpenR
 }
 
 export function openTotals(rows: OpenRow[]): OpenTotals {
-
   const priced = rows.filter((r) => r.quote);
   const sum = (xs: OpenRow[], f: (r: OpenRow) => number | null) => cents(xs.reduce((s, r) => s + (f(r) ?? 0), 0));
   let pricesAsOf: string | null = null;
@@ -121,7 +118,6 @@ const closedOn = (t: Trade) => etDate(t.closedAt!);
 const scoredIn = (trades: Trade[], from: string, to: string) =>
   trades.filter((t) => isScored(t) && closedOn(t) >= from && closedOn(t) <= to);
 
-
 /** "2m 30s", "3h 05m", or for date-only trades "same day" / "3d". */
 export function holdLabel(t: Trade): string {
   if (t.holdMinutes !== null) {
@@ -132,7 +128,6 @@ export function holdLabel(t: Trade): string {
   if (!t.closedAt) return "";
   const d = daysBetween(etDate(t.openedAt), closedOn(t));
   return d === 0 ? "same day" : `${d}d`;
-
 }
 
 export interface Recent {
@@ -180,7 +175,6 @@ export function durationBucket(t: Trade): DurationBucket {
     if (t.holdMinutes < 30) return "5–30 min";
     if (t.holdMinutes < 120) return "30 min–2 h";
     return "2h – close";
-
   }
   if (days <= 5) return "1–5 days";
   if (days <= 28) return "1–4 weeks";
@@ -267,7 +261,6 @@ export function rangeStats(trades: Trade[], days: number, now: string, style: St
     byDuration: DURATION_BUCKETS.map((b) => ({ bucket: b, ...bucket(list.filter((t) => durationBucket(t) === b)) })),
   };
 }
-
 
 // ---------------------------------------------------------------- needs attention
 

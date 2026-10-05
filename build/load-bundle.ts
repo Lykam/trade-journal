@@ -7,7 +7,6 @@ import { join } from "node:path";
 import { loadHistory, validate } from "../cli/lib/history.ts";
 import { lastImports } from "../src/core/imports.ts";
 import type { DataBundle } from "../src/core/types.ts";
-
 import { readQuotes } from "./fetch-quotes.ts";
 import { loadPlaybook } from "./playbook.ts";
 

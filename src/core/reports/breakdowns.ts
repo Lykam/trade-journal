@@ -140,7 +140,6 @@ export function topBottom(buckets: Bucket[], n = 20): { top: Bucket[]; bottom: B
   return { top: sorted.slice(0, n), bottom: sorted.filter((b) => b.total < 0).reverse().slice(0, n) };
 }
 
-
 export const bySymbol = (units: Unit[], o: ValueOpts) => groupBy(units, (u) => u.symbol, o);
 export const byUnderlying = (units: Unit[], o: ValueOpts) => groupBy(units, (u) => u.underlying, o);
 

@@ -193,5 +193,4 @@ export interface DataBundle {
   history?: { sha: string; date: string } | null;
   /** Latest `importedAt` per broker (fills themselves carry none in the bundle), for the top bar's import dates. */
   imports?: Partial<Record<Broker, string>>;
-
 }

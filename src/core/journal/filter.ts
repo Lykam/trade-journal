@@ -21,7 +21,6 @@ export const PRESET_SHORT: Record<Preset, string> = {
   today: "TODAY", week: "THIS WK", lastweek: "LAST WK", month: "THIS MO", lastmonth: "LAST MO", "30d": "30D", "90d": "90D", ytd: "YTD",
 };
 
-
 export interface TradeFilter {
   /** Matches the traded symbol or the underlying (case-insensitive, exact). */
   symbols: string[];
@@ -229,7 +228,6 @@ export function activeFilterLabels(f: TradeFilter, today: string, startsOn: "mon
 }
 
 /** Number of active filter fields (for the "N FILTERS · CLEAR" control). */
-
 export function activeFilterCount(f: TradeFilter): number {
   return [
     f.symbols.length > 0, f.tags.length > 0, f.style, f.instrument, f.broker, f.duration, f.results.length > 0, f.review,

@@ -3,7 +3,6 @@ import { winsToFull, type Gauge as GaugeData, type SizeState } from "../../core/
 import type { Config } from "../../core/types";
 import { money, pct, pnlClass, pts, stamp } from "../format";
 
-
 const CX = 100, CY = 100, R = 80;
 const clamp = (x: number) => Math.min(1, Math.max(0, x));
 /** Win rate 0…1 → point on the semicircle (0 at the left, 1 at the right). */
@@ -83,7 +82,6 @@ function Sparkline({ g }: { g: GaugeData }) {
     </div>
   );
 }
-
 
 /** "11 CLOSED THIS WEEK" / "1 CLOSED, 6 OPEN", plus backfill: what the window holds, in decisive trades. */
 function windowText(g: GaugeData, swingOpen: boolean): string {

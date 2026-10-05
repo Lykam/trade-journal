@@ -6,7 +6,6 @@ import type { Journal, ReviewAttention } from "../../core/journal/journal";
 import { useState } from "react";
 import type { Quote, Trade } from "../../core/types";
 import { dateOf, days, DOW, minutes, mmdd, money, pct, pnlClass, stamp, etfBadge } from "../format";
-
 import { tradeHref } from "./OpenPositions";
 
 export function Widget({ title, children, wide }: { title: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
@@ -110,7 +109,6 @@ export function WinByDay({ days, avg, fmt = money }: { days: WinDay[]; avg: numb
     </ChartFrame>
   );
 }
-
 
 function Donut({ r }: { r: RangeStats }) {
   const s = r.summary;

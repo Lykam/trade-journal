@@ -2,7 +2,6 @@
 // Days, Drawdown, Compare and Tag Breakdown.
 import { daysBetween } from "../calendar";
 import { dateRange, emptyFilter, parseView, PRESET_LABELS, viewToParams, type TradeFilter, type ViewState } from "../journal/filter";
-
 import { AUTO_TAGS, type TradeTags } from "../journal/tags";
 import type { Trade } from "../types";
 import { computeGrid, type Grid } from "./grid";

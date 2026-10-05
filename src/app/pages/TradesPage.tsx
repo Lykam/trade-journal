@@ -12,7 +12,6 @@ import { Pnl } from "../components/Pnl";
 import { go } from "../data";
 import { etfBadge, mmdd, money, pct, pnlClass, qty } from "../format";
 
-
 export const tradeLink = (id: string, v: ViewState) => `#/trade/${id}${queryOf(viewToParams(v, { page: false }))}`;
 export const reviewLink = (id: string) => `#/journal/${encodeURIComponent(id)}`;
 
@@ -92,7 +91,6 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
         <div><div className="label small">SHARES TRADED</div><div className="v">{qty(summary.volume)}</div></div>
 
       </section>
-
 
       <section className="panel">
         {rows.length === 0 ? (

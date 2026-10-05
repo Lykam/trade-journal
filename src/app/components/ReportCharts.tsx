@@ -5,7 +5,6 @@ import { useState } from "react";
 import { pct } from "../format";
 import { ChartFrame, dateTicks, HBars, pnlBar, type Bar } from "./Widgets";
 
-
 export interface VBar {
   key: string;
   value: number;

@@ -22,7 +22,6 @@ function ideaFor(j: Journal, r: Review) {
   return { idea, trades };
 }
 
-
 function StatusChip({ r }: { r: Review }) {
   if (!r.header.status) return <span className="dim">—</span>;
   return <span className={`chip ${r.header.status === "open" ? "accent" : ""}`}>{r.header.status.toUpperCase()}</span>;

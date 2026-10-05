@@ -11,8 +11,6 @@ import {
 } from "../../core/reports";
 import { BucketBars, BucketTable, Underwater, VBars } from "../components/ReportCharts";
 import { GridColumns, holdText, small, smallTitle, StatsGrid, type Fmt } from "../components/StatsGrid";
-
-
 import { FilterBar, viewHref } from "../components/FilterBar";
 import { CumulativeChart, dateTicks, Widget, WinByDay } from "../components/Widgets";
 import { money, pct, pnlClass, qty, signedPct } from "../format";
@@ -350,7 +348,6 @@ function TagBreakdown({ c }: { c: Ctx }) {
         </>
       ) : (
         <div className="dim small">Click a tag for full stats. Multi-tag trades count in each.</div>
-
       )}
     </>
   );

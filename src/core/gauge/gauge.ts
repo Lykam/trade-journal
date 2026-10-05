@@ -164,7 +164,6 @@ const MESSAGES: Record<SizeState, string> = {
   full: "At or above your average.",
   half: "Below your average: trade half size.",
   quarter: "Well below your average: trade quarter size.",
-
 };
 
 export function windowStats(items: WindowItem[]): WindowStats {
@@ -205,7 +204,6 @@ function winRateOf(trades: Trade[]) {
     winRate: wins + losses ? wins / (wins + losses) : null,
   };
 }
-
 
 export function computeGauge(style: Style, input: GaugeInput): Gauge {
   const { config, now } = input;
@@ -332,6 +330,5 @@ export function gaugeRules(config: Config): string[] {
 }
 
 export function computeGauges(input: GaugeInput): Record<Style, Gauge> {
-
   return { day: computeGauge("day", input), swing: computeGauge("swing", input) };
 }
