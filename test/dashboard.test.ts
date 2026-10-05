@@ -69,7 +69,7 @@ describe("hold time and duration", () => {
     expect(c({ holdMinutes: 4.9 })).toBe("< 5 min");
     expect(c({ holdMinutes: 5 })).toBe("5–30 min");
     expect(c({ holdMinutes: 119 })).toBe("30 min–2 h");
-    expect(c({ holdMinutes: 300 })).toBe("2 h to close");
+    expect(c({ holdMinutes: 300 })).toBe("2h – close");
     expect(c({ holdMinutes: null })).toBe("same day (no time)");
     expect(c({ openedAt: "2026-09-24T00:00:00-04:00" })).toBe("1–5 days");
     expect(c({ openedAt: "2026-09-08T00:00:00-04:00" })).toBe("1–4 weeks");

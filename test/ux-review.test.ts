@@ -1,11 +1,13 @@
 // Logic behind the UX review fixes (issues #13–#23, SPEC Q54+). Synthetic trades, fake tickers only.
 import { describe, expect, it } from "vitest";
-import { buyFees, daysHeld, openPositions, sortOpenRows } from "../src/core/dashboard/dashboard";
+import { buyFees, daysHeld, lastImports, openPositions, rangeStats, sortOpenRows } from "../src/core/dashboard/dashboard";
+import { computeGauge, winsToFull } from "../src/core/gauge/gauge";
+import { importBehind, lastSessionDate } from "../src/core/market";
 import { defaultView } from "../src/core/journal/filter";
 import { buildJournal, groupPnl, type Journal } from "../src/core/journal/journal";
 import { buildRows, sortRows } from "../src/core/journal/rows";
-import type { QuotesFile, Trade } from "../src/core/types";
-import { closed, ideasOf, open } from "./factory";
+import type { Fill, QuotesFile, Trade } from "../src/core/types";
+import { batch, closed, ideasOf, open } from "./factory";
 import { config } from "./helpers";
 
 const q = (price: number, time = "2026-10-02T16:00:00-04:00") => ({ price, time });
@@ -67,5 +69,59 @@ describe("#14 open trades and positions", () => {
     const syms = (dir: "asc" | "desc") => sortRows(rows, { key: "pnl", dir }, defaultView().pnl).map((r) => r.symbol);
     expect(syms("desc")).toEqual(["ZZTB", "ZZTA", "SWGA"]);
     expect(syms("asc")).toEqual(["ZZTA", "ZZTB", "SWGA"]);
+  });
+});
+
+describe("#15 dashboard", () => {
+  it("knows the latest closed session, skipping weekends", () => {
+    expect(lastSessionDate("2026-10-03T12:00:00-04:00")).toBe("2026-10-02"); // Saturday
+    expect(lastSessionDate("2026-10-05T09:00:00-04:00")).toBe("2026-10-02"); // Monday before the open
+    expect(lastSessionDate("2026-10-05T16:30:00-04:00")).toBe("2026-10-05"); // Monday after the close
+    expect(lastSessionDate("2026-10-02T15:59:00-04:00")).toBe("2026-10-01"); // Friday before the close
+  });
+
+  it("flags an import that can't hold the latest closed session", () => {
+    const sunday = "2026-10-04T20:00:00-04:00";
+    expect(importBehind("2026-10-02T17:30:00-04:00", sunday)).toBe(false);
+    expect(importBehind("2026-10-01T19:00:00-04:00", sunday)).toBe(true);
+    expect(importBehind("2026-10-02T15:00:00-04:00", sunday)).toBe(true); // before Friday's close
+  });
+
+  it("takes each broker's latest import from the fills", () => {
+    const f = (broker: Fill["broker"], importedAt: string) => ({ broker, importedAt }) as Fill;
+    expect(lastImports([f("webull", "2026-10-01T22:00:00Z"), f("webull", "2026-10-02T22:00:00Z"), f("schwab", "2026-09-30T22:00:00Z"), f("schwab", "")]))
+      .toEqual({ webull: "2026-10-02T22:00:00Z", schwab: "2026-09-30T22:00:00Z" });
+  });
+
+  it("counts the wins needed to get back to full size", () => {
+    // Baseline 60% (6W 4L in earlier weeks); this week 2W 3L = 40%, no backfill needed.
+    const trades = [...batch("day", "2026-09-15", 6, 4), ...batch("day", "2026-09-29", 2, 3)];
+    const g = computeGauge("day", { trades, config, now: "2026-09-30T18:00:00-04:00" });
+    expect(g.state).toBe("quarter");
+    // (2 + k) / (5 + k) >= 60% first at k = 3: 5W 3L.
+    expect(winsToFull(g, config)).toEqual({ wins: 3, w: 5, l: 3 });
+  });
+
+  it("lets each new win push an earlier backfilled trade out of the window", () => {
+    // Monday before any trade: the window is the 5 latest earlier trades, newest first L L L W W (40%).
+    const trades = [...batch("day", "2026-09-15", 4, 1), ...batch("day", "2026-09-22", 2, 3)];
+    const g = computeGauge("day", { trades, config, now: "2026-09-28T08:00:00-04:00" });
+    expect(g.counts).toEqual({ week: 0, open: 0, prior: 5 });
+    expect(g.baseline.winRate).toBe(0.6);
+    // 1 win + L L L W = 2W 3L; 2 wins + L L L = 2W 3L; 3 wins + L L = 3W 2L = 60%.
+    expect(winsToFull(g, config)).toEqual({ wins: 3, w: 3, l: 2 });
+  });
+
+  it("has no target at full size", () => {
+    const trades = [...batch("day", "2026-09-15", 6, 4), ...batch("day", "2026-09-29", 5, 0)];
+    expect(winsToFull(computeGauge("day", { trades, config, now: "2026-09-30T18:00:00-04:00" }), config)).toBeNull();
+  });
+
+  it("splits the 30/60/90 widgets by style on request", () => {
+    const trades = [...batch("day", "2026-09-29", 2, 1), closed({ style: "swing", closedAt: "2026-09-29T16:00:00-04:00", net: 50 })];
+    const now = "2026-09-30T18:00:00-04:00";
+    expect(rangeStats(trades, 30, now).summary.closed).toBe(4);
+    expect(rangeStats(trades, 30, now, "day").summary.closed).toBe(3);
+    expect(rangeStats(trades, 30, now, "swing").summary).toMatchObject({ closed: 1, netPnl: 50 });
   });
 });

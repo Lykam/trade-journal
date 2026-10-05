@@ -3,7 +3,8 @@ import { addDays, dayOfWeek, daysBetween, weekStart } from "../calendar";
 import { quoteStatus, type QuoteStatus } from "../gauge/gauge";
 import { cents, etDate, round } from "../normalize/util";
 import { byCloseDesc, heldOvernightDayTrades, isScored, markToMarket, summarize, type Summary } from "../trades/stats";
-import type { Quote, Style, Trade, TradeEvent } from "../types";
+import type { Broker, Fill, Quote, Style, Trade, TradeEvent } from "../types";
+
 
 // ---------------------------------------------------------------- open positions
 
@@ -165,7 +166,7 @@ export function weekStrip(trades: Trade[], date: string, startsOn: "monday" | "s
 // ---------------------------------------------------------------- range widgets
 
 export const DURATION_BUCKETS = [
-  "< 5 min", "5–30 min", "30 min–2 h", "2 h to close", "same day (no time)", "1–5 days", "1–4 weeks", "> 4 weeks",
+  "< 5 min", "5–30 min", "30 min–2 h", "2h – close", "same day (no time)", "1–5 days", "1–4 weeks", "> 4 weeks",
 ] as const;
 export type DurationBucket = (typeof DURATION_BUCKETS)[number];
 
@@ -176,7 +177,8 @@ export function durationBucket(t: Trade): DurationBucket {
     if (t.holdMinutes < 5) return "< 5 min";
     if (t.holdMinutes < 30) return "5–30 min";
     if (t.holdMinutes < 120) return "30 min–2 h";
-    return "2 h to close";
+    return "2h – close";
+
   }
   if (days <= 5) return "1–5 days";
   if (days <= 28) return "1–4 weeks";
@@ -216,11 +218,11 @@ export interface RangeStats {
   byDuration: Array<{ bucket: DurationBucket } & Bucket>;
 }
 
-/** Widgets for the last `days` ET calendar days ending today (SPEC §6.1 items 5–6). */
-export function rangeStats(trades: Trade[], days: number, now: string): RangeStats {
+/** Widgets for the last `days` ET calendar days ending today (SPEC §6.1 items 5–6), for one style or both (#15). */
+export function rangeStats(trades: Trade[], days: number, now: string, style: Style | null = null): RangeStats {
   const to = etDate(now);
   const from = addDays(to, -(days - 1));
-  const list = scoredIn(trades, from, to);
+  const list = scoredIn(style ? trades.filter((t) => t.style === style) : trades, from, to);
   const dates = [...new Set(list.map(closedOn))].sort();
   let cum = 0;
   const cumulative = dates.map((date) => {
@@ -262,6 +264,15 @@ export function rangeStats(trades: Trade[], days: number, now: string): RangeSta
     byDayOfWeek: byDow.map((b) => ({ ...b, share: absTotal ? round(b.net / absTotal, 4) : 0 })),
     byDuration: DURATION_BUCKETS.map((b) => ({ bucket: b, ...bucket(list.filter((t) => durationBucket(t) === b)) })),
   };
+}
+
+// ---------------------------------------------------------------- imports
+
+/** The latest import time per broker, from the fills' `importedAt` (empty values ignored). */
+export function lastImports(fills: Fill[]): Partial<Record<Broker, string>> {
+  const out: Partial<Record<Broker, string>> = {};
+  for (const f of fills) if (f.importedAt && (!out[f.broker] || Date.parse(f.importedAt) > Date.parse(out[f.broker]!))) out[f.broker] = f.importedAt;
+  return out;
 }
 
 // ---------------------------------------------------------------- needs attention

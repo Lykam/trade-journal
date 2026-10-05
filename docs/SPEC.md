@@ -668,9 +668,10 @@ MZRT +$10 (W). The window is 3W / 2L = 60%.
 
 | State | Condition | Example, baseline 60% | Message |
 |---|---|---|---|
-| 🟢 **Full size** | Δ ≥ 0 | ≥ 60% | "At or above your average. Full size." |
-| 🟡 **½ size** | −10 ≤ Δ < 0 | 50–59.9% | "Below average. Trade ½ size until the win rate is back to average." |
-| 🔴 **¼ size** | Δ < −10 | < 50% | "Well below average. Trade ¼ size until the win rate is back to average." |
+| 🟢 **Full size** | Δ ≥ 0 | ≥ 60% | "At or above your average." |
+| 🟡 **½ size** | −10 ≤ Δ < 0 | 50–59.9% | "Below your average: trade half size." |
+| 🔴 **¼ size** | Δ < −10 | < 50% | "Well below your average: trade quarter size." |
+
 
 - Full size requires being at or above the average, so recovery means getting
   "back to average+" by definition, and no extra hysteresis is needed. The
@@ -744,10 +745,21 @@ fully static.
 
 - A semicircle dial with the needle at the window win rate. The colored bands
   are positioned relative to the baseline, and a marker sits at the baseline.
-- A large label shows the size recommendation.
-- Window stats: W/L count (swing shows closed vs. open separately), realized
-  and unrealized P&L, avg win / avg loss, profit factor, and expectancy per
-  trade.
+- A large label shows the size recommendation (½ / ¼ glyphs only here;
+  sentences spell out "half size" / "quarter size", since ½ reads as % at
+  body size in JetBrains Mono).
+- Under it: the gap (`−4.3 PTS VS AVG`), what the window holds
+  (`11 CLOSED THIS WEEK`, `1 CLOSED, 6 OPEN`, `+ 4 EARLIER` when backfilled),
+  and, below full size, the wins that would get back to it, all else equal:
+  `FULL SIZE AT 8W 5L (+2 WINS)` (`winsToFull`; each added win pushes the
+  oldest backfilled trade out, Q55).
+- Window stats: W/L count as `6W 5L` (swing: `CLOSED 1W 0L · OPEN 4W 2L`),
+  realized and unrealized P&L, avg win / avg loss, profit factor, and
+  expectancy per trade, all spelled out. Notes say when earlier trades fill
+  in the window (`4 EARLIER TRADES FILL IN UNTIL THIS WEEK HAS 5`) and that
+  open positions count at the last price.
+- At phone width the gauge is compact: a small dial beside the call, with the
+  stats behind a **STATS** toggle.
 - A sparkline of the last 8 weeks' win rates against the baseline, from
   closed trades only. The 8th bar is the current (partial) week.
 - **Open swing positions table** under the swing gauge: symbol, open date,
@@ -777,7 +789,10 @@ candlestick charts in v1 (see §11).
   - **Green `#22c55e` gains / red `#ef4444` losses.** Yellow `#facc15` is used
     only for the "½ size" state.
   - **Top navigation bar** instead of a sidebar: DASH · OPEN · CAL · TRADES ·
-    REPORTS · JOURNAL · SETTINGS, with IMPORT and LOCK on the right. It wraps
+    REPORTS · JOURNAL · SETTINGS, with IMPORT and LOCK on the right. Beside
+    them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
+    SCHWAB 10-02`, the last import per broker turning amber with `!` when it
+    is older than the latest closed session (Q55). It wraps
     at phone width.
   - All colors are CSS variables, so a light theme or different palette can be
     added later without touching components.
@@ -814,17 +829,27 @@ candlestick charts in v1 (see §11).
 
 From top to bottom:
 
-The first three blocks answer, at a glance: *what size should I trade, what am
-I holding, and how are my latest trades going?* They sit at the top, above
-everything else, and are never hidden.
+The first blocks answer, at a glance: *what size should I trade, what needs
+checking, what am I holding, and how are my latest trades going?* They sit at
+the top, above everything else, in the same order at phone width.
 
 1. **Temperature gauges:** Day and Swing side by side (§5). This is the
    centerpiece, and it is not in Tradervue.
+1a. **Needs attention** (Q55): one line under the gauges, `! NEEDS ATTENTION
+   3 ITEMS ›`, that opens into the list; hidden when nothing needs
+   attention. It lists unmatched fills, unpriced open positions, stale prices
+   (with their stamp), day trades held overnight, today's unreviewed trades
+   (`2 unreviewed trades today REVIEW ›`, the Trades view
+   `range=today&review=no`), and the review checks: OPEN swing reviews whose
+   idea has closed (`NVQX idea from 08-25 closed 09-23: write the exit`),
+   reviews that match no idea, and ideas with more than one review. Unmapped
+   ETFs need the broker's name column, which fills don't store, so they
+   surface in the import preview.
 2. **Open positions (quick view):** every open position, all on the main
    page.
    - **Header totals:** count, **Unrealized**, **Realized** (trims, less buy fees; Q54),
-     **Total open P&L**, "as of HH:MM ET" for the prices, and a
-     **DETAILS ›** link to the Open Positions page (§6.1a).
+     **Total open P&L**, and an **ALL OPEN ›** link to the Open Positions
+     page (§6.1a). The price stamp is in the top bar.
    - **One row per position:**
      - Symbol (with `→UNDERLYING 2x` for ETFs) and style.
      - **Opened** date (plus days held) and **Trims** (date, −qty, @price for
@@ -837,44 +862,42 @@ everything else, and are never hidden.
    - **Day:** the last 10 closed day trades. **Swing:** the last 10 closed
      swing trades.
    - **Each column's header:**
-     - A **10-square streak strip**, oldest → newest, colored win / loss /
-       breakeven (gray).
+     - A **10-square streak strip**, newest first (left), like the list,
+       colored win / loss / breakeven (gray).
      - The W/L(/BE) count, win %, and net $.
-     - An **ALL ›** link to Trades, filtered to that style.
+     - An **ALL TRADES ›** link to Trades, filtered to that style.
    - **Each row:** a result dot, date, symbol (with underlying for ETFs), hold
-     time ("same day" / "3 days" for Schwab), an R marker if reviewed, and
-     net P&L. Clicking a row opens Trade detail.
+     time ("same day" / "3d" for Schwab), 📄 if reviewed, and net P&L.
+     Clicking a row opens Trade detail.
    - This always counts **trades** (round trips), not ideas, and ignores the
      30/60/90 range.
-4. **Week strip:** seven day cards for the gauge week (`weekStartsOn`,
-   Mon–Sun by default, Q19). Each shows the date, net P&L
-   (colored) and the number of trades. A 📄 icon appears if any review exists
-   for that day. Clicking a card opens the Trades page filtered to that day.
-   Arrows step to previous weeks.
-5. **Range selector:** **30 / 60 / 90 days** (top right). It drives every
-   widget below it.
+4. **Week strip:** day cards for the gauge week (`weekStartsOn`, Mon–Sun by
+   default, Q19), all styles (labeled). Saturday and Sunday get a card only
+   when something closed on them. Each shows the date, net P&L (colored) and
+   the number of trades. A 📄 icon appears if any review exists for that day.
+   Clicking a card opens the Trades page filtered to that day. Arrows step to
+   previous weeks. At phone width the cards show the weekday only.
+5. **Range selector:** **30 / 60 / 90 days** (top right), plus **ALL / DAY /
+   SWING** (Q55), both remembered per browser. They drive every widget below.
 6. **Widget grid:**
+   - **Key stats row:** net P&L, win %, profit factor, avg win / loss (with
+     the ratio), day hold (win / loss), best / worst trade.
    - **Cumulative P&L** line chart.
-   - **Win % by day** bar chart.
+   - **Daily win %** bar chart.
    - **Winning vs Losing trades:** a donut with counts and %. Breakevens are a
      thin gray slice.
    - **Hold time, winners vs losers:** two bars (e.g. "about 3 hours" vs
      "about 1 hour"), with day and swing hold times computed separately.
      Schwab trades without times show as multi-day or same-day only.
    - **Average winning vs losing trade:** two bars.
-   - **Largest gain vs largest loss:** a half-gauge, with links to both
-     trades.
-   - **Performance by day of week:** P&L and % of total, one bar per day.
-   - **Performance by duration:** buckets of < 5 min, 5–30 min, 30 min–2 h,
-     2 h to close, 1–5 days, 1–4 weeks, > 4 weeks.
-   - **Needs attention:** unmatched fills, unmapped ETF symbols, unpriced
-     open positions (and stale quotes), day trades held overnight, and OPEN
-     swing reviews whose position has closed. Unmapped ETFs need the broker's
-     name column, which fills don't store, so they surface in the import
-     preview. Review checks: OPEN swing reviews whose idea has closed,
-     reviews that match no idea, and ideas with more than one review.
+   - **Largest gain vs largest loss:** two bars from one zero line, with
+     links to both trades.
+   - **P&L by weekday:** P&L and trade count, one bar per day.
+   - **P&L by hold time:** buckets of < 5 min, 5–30 min, 30 min–2 h,
+     2h – close, 1–5 days, 1–4 weeks, > 4 weeks.
 7. **Edit Layout** (show, hide and reorder widgets, saved per browser) is a
    v1.1 nice-to-have, not v1. Blocks 1–3 stay pinned at the top regardless.
+
 
 ### 6.1a Open Positions page (in-depth)
 
@@ -1415,6 +1438,8 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q55 | Dashboard top | UX review (#15), owner decisions 2026-10-04. **Needs attention** joins the pinned top blocks as one line under the gauges that opens into the list, hidden when empty, and adds today's unreviewed trades. **Backfill stays** (Q13, Q20): there is no "not enough trades" state, since earlier trades always fill the window; the gauge says so instead (`1 CLOSED THIS WEEK, 4 EARLIER` and a note). **Full-size target:** the fewest extra wins this week that reach Δ ≥ 0 with nothing else changing, each win pushing the oldest backfilled trade out; none at full size, without a baseline or beyond 50. **Imports:** the bundle carries the latest `importedAt` per broker (`imports`; fills keep theirs blank), and the top bar flags one older than the latest closed session (weekdays 16:00 ET, no holidays, like Q21). The 30/60/90 block gets an ALL / DAY / SWING toggle; the week strip hides empty weekend days and says it covers all styles; the Recent 10 strip runs newest first like its list; largest gain / loss are two bars instead of a half-gauge. (2026-10-04, #15) |
+
 | Q54 | Open trades in tables | UX review (#14): an open trade has no result, so tables never show its booked P&L (often 0.00, or a red buy fee) as if it were one. Trades, the Journal list, the review page and the Idea panel show the mark at the last price in muted text (`open +19.50`; `open —` without a quote); an idea with closed and open trades adds the closed results and the open marks, and still reads as open. Open rows sort after closed ones on P&L in both directions. Buy fees stay in realized P&L (Q44, average-cost basis unchanged), labeled `REALIZED · 0 TRIMS · 0.65 FEES`. Days held are whole ET calendar days everywhere (`daysHeld`). Stops and risk are deferred (§11). (2026-10-04, #14) |
 | Q53 | Tradervue import | One-time CLI import of a Tradervue **trades** export (§4.7), owner decisions 2026-10-04. Tradervue wins for **tags** (union of duplicate copies; automatic tags such as `Swing` aren't stored) and **style** (the `Swing` tag means swing, its absence day; overrides only where it differs from the account default). Its **notes** become quick notes as plain text, capped at 500 characters. The broker fills stay the truth for P&L and quantities: discrepancies are listed, never applied. The export has no executions and only one trade predated the broker exports (a position opened before the Schwab export starts), so **no synthetic fills** and no schema change; the owner left that position out for now, to reconcile later. Matching uses the exact second for timed trades, regardless of symbol (Webull renames, Q18), and symbol + dates + shares + P&L for date-only ones. Not in the web app: it runs once, from the CLI, behind the usual dry-run-and-OK step (Q14). (2026-10-04) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |

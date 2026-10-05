@@ -8,18 +8,20 @@ function Column({ r, journal }: { r: Recent; journal: Journal }) {
   const pad = Array.from({ length: Math.max(0, 10 - r.streak.length) });
   return (
     <section className="panel" aria-label={`Recent ${r.style} trades`}>
-      <div className="panel-head" style={{ alignItems: "center", gap: "6px 16px" }}>
-        <h2>{r.style === "day" ? "Day · last 10" : "Swing · last 10 closed"}</h2>
-        <div className="streak" aria-label={`Results oldest to newest: ${r.streak.join(", ")}`}>
+      <div className="panel-head recent-head">
+        <h2>{r.style === "day" ? "Day · last 10" : "Swing · last 10"}</h2>
+        {/* Newest first, left to right, like the list below it (#15). */}
+        <div className="streak" aria-label={`Results newest to oldest: ${[...r.streak].reverse().join(", ")}`} title="Newest on the left">
+          {[...r.streak].reverse().map((res, i) => <span key={i} className={`bg-${res}`} title={res ?? ""} />)}
           {pad.map((_, i) => <span key={`p${i}`} />)}
-          {r.streak.map((res, i) => <span key={i} className={`bg-${res}`} title={res ?? ""} />)}
         </div>
         <span className="grow" />
         <span className="muted">
-          {s.wins}W {s.losses}L{s.breakevens ? ` ${s.breakevens}BE` : ""} · <b style={{ color: "var(--text)" }}>{pct(s.winRate)}</b> · NET{" "}
+          {s.wins}W {s.losses}L{s.breakevens ? ` ${s.breakevens}BE` : ""} · <b className="text-1">{pct(s.winRate)}</b> · NET{" "}
+
           <b className={pnlClass(s.netPnl)}>{money(s.netPnl)}</b>
         </span>
-        <a href={`#/trades?style=${r.style}`}>ALL ›</a>
+        <a href={`#/trades?style=${r.style}`}>ALL TRADES ›</a>
       </div>
       {r.trades.length === 0 ? (
         <div className="empty">No closed {r.style} trades yet</div>
@@ -28,15 +30,15 @@ function Column({ r, journal }: { r: Recent; journal: Journal }) {
           <tbody>
             {r.trades.map((t) => (
               <tr key={t.id} className="clickable" onClick={() => (window.location.hash = tradeHref(t.id))}>
-                <td style={{ width: 12 }}><span className={`dot bg-${t.result}`} aria-label={t.result ?? ""} /></td>
+                <td className="dot-cell"><span className={`dot bg-${t.result}`} aria-label={t.result ?? ""} /></td>
                 <td className="muted">{mmdd(dateOf(t.closedAt!))}</td>
                 <td>
                   <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> <span className="tag">{underlyingTag(t)}</span>
                 </td>
                 <td className="muted">{holdLabel(t)}</td>
-                <td className="accent" style={{ width: 14 }}>
+                <td className="review-cell">
                   {reviewsOf(journal, t)[0] && (
-                    <a href={`#/journal/${encodeURIComponent(reviewsOf(journal, t)[0]!.id)}`} title="Reviewed: open the review" aria-label="Reviewed" onClick={(e) => e.stopPropagation()}>R</a>
+                    <a href={`#/journal/${encodeURIComponent(reviewsOf(journal, t)[0]!.id)}`} title="Reviewed: open the review" aria-label="Reviewed" onClick={(e) => e.stopPropagation()}>📄</a>
                   )}
                 </td>
                 <td className={`num b ${pnlClass(t.netPnl)}`}>{money(t.netPnl)}</td>

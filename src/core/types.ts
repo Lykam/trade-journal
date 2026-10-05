@@ -191,4 +191,7 @@ export interface DataBundle {
   loadedAt: string;
   /** The trade-history commit the bundle was built from (absent when the checkout isn't a git repo). */
   history?: { sha: string; date: string } | null;
+  /** Latest `importedAt` per broker (fills themselves carry none in the bundle), for the top bar's import dates. */
+  imports?: Partial<Record<Broker, string>>;
+
 }

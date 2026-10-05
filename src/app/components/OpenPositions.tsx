@@ -52,8 +52,9 @@ export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
         <span className="grow" />
         {totals.unpriced > 0 && <span className="half">{totals.unpriced} NOT PRICED</span>}
         {totals.stale > 0 && <span className="half">* {totals.stale} STALE</span>}
-        <span className="dim">{asOfText(totals)}</span>
-        <a href="#/open">DETAILS ›</a>
+        {!totals.pricesAsOf && totals.count > 0 && <span className="dim">NO PRICES</span>}
+        <a href="#/open">ALL OPEN ›</a>
+
       </div>
       {rows.length === 0 ? (
         <div className="empty">No open positions</div>

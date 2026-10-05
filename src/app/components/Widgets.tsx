@@ -3,8 +3,10 @@
 // a direct label, so nothing relies on color alone (red↔green is weak under CVD).
 import type { Attention, RangeStats } from "../../core/dashboard/dashboard";
 import type { Journal, ReviewAttention } from "../../core/journal/journal";
-import type { Trade } from "../../core/types";
-import { dateOf, days, DOW, minutes, mmdd, money, pct, pnlClass, underlyingTag } from "../format";
+import { useState } from "react";
+import type { Quote, Trade } from "../../core/types";
+import { dateOf, days, DOW, minutes, mmdd, money, pct, pnlClass, stamp, underlyingTag } from "../format";
+
 import { tradeHref } from "./OpenPositions";
 
 export function Widget({ title, children, wide }: { title: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
@@ -159,30 +161,14 @@ export function TradeLink({ t }: { t: Trade | null }) {
   );
 }
 
-function LargestGauge({ r }: { r: RangeStats }) {
-  const g = r.largestGain?.netPnl ?? 0;
-  const l = Math.abs(r.largestLoss?.netPnl ?? 0);
-  if (!g && !l) return <div className="empty">No closed trades in range</div>;
-  const share = g / (g + l); // gain's share of the semicircle, from the right
-  const R = 70, cx = 90, cy = 85;
-  const pt = (frac: number) => {
-    const a = Math.PI * (1 - frac);
-    return `${(cx + R * Math.cos(a)).toFixed(1)} ${(cy - R * Math.sin(a)).toFixed(1)}`;
-  };
-  const split = 1 - share;
-  return (
-    <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-      <svg viewBox="0 0 180 95" style={{ width: 180, flex: "0 0 180px" }} role="img"
-        aria-label={`Largest gain ${money(g)} versus largest loss ${money(-l)}`}>
-        {split > 0 && <path d={`M${pt(0)} A${R} ${R} 0 0 1 ${pt(split)}`} className="band s-loss" style={{ fill: "none", strokeWidth: 12 }} />}
-        {share > 0 && <path d={`M${pt(split)} A${R} ${R} 0 0 1 ${pt(1)}`} className="band s-gain" style={{ fill: "none", strokeWidth: 12 }} />}
-      </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <span>GAIN <b className="gain">{money(r.largestGain?.netPnl ?? null)}</b> <TradeLink t={r.largestGain} /></span>
-        <span>LOSS <b className="loss">{money(r.largestLoss?.netPnl ?? null)}</b> <TradeLink t={r.largestLoss} /></span>
-      </div>
-    </div>
-  );
+/** Largest gain and loss as two bars from one zero line, each linked to its trade (#15: the half-gauge had no scale). */
+function Largest({ r }: { r: RangeStats }) {
+  if (!r.largestGain && !r.largestLoss) return <div className="empty">No closed trades in range</div>;
+  const bars: Bar[] = [
+    { key: "g", label: <>BEST <TradeLink t={r.largestGain} /></>, value: r.largestGain?.netPnl ?? 0, text: money(r.largestGain?.netPnl ?? null), cls: "gain" },
+    { key: "l", label: <>WORST <TradeLink t={r.largestLoss} /></>, value: r.largestLoss?.netPnl ?? 0, text: money(r.largestLoss?.netPnl ?? null), cls: "loss" },
+  ];
+  return <HBars bars={bars} />;
 }
 
 function HoldTimes({ r }: { r: RangeStats }) {
@@ -197,9 +183,9 @@ function HoldTimes({ r }: { r: RangeStats }) {
   ];
   return (
     <>
-      <HBars bars={bars} />
-      <HBars bars={sbars} />
-      <div className="dim small">Day: timed (Webull) trades. Swing: calendar days, same day = 0.</div>
+      {(d.winners !== null || d.losers !== null) && <HBars bars={bars} />}
+      {(s.winners !== null || s.losers !== null) && <HBars bars={sbars} />}
+      <div className="dim small">Day: Webull fill times. Swing: calendar days.</div>
     </>
   );
 }
@@ -207,18 +193,15 @@ function HoldTimes({ r }: { r: RangeStats }) {
 export function StatRow({ r }: { r: RangeStats }) {
   const s = r.summary;
   const items = [
-    { label: `NET ${r.days}D`, value: money(s.netPnl), sub: `${s.closed} TRADES`, cls: pnlClass(s.netPnl) },
-    { label: "WIN %", value: pct(s.winRate, 1), sub: `${s.wins}W ${s.losses}L ${s.breakevens}BE`, cls: "" },
-    { label: "PROFIT FACTOR", value: r.profitFactor?.toFixed(2) ?? (s.wins ? "∞" : "—"), sub: "WINS / |LOSSES|", cls: "" },
+    { label: "NET P&L", value: money(s.netPnl), sub: `${s.closed} TRADE${s.closed === 1 ? "" : "S"}`, cls: pnlClass(s.netPnl) },
+    { label: "WIN %", value: pct(s.winRate, 1), sub: `${s.wins}W ${s.losses}L${s.breakevens ? ` ${s.breakevens}BE` : ""}`, cls: "" },
+    { label: "PROFIT FACTOR", value: r.profitFactor?.toFixed(2) ?? (s.wins ? "∞" : "—"), sub: "", cls: "" },
     {
-      label: "AVG W / L", value: `${money(r.avgWin, { sign: false })}/${money(r.avgLoss)}`,
-      sub: r.avgWin && r.avgLoss ? `RATIO ${(r.avgWin / Math.abs(r.avgLoss)).toFixed(2)}` : "", cls: "",
+      label: "AVG WIN / LOSS", value: `${money(r.avgWin)} / ${money(r.avgLoss)}`,
+      sub: r.avgWin && r.avgLoss ? `${(r.avgWin / Math.abs(r.avgLoss)).toFixed(2)}×` : "", cls: "",
     },
-    { label: "HOLD W / L (DAY)", value: `${minutes(r.hold.day.winners)}/${minutes(r.hold.day.losers)}`, sub: "TIMED TRADES", cls: "" },
-    {
-      label: "MAX GAIN / LOSS", value: money(r.largestGain?.netPnl ?? null), sub: `LOSS ${money(r.largestLoss?.netPnl ?? null)}`,
-      cls: pnlClass(r.largestGain?.netPnl ?? 0),
-    },
+    { label: "DAY HOLD", value: `WIN ${minutes(r.hold.day.winners)} / LOSS ${minutes(r.hold.day.losers)}`, sub: "", cls: "" },
+    { label: "BEST / WORST", value: `${money(r.largestGain?.netPnl ?? null)} / ${money(r.largestLoss?.netPnl ?? null)}`, sub: "", cls: "" },
   ];
   return (
     <section className="panel statrow" aria-label="Key stats">
@@ -226,7 +209,7 @@ export function StatRow({ r }: { r: RangeStats }) {
         <div key={i.label}>
           <div className="label small">{i.label}</div>
           <div className={`v ${i.cls}`}>{i.value}</div>
-          <div className="muted small">{i.sub}</div>
+          {i.sub && <div className="muted small">{i.sub}</div>}
         </div>
       ))}
     </section>
@@ -234,17 +217,42 @@ export function StatRow({ r }: { r: RangeStats }) {
 }
 
 const reviewHref = (id: string) => `#/journal/${encodeURIComponent(id)}`;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-function AttentionList({ a, reviews, journal }: { a: Attention; reviews: ReviewAttention; journal: Journal }) {
+interface AttentionProps {
+  a: Attention;
+  reviews: ReviewAttention;
+  journal: Journal;
+  quotes: Record<string, Quote>;
+  /** Trades dated today without a review (what `#/trades?range=today&review=no` lists). */
+  unreviewedToday: number;
+}
+
+/** Everything Needs attention lists, one line each (SPEC §6.1). */
+function attentionRows({ a, reviews, journal, quotes, unreviewedToday }: AttentionProps): React.ReactNode[] {
   const rows: React.ReactNode[] = [];
   for (const t of a.unpriced) rows.push(<div key={`u${t.id}`}><span className="half">!</span> <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> open position not priced (run <code>npm run quotes</code>)</div>);
-  for (const t of a.stale) rows.push(<div key={`s${t.id}`}><span className="half">!</span> <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> quote is stale</div>);
+  for (const t of a.stale) {
+    const q = quotes[t.symbol];
+    rows.push(<div key={`s${t.id}`}><span className="half">!</span> <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> price stale{q ? ` (${stamp(q.time)})` : ""}</div>);
+  }
   for (const t of a.unmatched) rows.push(<div key={`m${t.id}`}><span className="loss">!</span> <a className="sym" href={tradeHref(t.id)}>{t.symbol}</a> {dateOf(t.openedAt)} unmatched sell (fix with openingPositions)</div>);
   if (a.heldOvernight.length) {
-    rows.push(<div key="ho"><span className="accent">i</span> {a.heldOvernight.length} day trade{a.heldOvernight.length === 1 ? "" : "s"} held overnight: still day trades? <a href="#/trades?flag=overnight">REVIEW ›</a></div>);
+    rows.push(<div key="ho"><span className="accent">i</span> {plural(a.heldOvernight.length, "day trade")} held overnight: keep as DAY? <a href="#/trades?flag=overnight">REVIEW ›</a></div>);
+  }
+  if (unreviewedToday) {
+    rows.push(<div key="ur"><span className="accent">i</span> {plural(unreviewedToday, "unreviewed trade")} today <a href="#/trades?range=today&review=no">REVIEW ›</a></div>);
   }
   for (const r of reviews.openButClosed) {
-    rows.push(<div key={`ro${r.id}`}><span className="half">!</span> <a className="sym" href={reviewHref(r.id)}>{r.ticker}</a> {r.date} swing review still OPEN, but the position has closed: finish the exit sections (<code>/playbook-review {r.ticker}</code>)</div>);
+    const idea = journal.ideaById.get(journal.reviews.ideaOf.get(r.id) ?? "");
+    const closes = (idea?.tradeIds ?? []).map((id) => journal.tradeById.get(id)?.closedAt).filter((c): c is string => !!c).sort();
+    const closedOn = closes.length ? ` closed ${mmdd(dateOf(closes[closes.length - 1]!))}` : " closed";
+    rows.push(
+      <div key={`ro${r.id}`}>
+        <span className="half">!</span> <a className="sym" href={reviewHref(r.id)}>{r.ticker}</a> idea from {r.date ? mmdd(r.date) : "?"}{closedOn}: write
+        the exit (<code>/playbook-review {r.ticker}</code>)
+      </div>,
+    );
   }
   for (const r of reviews.unmatched) {
     rows.push(<div key={`ru${r.id}`}><span className="half">!</span> <a className="sym" href={reviewHref(r.id)}>{r.ticker ?? r.id}</a> {r.date ?? ""} review matches no idea: check its date and ticker</div>);
@@ -253,22 +261,36 @@ function AttentionList({ a, reviews, journal }: { a: Attention; reviews: ReviewA
     const idea = journal.ideaById.get(m.ideaId);
     rows.push(<div key={`rm${m.ideaId}`}><span className="accent">i</span> {idea?.underlying} {idea?.date} idea has {m.reviews.length} reviews: {m.reviews.map((r, i) => <span key={r.id}>{i ? ", " : ""}<a href={reviewHref(r.id)}>{r.id}</a></span>)}</div>);
   }
+  return rows;
+}
+
+/**
+ * Needs attention, pinned under the gauges as one line that opens into the list (#15, SPEC §6.1).
+ * Nothing renders when nothing needs attention.
+ */
+export function AttentionBar(p: AttentionProps) {
+  const [open, setOpen] = useState(false);
+  const rows = attentionRows(p);
+  if (!rows.length) return null;
   return (
-    <div className="attention">
-      {rows.length ? rows : <div className="muted">Nothing needs attention.</div>}
-      <div className="dim small">Unmapped ETF symbols are flagged by the import preview.</div>
-    </div>
+    <section className="panel attention-bar" aria-label="Needs attention">
+      <button type="button" className="attention-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="half b">!</span> <span className="label">Needs attention</span> <b>{plural(rows.length, "item").toUpperCase()}</b>{" "}
+        <span className="accent">{open ? "▾" : "›"}</span>
+      </button>
+      {open && <div className="attention">{rows}</div>}
+    </section>
   );
 }
 
-export function WidgetGrid({ r, attention, reviews, journal }: { r: RangeStats; attention: Attention; reviews: ReviewAttention; journal: Journal }) {
+export function WidgetGrid({ r }: { r: RangeStats }) {
   const dowBars: Bar[] = r.byDayOfWeek.map((b) => ({
     key: String(b.dow), label: DOW[b.dow], value: b.net, cls: pnlBar(b.net),
-    text: `${money(b.net)}  ${(b.share * 100).toFixed(0).padStart(3)}%`, title: `${b.trades} trades · ${pct(b.winRate)} win`,
+    text: `${money(b.net)} · ${b.trades}`, title: `${plural(b.trades, "trade")} · ${pct(b.winRate)} win`,
   }));
   const durBars: Bar[] = r.byDuration.filter((b) => b.trades).map((b) => ({
     key: b.bucket, label: b.bucket, value: b.net, cls: pnlBar(b.net),
-    text: `${money(b.net)} · ${b.trades}`, title: `${b.trades} trades · ${pct(b.winRate)} win`,
+    text: `${money(b.net)} · ${b.trades}`, title: `${plural(b.trades, "trade")} · ${pct(b.winRate)} win`,
   }));
   const avgBars: Bar[] = [
     { key: "w", label: "AVG WIN", value: r.avgWin ?? 0, text: money(r.avgWin), cls: "gain" },
@@ -279,21 +301,20 @@ export function WidgetGrid({ r, attention, reviews, journal }: { r: RangeStats; 
     <>
       <StatRow r={r} />
       <div className="widgets">
-        <Widget title={<>Cum P&amp;L · {r.days}D · <span className={pnlClass(last?.cum)}>{money(last?.cum ?? 0)}</span></>}>
+        <Widget title={<>Cumulative P&amp;L · {r.days} days · <span className={pnlClass(last?.cum)}>{money(last?.cum ?? 0)}</span></>}>
           <CumulativeChart pts={r.cumulative.map((p) => ({ date: p.date, value: p.net, cum: p.cum }))} label={`Cumulative P&L over ${r.days} days`} />
         </Widget>
-        <Widget title={<>Win % / day · avg {pct(r.summary.winRate)} <span className="accent">┄</span></>}>
+        <Widget title={<>Daily win % · avg {pct(r.summary.winRate)} <span className="accent">┄</span></>}>
           <WinByDay days={r.winByDay.map((d) => ({ ...d, value: d.net }))} avg={r.summary.winRate} />
         </Widget>
         <Widget title="Winning vs losing trades"><Donut r={r} /></Widget>
         <Widget title="Hold time · winners vs losers"><HoldTimes r={r} /></Widget>
         <Widget title="Average winning vs losing trade"><HBars bars={avgBars} /></Widget>
-        <Widget title="Largest gain vs largest loss"><LargestGauge r={r} /></Widget>
-        <Widget title="Performance by day of week (P&L · % of |total|)"><HBars bars={dowBars} /></Widget>
-        <Widget title="Performance by duration (P&L · trades)">
+        <Widget title="Largest gain vs largest loss"><Largest r={r} /></Widget>
+        <Widget title="P&L by weekday (P&L · trades)"><HBars bars={dowBars} /></Widget>
+        <Widget title="P&L by hold time (P&L · trades)">
           {durBars.length ? <HBars bars={durBars} /> : <div className="empty">No closed trades in range</div>}
         </Widget>
-        <Widget title="Needs attention" wide><AttentionList a={attention} reviews={reviews} journal={journal} /></Widget>
       </div>
     </>
   );

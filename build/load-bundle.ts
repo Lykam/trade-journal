@@ -5,7 +5,9 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadHistory, validate } from "../cli/lib/history.ts";
+import { lastImports } from "../src/core/dashboard/dashboard.ts";
 import type { DataBundle } from "../src/core/types.ts";
+
 import { readQuotes } from "./fetch-quotes.ts";
 import { loadPlaybook } from "./playbook.ts";
 
@@ -20,6 +22,7 @@ export function loadBundle(historyDir: string, quotesFile: string, playbookDir: 
     derived: h.derived,
     // Source file names carry broker account ids; the app never needs them.
     fills: h.fills.map((f) => ({ ...f, source: "", importedAt: "" })),
+    imports: lastImports(h.fills),
     overrides: h.overrides,
     quotes: readQuotes(quotesFile),
     playbook: loadPlaybook(playbookDir),

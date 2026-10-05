@@ -160,9 +160,11 @@ export function sizeState(delta: number, bands: Config["gauge"]["bands"]): SizeS
 }
 
 const MESSAGES: Record<SizeState, string> = {
-  full: "At or above your average. Full size.",
-  half: "Below average. Trade ½ size until the win rate is back to average.",
-  quarter: "Well below average. Trade ¼ size until the win rate is back to average.",
+  // Sizes are spelled out: at body size "½" reads as "%" in JetBrains Mono (#13). The glyphs stay in the big headline.
+  full: "At or above your average.",
+  half: "Below your average: trade half size.",
+  quarter: "Well below your average: trade quarter size.",
+
 };
 
 export function windowStats(items: WindowItem[]): WindowStats {
@@ -291,6 +293,33 @@ export function computeGauge(style: Style, input: GaugeInput): Gauge {
   };
 }
 
+/**
+ * How many more wins this week bring the gauge back to full size, all else equal (#15):
+ * each win joins the window and, while backfill is padding it, pushes the oldest prior
+ * trade out. Null when already at full size, without a baseline, or out of reach (> 50).
+ */
+export function winsToFull(g: Gauge, config: Config): { wins: number; w: number; l: number } | null {
+  if (g.state === "full" || g.state === null || g.baseline.winRate === null) return null;
+  const base = g.items.filter((i) => i.source !== "prior" && decisive(i.result));
+  const prior = g.items.filter((i) => i.source === "prior");
+  const min = config.gauge.minSample[g.style];
+  for (let k = 1; k <= 50; k++) {
+    let need = Math.max(0, min - base.length - k);
+    let w = base.filter((i) => i.result === "win").length + k;
+    let l = base.length - (w - k);
+    for (const p of prior) {
+      if (need <= 0) break;
+      if (!decisive(p.result)) continue;
+      if (p.result === "win") w++;
+      else l++;
+      need--;
+    }
+    if (sizeState(round((w / (w + l) - g.baseline.winRate) * 100, 6), config.gauge.bands) === "full") return { wins: k, w, l };
+  }
+  return null;
+}
+
 export function computeGauges(input: GaugeInput): Record<Style, Gauge> {
+
   return { day: computeGauge("day", input), swing: computeGauge("swing", input) };
 }

@@ -11,6 +11,8 @@
 //   trades the gauges look at makes Day show ½ (or ¼) size and Swing Full size.
 import { addDays, dayOfWeek, etInstant, weekStart } from "../core/calendar";
 import { computeGauge } from "../core/gauge/gauge";
+import { lastSessionDate } from "../core/market";
+
 import { assignIds, type RawFill } from "../core/normalize/ids";
 import { compareFills } from "../core/normalize/dedupe";
 import { cents, etDate, etOffset, round } from "../core/normalize/util";
@@ -531,6 +533,7 @@ export function generateDemo(now: string): DemoData {
     return demoReview(idea, status, j, charts);
   });
 
+  const lastImport = new Date(Math.min(etInstant(lastSessionDate(now), "17:30:00"), nowMs)).toISOString();
   const bundle: DataBundle = {
     config: DEMO_CONFIG,
     symbols: DEMO_SYMBOLS,
@@ -541,6 +544,8 @@ export function generateDemo(now: string): DemoData {
     playbook: { reviews, images: Object.keys(images).sort() },
     loadedAt: now,
     history: null,
+    // Both brokers imported the evening of the latest closed session, as after a normal day.
+    imports: { webull: lastImport, schwab: lastImport },
   };
   return { bundle, images };
 }
