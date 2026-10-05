@@ -1136,10 +1136,16 @@ other than date they read **‹ Prev / Next ›**.
 
 ### 6.8 Import
 
-See §4.5A. Drag-and-drop CSVs, then a preview (new, duplicate and skipped
-counts, errors, Webull ticker changes, new ETF symbols to map with a guess,
-new or changed trades with P&L, and the full `--dry-run` report), then
-**Commit**. Errors block the commit. Needs the browser token.
+See §4.5A. Drag-and-drop CSVs, then a preview (new fills and trades, with
+changed, removed, duplicate and skipped counts shown only when above zero and
+errors always; Webull ticker changes; new ETF symbols to map with a guess;
+new or changed trades with P&L; and the full `--dry-run` report, collapsed,
+carrying the commit it was computed against), then **Commit** (the files it
+writes in a collapsed list). Errors block the commit. Needs the browser token.
+A new ETF row starts ticked when its guessed underlying is a symbol already
+traded, and unticked otherwise; it is only written on Commit (Q64). After a
+commit the page offers **BACK TO DASH ›**, and IMPORT shows as active in the
+top bar.
 
 ### 6.9 Settings
 
@@ -1149,8 +1155,11 @@ new or changed trades with P&L, and the full `--dry-run` report), then
   GitHub's new-token page with name, description, expiry and permissions
   pre-filled (`?name=…&target_name=Lykam&expires_in=90&contents=write`);
   repository access can't be pre-filled and is picked by hand.
-- A read-only view of `config.json` and `symbols.json`, with links to edit
-  them on GitHub.
+- **Gauge rules** in plain words, from `config.json` ("Average = your win %
+  over the last 90 days, this week excluded. Half size below your average;
+  quarter size 10+ points below it…", Q64).
+- A read-only view of `config.json` and `symbols.json` side by side, with
+  links to edit them on GitHub.
 
 ### 6.10 Not in v1 (compared with Tradervue)
 
@@ -1480,6 +1489,7 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q64 | Import and Settings | UX review (#23), owner decision 2026-10-04: a new ETF mapping row is pre-ticked when its guessed underlying is already traded (`preTick`). It stays visible and editable and is written only on Commit, so Q8's explicit mapping holds. Import plumbing (file list, ref) is collapsed; a commit ends with a link back to the dashboard; IMPORT shows as active on its page. Settings states the gauge rules from config (`gaugeRules`) and puts the two JSON views side by side. (2026-10-04, #23) |
 | Q63 | Journal and Calendar | UX review (#22). The Journal's REVIEW column folds in the idea status; an OPEN review on a closed idea (`exitMissing`, the same check Needs attention uses) reads EXIT MISSING and sorts first (`journalOrder`). The second IDEA column is gone and the Reviewed filter is hidden there. The review page header gives the idea's date span. The calendar outlines today and the year view gets weekday letters and a legend. (2026-10-04, #22) |
 | Q62 | Trades and Trade detail | UX review (#21). The Date column is always one date (close, or open while open), with a multi-day range moved to Hold. The bulk bar docks at the bottom of the screen under the table. Notes hides when the page has none. Filter bars start collapsed unless something is filtered, with the active filters as chips. Trade detail moves the charts into the left column, links its review with 📄 (the one reviewed marker everywhere, replacing the dashboard's `R` and the detail chip), and steps with `j` / `k`. Native date inputs stay (owner decision): a text field would lose the phone date picker. (2026-10-04, #21) |
 

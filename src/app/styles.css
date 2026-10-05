@@ -523,3 +523,6 @@ rect.bar-on { stroke: var(--accent); stroke-width: 1; vector-effect: non-scaling
 .key-gain { background: color-mix(in srgb, var(--gain) 40%, var(--panel)); }
 .key-loss { background: color-mix(in srgb, var(--loss) 40%, var(--panel)); }
 .key-none { background: var(--rule-faint); border: 1px solid var(--rule); }
+/* Settings (#23): the two JSON panels share a row across the page. */
+.json-pair { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
+.nav a.btn.active { background: var(--accent); color: var(--on-accent); }

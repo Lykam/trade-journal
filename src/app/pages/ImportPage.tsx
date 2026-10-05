@@ -4,7 +4,7 @@
 // Errors block the commit.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { gitBlobSha } from "../../core/history/files";
-import { exportOrder, previewLines, type ImportInput } from "../../core/import/plan";
+import { exportOrder, preTick, previewLines, type ImportInput } from "../../core/import/plan";
 import { detectBroker } from "../../core/normalize";
 import type { DataBundle, SymbolInfo, SymbolsMap } from "../../core/types";
 import type { TokenRecord } from "../../core/github/token-store";
@@ -143,8 +143,11 @@ export function ImportPage({ data }: { data: DataBundle }) {
     const add: Record<string, MapRow> = {};
     for (const e of computed.plan.result.unmappedEtfs) {
       if (maps[e.symbol]) continue;
-      // The guess is pre-filled but never mapped until the row is checked.
-      add[e.symbol] = { on: false, name: e.name, underlying: e.guess.underlying ?? "", leverage: String(e.guess.leverage), direction: e.guess.direction, issuer: e.guess.issuer ?? "" };
+      // Pre-ticked only when the guessed underlying is a symbol already traded (#23); it is still shown and only saved on COMMIT.
+      add[e.symbol] = {
+        on: preTick(e.guess.underlying, data.derived.trades), name: e.name, underlying: e.guess.underlying ?? "",
+        leverage: String(e.guess.leverage), direction: e.guess.direction, issuer: e.guess.issuer ?? "",
+      };
     }
     if (Object.keys(add).length) setMaps((m) => ({ ...add, ...m }));
   }, [computed, maps]);
@@ -385,7 +388,9 @@ export function ImportPage({ data }: { data: DataBundle }) {
                 {__TJ_DEMO__ && <span className="note-line">{DEMO_COMMIT_NOTE}</span>}
                 {plan.errors.length > 0 && <span className="loss small">Errors block the commit. Fix the files and drop them again.</span>}
                 {status.kind === "done" && (
-                  <span className="gain small">COMMITTED{status.url ? <> · <a href={status.url} target="_blank" rel="noopener noreferrer">VIEW COMMIT ↗</a></> : " (nothing changed)"}</span>
+                  <span className="gain small">
+                    COMMITTED{status.url ? <> · <a href={status.url} target="_blank" rel="noopener noreferrer">VIEW COMMIT ↗</a></> : " (nothing changed)"} · <a href="#/">BACK TO DASH ›</a>
+                  </span>
                 )}
               </div>
             </div>

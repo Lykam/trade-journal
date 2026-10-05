@@ -108,7 +108,7 @@ export function App() {
         <span className="spacer" />
         {pinned && <span className="half">NOW PINNED {now.slice(0, 16)}Z</span>}
         {load.status === "ready" && <DataStamps data={load.data} now={now} />}
-        <a className="btn primary" href="#/import">IMPORT</a>
+        <a className={`btn primary ${path === "/import" ? "active" : ""}`} href="#/import" aria-current={path === "/import" ? "page" : undefined}>IMPORT</a>
         {__TJ_DEMO__ ? (
           <span className="chip accent chip-lg" title="This demo runs on synthetic data generated in your browser">DEMO</span>
         ) : import.meta.env.DEV ? (

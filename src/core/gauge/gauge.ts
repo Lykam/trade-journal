@@ -319,6 +319,18 @@ export function winsToFull(g: Gauge, config: Config): { wins: number; w: number;
   return null;
 }
 
+/** The gauge rules in plain words, from config (Settings, #23). */
+export function gaugeRules(config: Config): string[] {
+  const g = config.gauge;
+  const below = (pts: number) => (pts === 0 ? "below your average" : `${pts}+ points below it`);
+  return [
+    `Average = your win % over the last ${g.baselineDays} days${g.excludeCurrentWeekFromBaseline ? ", this week excluded" : ""}.`,
+    `Half size ${below(g.bands.halfSizeBelowPts)}; quarter size ${below(g.bands.quarterSizeBelowPts)}.`,
+    `Needs ${g.minSample.day} day / ${g.minSample.swing} swing trades this week; earlier trades fill in until then.`,
+    ...(g.swingIncludesOpenPositions ? ["Swing counts open positions at the last price."] : []),
+  ];
+}
+
 export function computeGauges(input: GaugeInput): Record<Style, Gauge> {
 
   return { day: computeGauge("day", input), swing: computeGauge("swing", input) };

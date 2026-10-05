@@ -2,7 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { buyFees, daysHeld, openPositions, rangeStats, sortOpenRows } from "../src/core/dashboard/dashboard";
 import { lastImports } from "../src/core/imports";
-import { computeGauge, winsToFull } from "../src/core/gauge/gauge";
+import { computeGauge, gaugeRules, winsToFull } from "../src/core/gauge/gauge";
+import { preTick } from "../src/core/import/plan";
 import { importBehind, lastSessionDate } from "../src/core/market";
 import { activeFilterLabels, defaultView, emptyFilter } from "../src/core/journal/filter";
 import { buildJournal, groupPnl, type Journal } from "../src/core/journal/journal";
@@ -192,5 +193,24 @@ describe("#21 trades", () => {
     // The calendar ignores dates, so its chips leave them out.
     expect(activeFilterLabels({ ...emptyFilter(), preset: "week" }, "2026-10-04", "monday", false)).toEqual([]);
     expect(activeFilterLabels(emptyFilter(), "2026-10-04")).toEqual([]);
+  });
+});
+
+describe("#23 import and settings", () => {
+  it("pre-ticks a new ETF mapping only when the guessed underlying was traded", () => {
+    const trades = [{ symbol: "ZZTA", underlying: "ZZTA" }, { symbol: "FAKU", underlying: "FAKE" }];
+    expect(preTick("zzta", trades)).toBe(true);
+    expect(preTick("FAKE", trades)).toBe(true);
+    expect(preTick("NOPE", trades)).toBe(false);
+    expect(preTick(null, trades)).toBe(false);
+  });
+
+  it("states the gauge rules from config", () => {
+    expect(gaugeRules(config)).toEqual([
+      "Average = your win % over the last 90 days, this week excluded.",
+      "Half size below your average; quarter size 10+ points below it.",
+      "Needs 5 day / 3 swing trades this week; earlier trades fill in until then.",
+      "Swing counts open positions at the last price.",
+    ]);
   });
 });
