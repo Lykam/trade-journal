@@ -197,6 +197,7 @@ tr.clickable:hover { background: var(--inset); }
 
 /* ---- shared controls (milestone 3) */
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+fieldset.plain { border: 0; margin: 0; padding: 0; min-width: 0; }
 .btn.ghost { border-color: transparent; padding: 0 8px; }
 .btn.ghost:hover { color: var(--accent); }
 .btn.small { min-height: 24px; padding: 0 6px; }

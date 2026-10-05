@@ -90,7 +90,8 @@ function openNow(data: DataBundle, t: Trade, now: string) {
 
 function TagRow({ data, journal: j, t }: { data: DataBundle; journal: Journal; t: Trade }) {
   const tags = j.tags.get(t.id) ?? { auto: [], manual: t.tags, all: t.tags };
-  const { staged, current, apply, discard } = useStagedOverrides(data);
+  const staging = useStagedOverrides(data);
+  const { current, apply, discard, locked } = staging;
   const [adding, setAdding] = useState(false);
   const [tag, setTag] = useState("");
   const manual = current.trades[t.id]?.tags ?? t.tags;
@@ -102,13 +103,13 @@ function TagRow({ data, journal: j, t }: { data: DataBundle; journal: Journal; t
         <form className="row" onSubmit={(e) => { e.preventDefault(); if (tag.trim()) apply([t], { kind: "addTag", tag: tag.trim() }); setTag(""); }}>
           <input className="input" autoFocus value={tag} onChange={(e) => setTag(e.target.value)} placeholder="tag" aria-label="New tag" list="detail-tags" />
           <datalist id="detail-tags">{j.allTags.map((x) => <option key={x} value={x} />)}</datalist>
-          <button type="submit" className="btn">ADD</button>
-          <button type="button" className="btn ghost" onClick={() => { setAdding(false); discard(); }}>CANCEL</button>
+          <button type="submit" className="btn" disabled={locked}>ADD</button>
+          <button type="button" className="btn ghost" disabled={locked} onClick={() => { setAdding(false); discard(); }}>CANCEL</button>
         </form>
       ) : (
         <button type="button" className="btn ghost" onClick={() => setAdding(true)}>ADD TAGS +</button>
       )}
-      {staged && <div style={{ flexBasis: "100%" }}><StagedPreview data={data} staged={staged} onDiscard={discard} /></div>}
+      {(staging.staged || staging.committed) && <div style={{ flexBasis: "100%" }}><StagedPreview data={data} staging={staging} /></div>}
     </section>
   );
 }
@@ -229,7 +230,8 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
   const idea = j.ideaById.get(t.ideaId);
   const command = `/playbook-review ${idea?.underlying ?? t.underlying} ${idea?.date ?? etDate(t.openedAt)}`;
   const [copied, setCopied] = useState<"" | "ok" | "fail">("");
-  const { staged, apply, discard } = useStagedOverrides(data);
+  const staging = useStagedOverrides(data);
+  const { staged, apply, locked } = staging;
   const [note, setNote] = useState(t.note ?? "");
   if (reviews.length) {
     return (
@@ -255,10 +257,10 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
         <label className="label small" htmlFor="quick-note">QUICK NOTE</label>
         <textarea id="quick-note" className="input" rows={2} value={note} placeholder="One or two lines…" onChange={(e) => setNote(e.target.value)} />
         <div className="row">
-          <button type="button" className="btn" disabled={note === (t.note ?? "")} onClick={() => apply([t], { kind: "setNote", note })}>STAGE NOTE</button>
+          <button type="button" className="btn" disabled={locked || note === (t.note ?? "")} onClick={() => apply([t], { kind: "setNote", note })}>STAGE NOTE</button>
           {staged && <span className="dim small">staged, not saved</span>}
         </div>
-        {staged && <StagedPreview data={data} staged={staged} onDiscard={() => { discard(); setNote(t.note ?? ""); }} onCommitted={discard} />}
+        <StagedPreview data={data} staging={staging} onDiscard={() => setNote(t.note ?? "")} />
         <div className="start-review">
           <button type="button" className="btn primary" onClick={async () => setCopied((await copyText(command)) ? "ok" : "fail")}>START REVIEW</button>
           <code>{command}</code>

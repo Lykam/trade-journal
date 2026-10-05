@@ -487,7 +487,10 @@ in the same commit.
 Editing overrides (bulk actions, Add tags, quick note) uses the same commit
 flow: the staged actions are replayed on `overrides.json` as it is on `main`
 now, the preview against that is shown, and CONFIRM writes `overrides.json` and
-a regenerated `derived/trades.json` in one commit. The browser and the CLI share
+a regenerated `derived/trades.json` in one commit. Staging is paused while that
+preview is open, so CONFIRM writes exactly what it shows; a commit removes only
+the actions it wrote from the staged list, and its "COMMITTED · VIEW COMMIT ↗"
+line stays until the next edit (`src/core/journal/staging.ts`). The browser and the CLI share
 `src/core/import/plan.ts` and `src/core/history/files.ts`, and a test checks
 that the same CSVs give byte-identical files through both paths.
 

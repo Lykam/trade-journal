@@ -2,45 +2,56 @@
 // style / Exclude. Actions are staged against overrides.json and previewed by
 // re-deriving trades; COMMIT replays them on the current trade-history (read
 // fresh through the GitHub API), shows that preview, then writes one commit.
-import { useMemo, useState } from "react";
+// Staging is locked while the preview is open, so CONFIRM writes exactly what
+// is shown, and only the committed actions leave the staged list.
+import { useEffect, useMemo, useReducer, useState } from "react";
 import type { Journal } from "../../core/journal/journal";
 import {
-  applyBulkAction, changedOverrideIds, describeStaged, previewOverrides, type BulkAction, type OverrideCommitPlan, type StagedAction,
+  changedOverrideIds, describeStaged, previewOverrides, type BulkAction, type OverrideCommitPlan, type StagedAction,
 } from "../../core/journal/overrides";
-import type { DataBundle, Overrides, Trade } from "../../core/types";
+import { initialStaging, stagingReducer, type Staged, type StagingEvent, type StagingState } from "../../core/journal/staging";
+import type { DataBundle, Trade } from "../../core/types";
 import { ACTIONS_URL, clientFor, feedsSite, useToken, watchDeploy } from "../github";
 
-export interface Staged {
-  overrides: Overrides;
-  actions: StagedAction[];
+/** Staged override edits: the actions so far, the overrides they produce, and the commit lock and outcome. */
+export function useStagedOverrides(data: DataBundle) {
+  const [state, dispatch] = useReducer(
+    (s: StagingState, e: StagingEvent) => stagingReducer({ base: data.overrides, trades: data.derived.trades, config: data.config }, s, e),
+    initialStaging,
+  );
+  return {
+    ...state,
+    current: state.staged?.overrides ?? data.overrides,
+    apply: (trades: Trade[], action: BulkAction) => dispatch({ kind: "stage", trades, action }),
+    discard: () => dispatch({ kind: "discard" }),
+    setLocked: (locked: boolean) => dispatch({ kind: "lock", locked }),
+    markCommitted: (count: number, url: string | null) => dispatch({ kind: "committed", count, url }),
+    dismiss: () => dispatch({ kind: "dismiss" }),
+  };
 }
 
-/** Staged override edits: the actions so far and the overrides they produce. */
-export function useStagedOverrides(data: DataBundle) {
-  const [staged, setStaged] = useState<Staged | null>(null);
-  const current = staged?.overrides ?? data.overrides;
-  const apply = (trades: Trade[], action: BulkAction) =>
-    setStaged({
-      overrides: applyBulkAction(current, trades, action, data.config),
-      actions: [...(staged?.actions ?? []), { tradeIds: trades.map((t) => t.id), action }],
-    });
-  return { staged, current, apply, discard: () => setStaged(null) };
-}
+export type Staging = ReturnType<typeof useStagedOverrides>;
 
 type Phase =
   | { kind: "idle" }
   | { kind: "reading" }
-  | { kind: "review"; plan: OverrideCommitPlan; remote: import("../remote").RemoteHistory; notice?: string }
+  | { kind: "review"; plan: OverrideCommitPlan; remote: import("../remote").RemoteHistory; actions: StagedAction[]; notice?: string }
   | { kind: "committing"; plan: OverrideCommitPlan }
-  | { kind: "done"; url: string | null }
   | { kind: "error"; message: string };
 
 const short = (sha: string) => sha.slice(0, 7);
 
 /** Review against the current trade-history, then commit. */
-function CommitFlow({ staged, onCommitted }: { staged: Staged; onCommitted: () => void }) {
+function CommitFlow({ staged, onLock, onCommitted }: {
+  staged: Staged;
+  onLock: (locked: boolean) => void;
+  onCommitted: (count: number, url: string | null) => void;
+}) {
   const token = useToken();
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const busy = phase.kind === "reading" || phase.kind === "review" || phase.kind === "committing";
+  useEffect(() => onLock(busy), [busy]);
+  useEffect(() => () => onLock(false), []);
   if (token.status !== "ok") {
     return (
       <span className="dim small">
@@ -56,7 +67,7 @@ function CommitFlow({ staged, onCommitted }: { staged: Staged; onCommitted: () =
       const { gh, repo } = clientFor(record);
       const remote = await import("../remote");
       const r = await remote.read(gh, repo);
-      setPhase({ kind: "review", plan: remote.computeOverrides(r, staged.actions), remote: r });
+      setPhase({ kind: "review", plan: remote.computeOverrides(r, staged.actions), remote: r, actions: staged.actions });
     } catch (e) {
       setPhase({ kind: "error", message: (e as Error).message });
     }
@@ -67,8 +78,7 @@ function CommitFlow({ staged, onCommitted }: { staged: Staged; onCommitted: () =
     const remote = await import("../remote");
     const { gh } = clientFor(record);
     try {
-      const out = await remote.commitOverrides(gh, p.remote, p.plan, staged.actions);
-      setPhase({ kind: "done", url: out.commit?.url ?? null });
+      const out = await remote.commitOverrides(gh, p.remote, p.plan, p.actions);
       if (out.commit) {
         const site = feedsSite(record);
         watchDeploy({
@@ -79,11 +89,12 @@ function CommitFlow({ staged, onCommitted }: { staged: Staged; onCommitted: () =
           note: site ? undefined : `Committed to ${record.repo}, which the site doesn't read; the reload shows the same data.`,
         });
       }
-      onCommitted();
+      setPhase({ kind: "idle" });
+      onCommitted(p.actions.length, out.commit?.url ?? null);
     } catch (e) {
       const err = e as Error & { plan?: OverrideCommitPlan; remote?: import("../remote").RemoteHistory };
       if (err.name === "PreviewChangedError" && err.plan && err.remote) {
-        setPhase({ kind: "review", plan: err.plan, remote: err.remote, notice: err.message });
+        setPhase({ kind: "review", plan: err.plan, remote: err.remote, actions: p.actions, notice: err.message });
       } else {
         setPhase({ kind: "error", message: err.message });
       }
@@ -97,8 +108,6 @@ function CommitFlow({ staged, onCommitted }: { staged: Staged; onCommitted: () =
       return <span className="muted small">READING {record.repo.toUpperCase()}…</span>;
     case "committing":
       return <span className="accent small">COMMITTING…</span>;
-    case "done":
-      return <span className="gain small">COMMITTED{phase.url ? <> · <a href={phase.url} target="_blank" rel="noopener noreferrer">VIEW COMMIT ↗</a></> : " (nothing changed)"}</span>;
     case "error":
       return (
         <span className="row">
@@ -136,7 +145,27 @@ function CommitFlow({ staged, onCommitted }: { staged: Staged; onCommitted: () =
   }
 }
 
-export function StagedPreview({ data, staged, onDiscard, onCommitted = onDiscard }: { data: DataBundle; staged: Staged; onDiscard: () => void; onCommitted?: () => void }) {
+/** The last commit's outcome, kept on screen after its staged actions are gone. */
+function CommitNotice({ url, onDismiss }: { url: string | null; onDismiss: () => void }) {
+  return (
+    <div className="row" role="status">
+      <span className="gain small">COMMITTED{url ? <> · <a href={url} target="_blank" rel="noopener noreferrer">VIEW COMMIT ↗</a></> : " (nothing changed)"}</span>
+      <button type="button" className="btn ghost" onClick={onDismiss}>OK</button>
+    </div>
+  );
+}
+
+/** Staged edits with their preview and commit flow, and the last commit's outcome. Renders nothing when there is neither. */
+export function StagedPreview({ data, staging: s, onDiscard }: { data: DataBundle; staging: Staging; onDiscard?: () => void }) {
+  return (
+    <>
+      {s.committed && <CommitNotice url={s.committed.url} onDismiss={s.dismiss} />}
+      {s.staged && <StagedEdits data={data} staging={s} staged={s.staged} onDiscard={onDiscard} />}
+    </>
+  );
+}
+
+function StagedEdits({ data, staging: s, staged, onDiscard }: { data: DataBundle; staging: Staging; staged: Staged; onDiscard?: () => void }) {
   const preview = useMemo(
     () => previewOverrides(data.fills, { config: data.config, symbols: data.symbols }, data.overrides, staged.overrides),
     [data, staged.overrides],
@@ -156,21 +185,24 @@ export function StagedPreview({ data, staged, onDiscard, onCommitted = onDiscard
         <pre className="json">{JSON.stringify(Object.fromEntries(ids.map((id) => [id, staged.overrides.trades[id] ?? null])), null, 2)}</pre>
       </details>
       <div className="row">
-        <CommitFlow staged={staged} onCommitted={onCommitted} />
-        <button type="button" className="btn" onClick={onDiscard}>DISCARD</button>
+        {/* Keyed on the actions, so a changed staged list never keeps an old preview open. */}
+        <CommitFlow key={staged.actions.length} staged={staged} onLock={s.setLocked} onCommitted={s.markCommitted} />
+        <button type="button" className="btn" disabled={s.locked} onClick={() => { s.discard(); onDiscard?.(); }}>DISCARD</button>
       </div>
+      {s.locked && <div className="dim small">Staging is paused while the commit preview is open: CONFIRM or go BACK first.</div>}
     </div>
   );
 }
 
 export function BulkBar({ data, journal: j, selected, onClear }: { data: DataBundle; journal: Journal; selected: Set<string>; onClear: () => void }) {
   const trades = [...selected].map((id) => j.tradeById.get(id)).filter((t) => t !== undefined);
-  const { staged, current, apply, discard } = useStagedOverrides(data);
+  const staging = useStagedOverrides(data);
+  const { current, apply, discard, locked } = staging;
   const [tag, setTag] = useState("");
   const manual = [...new Set(trades.flatMap((t) => current.trades[t.id]?.tags ?? t.tags))].sort();
   return (
     <section className="panel bulk" aria-label="Bulk actions">
-      <div className="row">
+      <fieldset className="row plain" disabled={locked}>
         <b className="accent">{trades.length} SELECTED</b>
         <form className="row" onSubmit={(e) => { e.preventDefault(); if (tag.trim()) { apply(trades, { kind: "addTag", tag: tag.trim() }); setTag(""); } }}>
           <input className="input" value={tag} onChange={(e) => setTag(e.target.value)} placeholder="new tag" aria-label="Tag to add" list="tag-list" />
@@ -191,8 +223,8 @@ export function BulkBar({ data, journal: j, selected, onClear }: { data: DataBun
         </div>
         <span className="grow" />
         <button type="button" className="btn ghost" onClick={() => { discard(); onClear(); }}>CLEAR SELECTION</button>
-      </div>
-      {staged && <StagedPreview data={data} staged={staged} onDiscard={discard} />}
+      </fieldset>
+      <StagedPreview data={data} staging={staging} />
     </section>
   );
 }
