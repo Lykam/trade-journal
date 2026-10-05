@@ -19,6 +19,11 @@ function identity(f: RawFill, placedAt?: string): string {
     : [f.account, f.symbol, f.side, f.qty, f.price, f.executedAt].join("|");
 }
 
+/** The id of a fill with this identity, the n-th identical row in its file. */
+export function fillIdFor(f: RawFill, placedAt: string | undefined, n: number): string {
+  return `${PREFIX[f.broker]}-${shortHash(`${identity(f, placedAt)}|${n}`)}`;
+}
+
 /**
  * Give each fill its stable id: broker prefix + hash of its identity plus n,
  * where n counts otherwise identical rows in the same file. `raw` must be in
@@ -30,6 +35,6 @@ export function assignIds(raw: RawFill[], placedAt: Array<string | undefined> = 
     const key = identity(f, placedAt[i]);
     const n = seen.get(key) ?? 0;
     seen.set(key, n + 1);
-    return { id: `${PREFIX[f.broker]}-${shortHash(`${key}|${n}`)}`, ...f };
+    return { id: fillIdFor(f, placedAt[i], n), ...f };
   });
 }

@@ -2,9 +2,9 @@
 // the list of chart images. Read only; nothing here ever writes to Playbook.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { REPO_ROOT } from "../cli/lib/history";
-import { IMAGE_EXT_RE } from "../src/core/reviews/images";
-import type { PlaybookData } from "../src/core/types";
+import { REPO_ROOT } from "../cli/lib/history.ts";
+import { IMAGE_EXT_RE } from "../src/core/reviews/images.ts";
+import type { PlaybookData } from "../src/core/types.ts";
 
 export function resolvePlaybookDir(flag?: string): string {
   return resolve(flag ?? process.env.PLAYBOOK_DIR ?? join(REPO_ROOT, "..", "Playbook"));

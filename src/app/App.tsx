@@ -40,8 +40,8 @@ export function App() {
   }, [path]);
   const pinned = new URLSearchParams(window.location.search).has("now");
 
-  // The encrypted site shows nothing but the passphrase screen until unlocked.
-  if (load.status === "locked") return <LockScreen notice={load.notice} unlock={load.unlock} />;
+  // The encrypted site shows nothing but the passphrase screen until unlocked. (The demo never locks.)
+  if (load.status === "locked") return __TJ_DEMO__ ? null : <LockScreen notice={load.notice} unlock={load.unlock} />;
 
   let page: React.ReactNode;
   if (load.status === "loading") page = <div className="center-msg">LOADING…</div>;
@@ -61,7 +61,7 @@ export function App() {
   else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
   else if (path === "/reports") page = <ReportsPage journal={journal!} view={view} params={params} />;
   else if (path === "/settings") page = <SettingsPage data={load.data} />;
-  else if (path === "/import") page = <ImportPage />;
+  else if (path === "/import") page = <ImportPage data={load.data} />;
   else page = <Stub title="NOT FOUND" />;
 
   const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path;
@@ -78,13 +78,15 @@ export function App() {
         {pinned && <span className="half">NOW PINNED {now.slice(0, 16)}Z</span>}
         <span className="muted">{asOf ? `QUOTES ${timeOf(asOf)}` : "NO QUOTES"}</span>
         <a className="btn primary" href="#/import">IMPORT</a>
-        {import.meta.env.DEV ? (
+        {__TJ_DEMO__ ? (
+          <span className="chip accent chip-lg" title="This demo runs on synthetic data generated in your browser">DEMO</span>
+        ) : import.meta.env.DEV ? (
           <button type="button" className="btn" disabled title="Dev mode reads local plaintext; the deployed site locks">LOCK</button>
         ) : (
           <button type="button" className="btn" onClick={lock} disabled={load.status !== "ready"} title="Forget the key in this browser">LOCK</button>
         )}
       </nav>
-      <DeployBanner />
+      {__TJ_DEMO__ ? <div className="marker-line" role="note">DEMO · synthetic data</div> : <DeployBanner />}
       {page}
     </>
   );

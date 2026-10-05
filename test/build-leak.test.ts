@@ -9,7 +9,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bundleData } from "../build/bundle-data";
 import { checkDist, checkEncrypted, findLeaks, playbookNames } from "../build/check-dist";
 import { encryptBundle, readKdfParams } from "../build/encrypt";
+import { checkDemoDist } from "../build/check-demo";
 import { REPO_ROOT } from "../cli/lib/history";
+import { DEMO_COMMIT_NOTE, DEMO_IMPORT_NOTE } from "../src/app/demo-text";
+import { ALL_DEMO_SYMBOLS } from "../src/demo/tickers";
 import { decryptData, decryptFile, deriveKeyBytes, importAesKey, KIND_IMAGE } from "../src/core/crypto";
 import type { DataBundle, DerivedTrades } from "../src/core/types";
 import { open } from "./factory";
@@ -23,6 +26,7 @@ const IMAGE_BYTES = "canary-image-bytes-51e0d2";
 const PASS = "synthetic canary passphrase 42";
 let tmp: string;
 let outDir: string;
+let demoDir: string;
 let encDir: string;
 let sources: { historyDir: string; quotesFile: string; playbookDir: string };
 const saved = { history: process.env.TRADE_HISTORY_DIR, quotes: process.env.QUOTES_FILE, playbook: process.env.PLAYBOOK_DIR };
@@ -65,6 +69,9 @@ ${REVIEW_TEXT}
   process.env.NODE_ENV = "production";
   try {
     await build({ root: REPO_ROOT, mode: "production", logLevel: "silent", build: { outDir, emptyOutDir: true } });
+    // The public demo, as `npm run build:demo` builds it (with the canary data dirs still set).
+    demoDir = join(tmp, "dist-demo");
+    await build({ root: REPO_ROOT, mode: "demo", logLevel: "silent", build: { outDir: demoDir, emptyOutDir: true } });
   } finally {
     process.env.NODE_ENV = env;
   }
@@ -103,6 +110,14 @@ describe("vite build output", () => {
 
   it("does not contain the dev data or image loaders at all", () => {
     expect(allText(outDir)).not.toContain("__data");
+  });
+
+  it("has a CSP, self-hosted fonts and no runtime code compilation (Q46)", () => {
+    const html = readFileSync(join(outDir, "index.html"), "utf8");
+    expect(html).toMatch(/<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-/);
+    expect(html).not.toMatch(/googleapis|gstatic/);
+    expect(readdirSync(join(outDir, "assets")).some((f) => f.endsWith(".woff2"))).toBe(true);
+    expect(allText(outDir)).not.toContain("new Function");
   });
 
   it("passes the dist leak guard, which catches a planted symbol", () => {
@@ -174,6 +189,54 @@ describe("encrypted dist (canary bundle)", () => {
     rmSync(join(dir, "planted.js"), { force: true });
     encryptBundle(bundle, images, PASS, dir);
     expect(checkEncrypted(dir)).toEqual([]);
+  });
+});
+
+describe("demo build (Q50)", () => {
+  it("the real build has no demo code: marker, notes, generator or fake tickers", () => {
+    const text = allText(outDir);
+    for (const s of ["synthetic data", DEMO_COMMIT_NOTE, DEMO_IMPORT_NOTE, "demo/trade-history", "tj.demo.", ...ALL_DEMO_SYMBOLS]) {
+      expect(text, s).not.toContain(s);
+    }
+  });
+
+  it("the demo build has the marker, its own storage prefix and the generator", () => {
+    const text = allText(demoDir);
+    expect(text).toContain("synthetic data");
+    expect(text).toContain("tj.demo.");
+    expect(text).toContain("QBTX");
+  });
+
+  it("the demo build can't reach the vault, the encrypted files, GitHub or the dev data", () => {
+    expect(checkDemoDist(demoDir)).toEqual([]);
+    const text = allText(demoDir);
+    for (const s of ["data.enc", "img/", "tj.key", "tj.gh", "__data", "OPEN DEMO", "api.github.com", CANARY, REVIEW_TEXT, IMAGE_NAME]) {
+      expect(text, s).not.toContain(s);
+    }
+  });
+
+  it("check-dist --encrypted accepts the demo under demo/ and nothing else there (Q51)", () => {
+    const site = join(tmp, "dist-site");
+    cpSync(encDir, site, { recursive: true });
+    cpSync(demoDir, join(site, "demo"), { recursive: true });
+    expect(checkEncrypted(site)).toEqual([]);
+    const logs: string[] = [];
+    expect(checkDist(site, new Set([CANARY]), (s) => logs.push(s), undefined, new Set(), { encrypted: true })).toBe(0);
+    writeFileSync(join(site, "demo", "bundle.json"), "{}");
+    writeFileSync(join(site, "demo", "assets", "y.js"), 'fetch("data.enc")');
+    const problems = checkEncrypted(site).join("\n");
+    expect(problems).toContain("demo/bundle.json: unexpected file in the demo");
+    expect(problems).toContain('demo/assets/y.js: contains "data.enc"');
+  });
+
+  it("check-demo rejects a planted data file or vault reference", () => {
+    const bad = join(tmp, "dist-demo-bad");
+    cpSync(demoDir, bad, { recursive: true });
+    writeFileSync(join(bad, "data.enc"), "x");
+    writeFileSync(join(bad, "assets", "x.js"), 'localStorage.getItem("tj.key")');
+    const problems = checkDemoDist(bad).join("\n");
+    expect(problems).toContain("data.enc: not an app-shell file");
+    expect(problems).toContain('assets/x.js: contains "tj.key"');
   });
 });
 

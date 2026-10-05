@@ -1,18 +1,21 @@
 // Reading and committing trade-history from the browser. Loaded on demand (it
-// brings Ajv and the schemas), by the Import page and the Commit buttons.
+// brings the schemas and their precompiled validators), by the Import page and
+// the Commit buttons.
 import { commitPlan, readHistory, type GitHubClient, type RemoteHistory } from "../core/github/client";
 import { importFingerprint, importMessage, importWrites, planImport, type ImportInput, type ImportPlan } from "../core/import/plan";
 import { planOverrideCommit, type OverrideCommitPlan, type StagedAction } from "../core/journal/overrides";
-import { makeValidator, type SchemaTexts } from "../core/schema";
+import { validatorFrom, type SchemaTexts } from "../core/schema-names";
 import type { SymbolsMap } from "../core/types";
 import config from "../../schema/config.schema.json?raw";
 import fills from "../../schema/fills.schema.json?raw";
 import overrides from "../../schema/overrides.schema.json?raw";
 import symbols from "../../schema/symbols.schema.json?raw";
 import trades from "../../schema/trades.schema.json?raw";
+import * as compiled from "virtual:tj-validators";
 
 export const schemas: SchemaTexts = { config, fills, overrides, symbols, trades };
-export const validate = makeValidator(schemas);
+// Precompiled at build time from the same schema files (no `new Function` under the CSP, Q46).
+export const validate = validatorFrom((name) => compiled[name]);
 /** The derived/trades.json generator, as the CLI writes it. */
 export const GENERATOR = `trade-journal@${__APP_VERSION__}`;
 

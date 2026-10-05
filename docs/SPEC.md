@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.10)
+# Trade Journal — Spec (v0.11)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -12,7 +12,7 @@ hosts the site on GitHub Pages, with all data encrypted.
 
 1. **One normalized trade history** across Schwab and Webull, stored as JSON in
    git with no database. It lives in its own repo so other apps can read it.
-   Single-stock ETF trades (PALU) count toward their source ticker (PANW)
+   Single-stock ETF trades (NVQU) count toward their source ticker (NVQX)
    while remembering they were ETF trades.
 2. **Import from either place:** upload a CSV in the web app, or have Claude
    (or a CLI) import it from `~/Downloads`. Both paths must produce identical
@@ -61,7 +61,8 @@ There are three repos, each with one job:
         → bundle data → ENCRYPT → actions/deploy-pages
                        │
                        ▼
- GitHub Pages: index.html, assets/*.js, data.enc, img/<hash>.enc
+ GitHub Pages: index.html, assets/*.js, data.enc, img/<hash>.enc,
+              demo/ (public demo: app shell only, synthetic data)
                        │  browser: passphrase → key → decrypt in memory
                        ▼
        Dashboard / Journal / Reviews
@@ -138,6 +139,10 @@ such ref) rather than 403. The client sends it only to `https://api.github.com`.
   words).
 - The published site contains no plaintext tickers, dates, file names or
   counts. Image file names are hashes.
+- **Public demo (Q51):** `lykam.github.io/trade-journal/demo/` serves a
+  separate build of the app on synthetic data generated in the visitor's
+  browser (§7). It holds no data and no code that reads `data.enc`, `img/`,
+  the stored key or the token.
 
 ### Cost
 
@@ -245,16 +250,16 @@ grouping can ignore it and read `fills/`.
 
 ### 3.4 `symbols.json`: single-stock ETF → source ticker
 
-Single-stock leveraged ETFs are traded as a play on their source stock (PALU
-for PANW, MSFU for MSFT, HYNX for SK Hynix). This file maps each ETF to its
+Single-stock leveraged ETFs are traded as a play on their source stock (NVQU
+for NVQX, MZRU for MZRT, HXQY for a Korean-listed stock). This file maps each ETF to its
 underlying, so the trade counts toward the source ticker while still recording
 that it was an ETF trade.
 
 ```jsonc
 {
-  "PALU": { "underlying": "PANW",  "type": "leveraged_etf", "leverage": 2, "direction": "long", "issuer": "Direxion" },
-  "MSFU": { "underlying": "MSFT",  "type": "leveraged_etf", "leverage": 2, "direction": "long", "issuer": "Direxion" },
-  "HYNX": { "underlying": "000660.KS", "type": "leveraged_etf", "leverage": 2, "direction": "long", "issuer": "T-REX" }
+  "NVQU": { "underlying": "NVQX",  "type": "leveraged_etf", "leverage": 2, "direction": "long", "issuer": "Demo Funds" },
+  "MZRU": { "underlying": "MZRT",  "type": "leveraged_etf", "leverage": 2, "direction": "long", "issuer": "Demo Funds" },
+  "HXQY": { "underlying": "999990.KS", "type": "leveraged_etf", "leverage": 2, "direction": "long", "issuer": "Demo Funds" }
   // "direction": "inverse" for bear ETFs (e.g. a 2X short fund). Holding one long
   // is a bearish bet on the underlying, and analysis can flag it as such.
 }
@@ -263,14 +268,14 @@ that it was an ETF trade.
 - A symbol that isn't listed is a plain stock or ETF, and its underlying is
   itself.
 - **Grouping by the ETF's own symbol.** Positions, flat-to-flat trades and P&L
-  are always computed on the ETF itself (PALU shares are not PANW shares).
+  are always computed on the ETF itself (NVQU shares are not NVQX shares).
 - **Grouping by underlying.** Ideas, reviews, live-quote labels and
   "by ticker" reports group by the underlying.
 - **Import detection:** if an imported symbol isn't in `symbols.json` and its
   name (Schwab `Description`, Webull `Name`) looks like a leveraged
   single-stock ETF (`2X`, `BULL`, `BEAR`, `DAILY … SHARES`, `LONG … DAILY`),
   the import preview asks for the underlying, pre-filling a guess from the
-  name (e.g. "DIREXION DAILY MSFT BULL2X SHARES" → MSFT, 2x, long). The answer
+  name (e.g. "DEMO DAILY MZRT BULL2X SHARES" → MZRT, 2x, long). The answer
   is written to `symbols.json` in the same commit. Symbols that are never
   answered stay unmapped and are listed under "Needs attention".
 
@@ -289,8 +294,8 @@ interface Trade {
   id: string;                 // id of the first fill (stable; overrides key on it)
   ideaId: string;
   account: "schwab-main" | "webull"; broker: "schwab" | "webull";
-  symbol: string;             // what was actually traded, e.g. "PALU"
-  underlying: string;         // source ticker, e.g. "PANW" (= symbol for plain stocks)
+  symbol: string;             // what was actually traded, e.g. "NVQU"
+  underlying: string;         // source ticker, e.g. "NVQX" (= symbol for plain stocks)
   instrument: "stock" | "leveraged_etf";
   leverage: number;           // 1 for stocks
   direction: "long" | "inverse";   // relative to the underlying
@@ -312,6 +317,7 @@ interface Trade {
     kind: "open" | "add" | "trim" | "close";
     at: string; qty: number; price: number;
     realized?: number;        // trims and close only
+    fees?: number;            // open and add only: the buy's fees, when non-zero (Q44)
   }>;
   tags: string[];
   note?: string;              // quick note from overrides.json, when set
@@ -322,7 +328,7 @@ interface Idea {
   id: string;                 // id of its first trade
   underlying: string;         // ideas are keyed by underlying
   accounts: string[];         // an idea can span Schwab and Webull
-  symbolsTraded: string[];    // e.g. ["PANW", "PALU"]
+  symbolsTraded: string[];    // e.g. ["NVQX", "NVQU"]
   usedEtf: boolean;           // any trade in the idea was a leveraged ETF
   style: "day" | "swing";
   date: string;               // ET date the idea opened (matches review file names)
@@ -399,6 +405,13 @@ Amount`.
 - An existing `id` whose content differs (a hash collision, or a broker
   changing a past row) is an **error**, never silently merged. A file with
   any error is not imported at all.
+- **Webull partial fills (Q45):** an order exported while partly filled and
+  again once finished has a different id each time (Filled, Avg Price and
+  Filled Time change). When a new Webull fill's order (account, side, placed
+  time) already has a stored fill that the export no longer lists, the import
+  stops with an error ("same order seen with a different filled qty"). The
+  check re-hashes the stored fill with the incoming placed time, so fills
+  still don't store it.
 - Re-importing any file is idempotent.
 
 ### 4.4 Grouping (fills → trades → ideas)
@@ -442,8 +455,8 @@ and across the stock and its single-stock ETFs:
 
 - **Day trades:** all day-style trades on the same underlying on the same ET
   date form **one idea**, however far apart they are. This matches the
-  one-review-per-ticker-per-day file names. For example, MU at 09:31, 09:52
-  and 14:10 is 1 idea and 3 trades. PANW at 09:35 plus PALU at 10:15 is 1 PANW
+  one-review-per-ticker-per-day file names. For example, ZNRG at 09:31, 09:52
+  and 14:10 is 1 idea and 3 trades. NVQX at 09:35 plus NVQU at 10:15 is 1 NVQX
   idea with `usedEtf: true`.
 - **Swing trades:** a swing trade starts a new idea, unless it opens on the
   same ET date that the previous trade on that underlying closed (a re-entry
@@ -487,7 +500,10 @@ in the same commit.
 Editing overrides (bulk actions, Add tags, quick note) uses the same commit
 flow: the staged actions are replayed on `overrides.json` as it is on `main`
 now, the preview against that is shown, and CONFIRM writes `overrides.json` and
-a regenerated `derived/trades.json` in one commit. The browser and the CLI share
+a regenerated `derived/trades.json` in one commit. Staging is paused while that
+preview is open, so CONFIRM writes exactly what it shows; a commit removes only
+the actions it wrote from the staged list, and its "COMMITTED · VIEW COMMIT ↗"
+line stays until the next edit (`src/core/journal/staging.ts`). The browser and the CLI share
 `src/core/import/plan.ts` and `src/core/history/files.ts`, and a test checks
 that the same CSVs give byte-identical files through both paths.
 
@@ -499,7 +515,10 @@ commit path can be tried on a throwaway repo; a commit there never appears in
 - `npm run import -- [files…]`. With no arguments, it uses the newest
   `Webull_Orders_Records*.csv` and `Trading_*_Transactions_*.csv` in
   `~/Downloads`; `--all` uses every matching export there (oldest first),
-  for backfills. It writes into `$TRADE_HISTORY_DIR` (default
+  for backfills. "Oldest first" is one rule shared with the Import page
+  (`exportOrder`): the file's modified time, then the name (Webull's `(n)`
+  number, Schwab's export stamp), then the plain name. The time comes first
+  because Webull's numbering restarts after Downloads is cleaned (#4). It writes into `$TRADE_HISTORY_DIR` (default
   `../trade-history`, or `--history-dir`).
 - The CLI writes files only; it never runs git. Commits and pushes are made
   separately, after the preview is approved.
@@ -522,7 +541,7 @@ commit path can be tried on a throwaway repo; a commit there never appears in
   pulls `trade-history` first (`git pull --ff-only`), since imports from the
   site commit on GitHub. It never imports: with no ideas for the date, it
   tells you to import through the journal first.
-- The skill presents **ideas** (e.g. "MU: 3 trades, +$85") as the things to
+- The skill presents **ideas** (e.g. "ZNRG: 3 trades, +$85") as the things to
   review, replacing the 30-minute-gap clustering. An idea is listed for a date
   when it opened that day or one of its trades opened or closed that day (a
   swing exit or re-entry), with its Idea ID, its trades and its review file if
@@ -567,7 +586,7 @@ The window combines realized and unrealized results:
    `closedAt` falls in the current week. They are scored on realized net P&L.
 2. **All currently open swing positions,** whenever they were opened. Each one
    is **marked to market** with the latest quote from §5.4 for the symbol
-   actually held (HYNX, not 000660.KS):
+   actually held (HXQY, not 999990.KS):
    `unrealized = (lastPrice − avgCost) × openQty` on the current average cost
    (§6.1a), plus any realized P&L from partial sells (Q25). It counts as a win if > $0, a loss if < $0, and is left out
    if it is exactly $0.00.
@@ -583,8 +602,8 @@ The window combines realized and unrealized results:
    `now` are ignored, and a position open at `now` is rebuilt from its events,
    so any past week can be recomputed and the tests are deterministic (Q23).
 
-Example: closed AAPL +$120 (W), NVDA −$40 (L); open MU +$85 (W), AMD −$30 (L),
-TSLA +$10 (W). The window is 3W / 2L = 60%.
+Example: closed CRQL +$120 (W), AQRS −$40 (L); open BLNQ +$85 (W), TRVQ −$30 (L),
+MZRT +$10 (W). The window is 3W / 2L = 60%.
 
 ### 5.3 Baseline and sizing state
 
@@ -628,7 +647,7 @@ fully static.
   3. Fetch quotes for only those symbols with the `yahoo-finance2` npm package
      (no key; keeps the codebase all TypeScript).
   4. Write `quotes.json`:
-     `{ "asOf": "...", "attemptedAt": "...", "quotes": { "PALU": { "price": 61.12, "time": "...", "marketState": "REGULAR" } } }`.
+     `{ "asOf": "...", "attemptedAt": "...", "quotes": { "NVQU": { "price": 61.12, "time": "...", "marketState": "REGULAR" } } }`.
      `asOf` is the last successful fetch; a quote carried over from a failed
      fetch has `"stale": true`. Symbols no longer held are dropped.
   5. Continue into the same build → bundle → **encrypt** → deploy steps as
@@ -711,8 +730,8 @@ candlestick charts in v1 (see §11).
     added later without touching components.
 - **Global filter bar** on Trades and Reports, kept in the URL so views can be
   bookmarked:
-  - **Symbol:** matches the traded symbol *or* the underlying, so `PANW` finds
-    PALU trades too.
+  - **Symbol:** matches the traded symbol *or* the underlying, so `NVQX` finds
+    NVQU trades too.
   - **Tags:** multi-select.
   - **Style:** All / Day / Swing (this replaces Tradervue's "Side", since
     everything is long).
@@ -841,11 +860,11 @@ dashboard quick view has, plus:
 
 ### 6.3 Trades
 
-- **Table** columns: Date, Symbol (with an `ETF→PANW` badge on leveraged
+- **Table** columns: Date, Symbol (with an `ETF→NVQX` badge on leveraged
   ETFs), Style, Volume (shares), Executions (fill count), Hold, Gross/Net P&L,
   Review (📄 links to the review), Notes (short note, truncated), and Tags.
   - **Removed from Tradervue's table:** "Shared".
-- **Rows** are one per trade by default, matching Tradervue (e.g. two MSFU
+- **Rows** are one per trade by default, matching Tradervue (e.g. two MZRU
   rows on 01 Oct). The **Idea view** collapses them into one row per idea,
   which expands to show its trades.
 - **Sortable** on every column. Paginated at 50 per page, or virtualized if
@@ -857,7 +876,7 @@ dashboard quick view has, plus:
 
 ### 6.4 Trade detail
 
-The header is the symbol and date-time ("MSFU · Jan 15, 2026"; day-precision
+The header is the symbol and date-time ("MZRU · Jan 15, 2026"; day-precision
 Schwab trades show the date only). Below it are the tag chips, with an
 **Add tags +** control. The top right has **Back**, **Previous trade** and
 **Next trade**, which follow the current filter and sort.
@@ -871,8 +890,8 @@ Schwab trades show the date only). Below it are the tag chips, with an
     MFE/MAE). Those need intraday price history (§11).
 - **Executions table:** time, side, qty, price and fees for every fill.
 - **Idea panel:** the other trades in the same idea, with their P&L and a
-  combined idea total. For example, "Idea: PANW · 3 trades · +$85 (2 PANW,
-  1 PALU)".
+  combined idea total. For example, "Idea: NVQX · 3 trades · +$85 (2 NVQX,
+  1 NVQU)".
 - **Notes panel (right side), from your Playbook review:**
   - If a review is linked to this trade's idea (§6.11), it is rendered here:
     headings, the Finviz `<details>` block, and images inline, with template
@@ -1015,7 +1034,7 @@ Reviews attach to **ideas**, not individual trades.
 1. If the review has an `**Idea ID:**` line, use it.
 2. Otherwise, match `Reviews/<DATE>-<TICKER>.md` to the idea whose
    **underlying** is `<TICKER>` and whose `date` (open date) is `<DATE>`. A
-   review named for the ETF (e.g. `…-PALU.md`) is first resolved to its
+   review named for the ETF (e.g. `…-NVQU.md`) is first resolved to its
    underlying through `symbols.json`. Swing reviews are created at entry, so
    their date is the open date. Day ideas are one per ticker per day, so this
    is normally an exact 1:1 match.
@@ -1040,11 +1059,30 @@ two in step (§4.6).
   list), and reloads the page when any of them change. The app fetches it only behind `import.meta.env.DEV`, so `vite build`
   contains neither the data nor the loader (`test/build-leak.test.ts`).
   `?now=<ISO>` pins the app's clock for checking past weeks.
-  `npm run dev:demo` runs the same server on the synthetic fixtures
+  `npm run dev:fixtures` runs the same server on the synthetic fixtures
   (`test/fixtures/{history,expected,playbook}`).
+- **Public demo build (Q50):** `vite build --mode demo` sets `__TJ_DEMO__`
+  (false in every other build, so the demo code is dropped from the real
+  site). It generates its data in the browser (`src/demo/`, Q49): no lock
+  screen, no `data.enc`, no key or token storage, no GitHub code, and a CSP
+  without `api.github.com`. IMPORT is a browser-only dry run against the demo
+  history, with sample Webull and Schwab CSVs to try or download; COMMIT,
+  bulk-edit / tag / note CONFIRM and Refresh prices are disabled with a
+  one-line reason; Settings shows one line instead of the token panel; LOCK
+  is a `DEMO` chip and a "DEMO · synthetic data" line sits under the nav. UI
+  preferences use a `tj.demo.*` prefix. Base path `/trade-journal/demo/`
+  (`TJ_BASE` overrides it), output `dist-demo/`. `npm run build:demo` builds
+  and runs `build/check-demo.ts` (app shell only, none of `data.enc`, `img/`,
+  `tj.key`, `tj.gh`, `__data`, OPEN DEMO or the GitHub API, plus the
+  plaintext leak guard when the sibling checkouts exist); `npm run
+  serve:demo` serves it; `npm run dev:demo` is the dev server in demo mode.
+  `test/build-leak.test.ts` builds both and checks each has none of the
+  other's code.
 - **Before each commit:** `npm run scan [-- --message "…"]` checks the lines a
-  commit adds (and the message) for real traded symbols and review / image
-  names, read from the sibling checkouts. Local only.
+  commit adds (and the message) for real traded symbols (1–2 letter ones as
+  whole words, minus a fixed list of common words), Schwab account ids, stored
+  fill ids and review / image names, read from the sibling checkouts
+  (`cli/lib/private-scan.ts`, Q47). Local only.
 - **Shared logic:** pure TS in `src/core/`, imported by both the app and the
   CLI. Hashing uses `@noble/hashes` (synchronous, identical in browser and
   Node).
@@ -1052,7 +1090,9 @@ two in step (§4.6).
   validated against the synthetic output in tests, and are copied into
   `trade-history/schema/` by the importer on every write (Q17). The CLI
   validates every file it reads or writes with Ajv.
-- **CLI:** run with `tsx`.
+- **CLI:** run with `tsx`. Files that `vite.config.ts` loads (the build plugins and
+  what they import) use explicit `.ts` import extensions, because Vite loads the
+  config with Node's own TypeScript support, which needs them.
 - **Tests:** Vitest with **synthetic fixtures only**, because the repo is
   public. These are hand-written CSVs that copy the exact Schwab and Webull
   formats with fake tickers and prices. Golden tests cover dedupe of
@@ -1090,10 +1130,12 @@ trade-journal/
   schema/              canonical JSON Schemas (copied into trade-history)
   build/               fetch-quotes.ts, load-bundle.ts, playbook.ts, dev-data-plugin.ts,
                        dev-demo.ts, check-dist.ts
-                       bundle-data.ts, encrypt.ts, quotes-cache.ts, market-open.ts, preview-demo.ts, kdf.json
+                       bundle-data.ts, encrypt.ts, quotes-cache.ts, market-open.ts, preview-demo.ts, kdf.json,
+                       public-log.ts (public-safe errors), pages-guard.ts, csp-plugin.ts, validators-plugin.ts
   test/fixtures/       synthetic CSVs + expected JSON
   .github/workflows/
-    build-deploy.yml   reusable: checkout data → [quotes] → build → encrypt → deploy
+    build-deploy.yml   reusable: test → demo → checkout data → [quotes] → build → encrypt → deploy
+    ci.yml             on push / pull_request: typecheck + tests, read-only, no secrets (README badge)
     deploy.yml         on push / repository_dispatch / manual → build-deploy
     prices.yml         on schedule / manual → build-deploy with quotes
 ```
@@ -1107,7 +1149,12 @@ All of this lives in the reusable `build-deploy.yml`; `deploy.yml` and
 `prices.yml` only call it.
 
 1. Check that the deploy-key secrets and `SITE_PASSPHRASE` exist, check out
-   `trade-journal`, `npm ci`, `npm test` (synthetic fixtures only).
+   `trade-journal`, `npm ci`, `npm test` (synthetic fixtures only), then
+   `npm run pages-guard`: fail if any other repo of the account serves GitHub
+   Pages (Q48), then `npm run build:demo` (`dist-demo/`, checked by
+   `check-demo`; Q51). The demo is built before any private data is on disk
+   and without `SITE_PASSPHRASE` in its environment; a broken demo fails the
+   deploy.
 2. Only then check out `trade-history` and `Playbook` into `./_data/` using
    their read-only deploy keys (`persist-credentials: false`), so neither the install
    nor the tests ever have the private data on disk (Q36).
@@ -1132,6 +1179,11 @@ All of this lives in the reusable `build-deploy.yml`; `deploy.yml` and
    runs. It skips a symbol that
    is also a word in the app's own source (e.g. a UI label), since the source
    is public and ticker-scanned before every commit (Q24).
+   After `encrypt`, `dist-demo/` is copied to `dist/demo/`; `check:dist --
+   --encrypted` allows only demo app-shell files there (`demo/index.html`,
+   `demo/assets/*.{js,css,svg,woff2}`), reruns the demo checks on them, and
+   its plaintext leak scan covers `demo/` too, so a demo ticker that is
+   really traded fails the deploy.
 7. `actions/upload-pages-artifact` → `actions/deploy-pages`.
 8. The job uses `concurrency: pages` (not cancelling), so back-to-back imports
    and price runs queue and a newer pending run replaces an older one.
@@ -1164,7 +1216,8 @@ the commit leaves the private repo.
 - Markdown is sanitized before rendering.
 - Because the repo is public, PR-triggered workflows must **never** get
   secrets. The deploy runs only on `push` to `main`, dispatch and manual
-  triggers, never on `pull_request`.
+  triggers, never on `pull_request`. `ci.yml` (typecheck and tests) does run
+  on pull requests, with `contents: read` and no secrets.
 - If the passphrase is forgotten, change the secret and redeploy. Nothing is
   lost, because the plaintext lives in the private repos.
 - **Public logs and artifacts.** Actions logs and the Pages artifact of a
@@ -1172,6 +1225,41 @@ the commit leaves the private repo.
   counts (Q35). The `actions/cache` entry is encrypted (Q34). Fork pull
   requests should need approval for **all** outside contributors
   (Settings → Actions → General), so no fork workflow runs unreviewed.
+  (Owner setting; the repo was on "first-time contributors" in the
+  2026-10-04 review.)
+- **One origin for all Pages sites (Q48).** `lykam.github.io` serves every
+  project Pages site of the account, and the owner's browser keeps the site
+  key and the sealed token in that origin's `localStorage`. Nothing may be
+  served there that isn't built from this repo, so **no other Lykam repo
+  enables GitHub Pages**; `npm run pages-guard` fails the deploy if one does.
+  Visitors are not at risk either way: only the owner's browser holds a key.
+- **Content-Security-Policy (Q46).** The built `index.html` carries a CSP
+  meta tag: scripts, styles and fonts from the site only (the inline
+  cache-reload script by hash), images also as `blob:` / `data:`, network to
+  the site and `https://api.github.com` only, no `eval`. JetBrains Mono is
+  self-hosted, so the page that holds the key loads no third-party CSS.
+- **Actions pinned to commit SHAs** (with the version in a comment) in every
+  workflow, since the deploy job holds the deploy keys and `SITE_PASSPHRASE`.
+  Owner setting: Settings → Actions → General → allow GitHub-owned actions
+  only.
+- **The demo shares the site's origin (Q51).** `/trade-journal/demo/` is on
+  `lykam.github.io`, where the owner's browser keeps the site key and sealed
+  token. Visitors' browsers hold neither, so the demo can't expose data to
+  anyone else; the remaining risk is demo code misusing the key in the
+  owner's browser. The demo is built from this repo with the vault, token and
+  GitHub code compiled out, its CSP allows no network beyond its own origin,
+  its UI preferences use `tj.demo.*` keys, and tests plus `check-demo` /
+  `check-dist` fail any build that references `data.enc`, `img/`, `tj.key`,
+  `tj.gh` or the dev data.
+- **Checkout SHAs in the log.** `actions/checkout` prints the trade-history
+  and Playbook HEAD commit ids in the public log. They reveal only timing,
+  which the run timestamps already show; accepted.
+- **Error messages in public logs (Q43).** Every script the workflows run
+  (`check-dist`, `fetch-quotes`, `encrypt`, `quotes-cache`, `market-open`)
+  ends through `build/public-log.ts`: with `TJ_PUBLIC_LOG=1` an error prints
+  only the script label and the error kind (`symbols.json: schema mismatch`,
+  `fills/2026.json: invalid JSON`, or the error type), never the message, an
+  Ajv instance path or a stack. Locally the full message prints.
 
 ---
 
@@ -1191,6 +1279,18 @@ the commit leaves the private repo.
 6. **Playbook integration:** the review skill reads `derived/trades.json` and
    lists ideas; `Idea ID` in the template (§4.6).
 7. **Reports** (§6.5: Overview, Detailed grid, breakdowns, Win vs Loss Days, Drawdown, Compare, Tag Breakdown).
+8. **Review fixes** (2026-10-04 review, issues #1–#6): public-safe error
+   messages in CI (Q43), staged edits during a commit preview, unmatched
+   volume, buy fees in past marks (Q44), one export order, Webull partial-fill
+   detection (Q45), CSP and self-hosted font (Q46), scan coverage (Q47), the
+   shared Pages origin guard (Q48), pinned actions, cleanups.
+9. **Demo build mode** (#7): a build that runs on synthetic data in the
+   browser, with write features disabled and a "DEMO · synthetic data" line.
+10. **Synthetic data generator** (#8, Q49): `src/demo/`.
+11. **Demo hosting** (#9): `lykam.github.io/trade-journal/demo/` in the same
+    Pages deploy, built before private data is checked out.
+12. **Public repo polish** (#10): README, CI badge, metadata, fake tickers in
+    the docs.
 
 ---
 
@@ -1205,7 +1305,7 @@ the commit leaves the private repo.
 | Q5 | Swing gauge | Swings closed this week + **all open swing positions marked to market** (prices from a scheduled GitHub Action, see Q9), backfilled to a minimum of 3 with earlier closed swings. The baseline uses closed trades only. |
 | Q6 | Accounts | One Schwab account and Webull only. The real Schwab account suffix lives only in private `trade-history/config.json` (this public spec uses `schwab-main`). |
 | Q7 | Naming | Repo `Lykam/trade-journal`, site `lykam.github.io/trade-journal`, no custom domain. |
-| Q8 | Single-stock ETFs | Trades in ETFs like PALU count toward the **underlying** (PANW) for ideas, reviews and ticker stats, while keeping `symbol`, `instrument`, `leverage` and `direction` for analysis. P&L and positions are computed on the ETF itself. Mapping lives in `trade-history/symbols.json`, and the import preview prompts for any new ETF it detects. |
+| Q8 | Single-stock ETFs | Trades in ETFs like NVQU count toward the **underlying** (NVQX) for ideas, reviews and ticker stats, while keeping `symbol`, `instrument`, `leverage` and `direction` for analysis. P&L and positions are computed on the ETF itself. Mapping lives in `trade-history/symbols.json`, and the import preview prompts for any new ETF it detects. |
 | Q9 | Price source | A **scheduled GitHub Action** fetches quotes for open positions every 15 min during market hours (Yahoo through `yahoo-finance2`, no keys), plus on every deploy. Quotes travel only in the encrypted bundle. Expect them to be 15–30 min old. Browser-side live quotes are deferred to Future. |
 | Q11 | Day vs swing | **Style = intent, not hold time.** Default by account (Schwab → swing, Webull → day), overridable per trade. A swing stopped out intraday still counts as a swing. A day trade held overnight is flagged for review, not changed automatically. |
 | Q12 | Main-page content | Dashboard top, always visible: (1) gauges, (2) **open positions quick view** (opened date, trim dates, realized / unrealized / total P&L per position, plus totals), (3) **Recent 10 Day / Recent 10 Swing** side by side. An in-depth **Open Positions page** (event timeline, market value) sits behind it. |
@@ -1235,13 +1335,33 @@ the commit leaves the private repo.
 | Q36 | Deploy order | The private repos are checked out **after** `npm ci` and `npm test` (the user's list had them first), so dependency install scripts and the test suite never run with private data on disk. Everything after that is as in §7. (2026-10-04, milestone 4) |
 | Q37 | Data read access | The deploy reads `trade-history` and `Playbook` with **read-only SSH deploy keys** (secrets `TRADE_HISTORY_DEPLOY_KEY`, `PLAYBOOK_DEPLOY_KEY`) instead of a fine-grained PAT: each key reaches one repo, can't write, doesn't expire, and can be created with `gh` (PATs can't). `DISPATCH_TOKEN` stays a PAT, since `repository_dispatch` needs API access. (2026-10-04, milestone 4) |
 | Q38 | Browser tokens | A fine-grained token's permissions apply to **every** repo it selects, so one token with Contents on `trade-history` and Actions on `trade-journal` would also get Contents: write on the public app repo, which deploys the site. "Refresh prices" therefore uses an optional **second** token (Actions: read & write on `trade-journal` only). Both are sealed together under an HKDF subkey of the site key in `localStorage`; Settings warns if the main token reaches `trade-journal`. The data repo is a setting, for testing on a throwaway repo. (2026-10-04, milestone 5) |
-| Q39 | Leak guard vs. libraries | `check-dist` also skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`, now Ajv, whose code generator has short uppercase operator names that match a traded symbol). Ajv loads only with the import / commit chunk. (2026-10-04, milestone 5) |
+| Q39 | Leak guard vs. libraries | *(Superseded by Q46: Ajv is no longer bundled.)* `check-dist` also skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`, now Ajv, whose code generator has short uppercase operator names that match a traded symbol). Ajv loads only with the import / commit chunk. (2026-10-04, milestone 5) |
 | Q40 | Commit safety | Commits are computed from `trade-history` read fresh through the API, never from `data.enc`. On a moved `main` the app re-reads and recomputes (up to 3 tries) and commits only if the result matches the approved preview (new fill ids, ETF mappings and trade counts for an import; the changed override entries for an edit); otherwise it shows the new preview. Unchanged files are skipped by git blob id, so an import that adds nothing archives only new CSVs, and an edit already on `main` commits nothing. "Deploying…" resolves when a new `data.enc` was built from that commit or a later one (`history` in the bundle). (2026-10-04, milestone 5) |
 | Q41 | Playbook skill | The `playbook-review` skill lists **ideas** from `derived/trades.json` (Python, no Node dependency) and names reviews `<IDEA DATE>-<UNDERLYING>.md`, filling in `**Idea ID:**` from the listing. Grouping stays in the journal; the skill only reads it. Its review matcher mirrors `join.ts` and is checked against a golden file from the journal's synthetic fixtures. The skill never imports trades itself, so imports keep their preview-and-OK step. `sync_review.py` embeds charts for every symbol traded in a pinned idea. (2026-10-04, milestone 6) |
 | Q42 | Report stats | Every stat is computed over **units** (scored trades, or ideas in the Idea view) in close order, on the unit's value ($ gross / net, or % return on the cost bought). **Std dev:** sample (n − 1). **SQN:** √n × mean ÷ std dev, n not capped at 100, on $ P&L since no R is recorded. **Probability of random chance:** two-sided p-value of a one-sample t-test that mean P&L is 0 (t = SQN, df = n − 1). **Kelly %:** W − (1 − W) ÷ (avg win ÷ \|avg loss\|), W = wins ÷ (wins + losses). **K-ratio:** Kestner's 2003 form, slope ÷ (standard error × n) of a least-squares line through cumulative P&L at the end of each trading day (no account size, so not log equity); needs 3 days. **Expectancy:** W × avg win + (1 − W) × avg loss, per decisive unit, so it agrees with the win rate; "avg trade" is the plain mean including breakevens. **Streaks:** a breakeven ends a run of wins or losses. **Avg hold:** timed minutes, else whole calendar days for multi-day date-only trades; same-day Schwab trades have no hold and are left out. **Avg per-share:** $ P&L ÷ shares bought. **Avg daily:** total ÷ ET dates with a close. **Drawdown:** from the running peak of cumulative P&L starting at 0 (an opening loss counts), each unit a step so a dip within a day counts; longest = calendar days from the peak until back at it (or to the last close); recovery = trough to back at peak. With no account size, max drawdown % is taken on the summed % returns. Fees and commissions are one figure, since both brokers report them combined. (2026-10-04, milestone 7) |
+| Q43 | Public error messages | A data file that fails to parse or validate throws a `DataFileError` carrying the file label and the kind (`invalid JSON` / `schema mismatch`). Node's `JSON.parse` quotes its input and an Ajv instance path starts with the object key (a ticker or fill id), so with `TJ_PUBLIC_LOG=1` the workflow scripts print only "`<script>: <file>: <kind>`" (or the error type), never the message or a stack, and exit non-zero; fixed messages with no data in them (`PublicError`) still print. Locally, and in the browser, the full message is kept. A test runs each entry point against a temp history carrying a canary ticker. (2026-10-04, milestone 8, #1) |
+| Q44 | Buy fees on events | Open and add events carry the buy's `fees` (only when non-zero, so $0 fills keep their bytes), because `realizedPnl` already subtracts buy fees while trim / close `realized` holds sell fees only. `positionAt` subtracts them, so a swing gauge mark rebuilt for a past week agrees with Open Positions. Additive and optional in `trades.schema.json`; it reaches trade-history with the next regenerated `derived/trades.json`. Also: a trade's volume is the sum of its event quantities (a sell event already holds oversold shares). (2026-10-04, milestone 8, #4) |
+| Q45 | Webull partial fills | **Detect and error only** (owner, 2026-10-04): a Webull fill whose order already has a different stored fill missing from the export is an import error, which blocks the commit; the fix is to remove the stored partial by hand and import the finished export. No order key is stored, so the fills contract (§3.1) is unchanged; the order is recognized by re-hashing the stored fill's id with the incoming `Placed Time` (§4.3). Checked against every real export in Downloads: no false positives. (2026-10-04, milestone 8, #2) |
+| Q46 | CSP | The built site has a strict CSP (§8) with no `unsafe-inline` / `unsafe-eval`: the inline cache-reload script is allowed by a SHA-256 hash computed at build time (`build/csp-plugin.ts`), the font is self-hosted (`@fontsource/jetbrains-mono`, Latin, 400/500/700), and the browser's JSON Schema validators are precompiled by Ajv's standalone mode (`build/validators-plugin.ts`, `virtual:tj-validators`) because Ajv otherwise compiles with `new Function`. The CLI still compiles the same schema files at runtime; a test checks both give the same result. The dev server gets no CSP (hot reload needs inline styles). Ajv is no longer bundled, so `check-dist` no longer exempts its code (supersedes Q39's `VENDOR_DIRS`). (2026-10-04, milestone 8, #5) |
+| Q47 | Scan coverage | `npm run scan` also checks Schwab account ids (in their `XXX<id>`, masked `...<id>` and quoted forms; a bare number is too common to match) and stored fill ids, and matches 1–2 letter symbols as whole words outside a fixed list of common words (`SHORT_WORDS`, not derived from the data). `check-dist` keeps its quoted-only rule for short symbols, since minified code is full of short identifiers. (2026-10-04, milestone 8, #5) |
+| Q48 | Shared Pages origin | No repo of the account other than trade-journal may enable GitHub Pages, because every project site shares `lykam.github.io` with the stored key and token. `build-deploy.yml` checks the public repo list (`has_pages`) before checking out private data and fails the deploy otherwise. (2026-10-04, milestone 8, #5) |
+| Q49 | Demo data | The public demo runs on **synthetic** data only (owner decision): real data with renamed tickers would still identify the stocks by price and date and publish real P&L, and the generator is not calibrated from real files. `src/demo/generate.ts` makes about 6 months of fills ending at "now" (ET) from a seeded PRNG (mulberry32) keyed by trading days before the anchor date, so a date always gives the same bundle and a later date shifts it; nothing is dated after now. A Webull-style day account (about 250 trades, timed to the second, partial scale-outs, one trade held overnight) and a Schwab-style swing account (about 50 trades, date-only, adds, trims, small fees, 6 open positions) trade 12 made-up tickers plus two 2x ETFs and an inverse ETF (`src/demo/tickers.ts`); trades and ideas come from the real `buildTrades`. The current week is scripted by searching the outcomes of the trades the gauges read, so Day shows ½ size (¼ if ½ can't be reached) and Swing Full size. Overrides sit on trades older than the baseline window. 9 reviews are built mechanically from the template's sections with fixed placeholder lines and a Category from a fixed list (no narrative); charts are generated SVG candlesticks from the same prices, with entry and exit markers, under the usual `Images/<date>/<TICKER>-daily.png` paths so the real site's image rules don't change. It runs in about 100 ms. (2026-10-04, milestone 10, #8) |
+| Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
+| Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
+| Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open
+
+- Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
+  sequence against the real checkouts with public logs. After merge, check
+  live: the deploy log, `/trade-journal/demo/` at desktop and phone width, and
+  that the real site still unlocks with the remembered key and token after
+  visiting the demo in the same browser. Owner settings from #5 (GitHub-owned
+  actions only; fork-PR approval for all outside contributors) and the repo
+  description, homepage and topics (#10) are set by the owner.
+- Public docs use the demo's made-up tickers (Q52); git history before
+  2026-10-04 is not rewritten (owner decision).
 
 - Milestone 7 (Reports) was checked live on 2026-10-04 against the real data at desktop and phone width: the Overview, Detailed (month by month), Compare (Stock vs ETF), Tag Breakdown and Idea-view totals match `npm run verify`, and the ↗ trade and streak links land on the right trade and dates. The milestone-5 placeholder tag `test-tag` was removed from trade-history.
 - Milestone 5 was checked live on 2026-10-04: token save, two fixture imports and an override edit committed to a throwaway repo (byte-identical to the CLI), "Deploying…" resolving, and one override edit on trade-history.

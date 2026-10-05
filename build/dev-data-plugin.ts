@@ -7,11 +7,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Plugin } from "vite";
-import { resolveHistoryDir } from "../cli/lib/history";
-import { resolveQuotesFile } from "./fetch-quotes";
-import { loadBundle } from "./load-bundle";
-import { imageType } from "../src/core/reviews/images";
-import { loadPlaybook, resolvePlaybookDir } from "./playbook";
+import { resolveHistoryDir } from "../cli/lib/history.ts";
+import { resolveQuotesFile } from "./fetch-quotes.ts";
+import { loadBundle } from "./load-bundle.ts";
+import { imageType } from "../src/core/reviews/images.ts";
+import { loadPlaybook, resolvePlaybookDir } from "./playbook.ts";
 
 export const DEV_DATA_PATH = "__data/bundle.json";
 export const DEV_PLAYBOOK_PATH = "__data/playbook/";

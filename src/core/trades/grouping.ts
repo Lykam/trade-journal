@@ -32,7 +32,7 @@ function openingStep(p: OpeningPosition): Step {
     synthetic: true,
     fill: {
       id: `op-${shortHash([p.account, p.symbol, p.qty, p.avgPrice, p.openedAt].join("|"))}`,
-      broker: "schwab", // replaced below with the account's broker when fills exist
+      broker: "schwab", // placeholder: the trade's broker comes from brokerOf(account) when it is built
       account: p.account, symbol: p.symbol, assetType: "equity", side: "buy",
       qty: p.qty, price: p.avgPrice, fees: 0, executedAt, timePrecision: "day",
       seq: -1, source: "overrides.json", importedAt: "",
@@ -104,7 +104,8 @@ class TradeBuilder {
   buy(s: Step) {
     const { qty, price, fees, executedAt } = s.fill;
     this.steps.push(s);
-    this.events.push({ kind: this.pos > EPS ? "add" : "open", at: executedAt, qty, price });
+    // Buy fees are part of realized P&L (realizedPnl), so the event keeps them for positionAt.
+    this.events.push({ kind: this.pos > EPS ? "add" : "open", at: executedAt, qty, price, ...(fees ? { fees } : {}) });
     this.avgCost = (this.avgCost * this.pos + price * qty) / (this.pos + qty);
     this.pos = qtyRound(this.pos + qty);
     this.maxPos = Math.max(this.maxPos, this.pos);

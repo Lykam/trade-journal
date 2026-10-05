@@ -2,8 +2,8 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { bytesOf, gitBlobSha, parseHistory, type FileWrite, type HistorySnapshot } from "../../src/core/history/files";
-import { makeValidator, SCHEMAS, type SchemaName, type SchemaTexts } from "../../src/core/schema";
+import { bytesOf, gitBlobSha, parseHistory, type FileWrite, type HistorySnapshot } from "../../src/core/history/files.ts";
+import { makeValidator, SCHEMAS, type SchemaName, type SchemaTexts } from "../../src/core/schema.ts";
 
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const SCHEMA_DIR = join(REPO_ROOT, "schema");

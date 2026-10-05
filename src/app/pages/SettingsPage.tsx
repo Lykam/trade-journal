@@ -3,6 +3,7 @@
 // and symbols.json.
 import { useState } from "react";
 import type { DataBundle } from "../../core/types";
+import { DEMO_TOKEN_NOTE } from "../demo-text";
 import { dateTimeOf } from "../format";
 import { DEFAULT_DATA_REPO, forgetToken, saveCheckedToken, useToken } from "../github";
 import { isRemembered, lock, setRemembered } from "../vault";
@@ -138,7 +139,7 @@ function JsonPanel({ title, file, value }: { title: string; file: string; value:
     <section className="panel" aria-label={title}>
       <div className="panel-head">
         <h2>{title}</h2>
-        <a href={`${HISTORY_REPO}/edit/main/${file}`} target="_blank" rel="noopener noreferrer" className="small">EDIT ON GITHUB ↗</a>
+        {!__TJ_DEMO__ && <a href={`${HISTORY_REPO}/edit/main/${file}`} target="_blank" rel="noopener noreferrer" className="small">EDIT ON GITHUB ↗</a>}
       </div>
       <pre className="json">{JSON.stringify(value, null, 2)}</pre>
     </section>
@@ -146,6 +147,36 @@ function JsonPanel({ title, file, value }: { title: string; file: string; value:
 }
 
 export function SettingsPage({ data }: { data: DataBundle }) {
+  return __TJ_DEMO__ ? <DemoSettingsPage data={data} /> : <RealSettingsPage data={data} />;
+}
+
+/** Demo build (Q50): no lock and no token, one line instead; the read-only views show the demo's files. */
+function DemoSettingsPage({ data }: { data: DataBundle }) {
+  return (
+    <main className="page">
+      <header className="page-head"><h1>SETTINGS</h1></header>
+      <div className="settings">
+        <section className="panel" aria-label="GitHub token">
+          <div className="panel-head"><h2>GitHub token</h2></div>
+          <div className="body"><p className="muted">{DEMO_TOKEN_NOTE}</p></div>
+        </section>
+        <section className="panel" aria-label="Data">
+          <div className="panel-head"><h2>Data</h2></div>
+          <div className="body">
+            <dl className="kv">
+              <dt>Generated</dt><dd>{dateTimeOf(data.loadedAt)}, in this browser</dd>
+              <dt>Quotes as of</dt><dd>{data.quotes ? dateTimeOf(data.quotes.asOf) : "none"}</dd>
+            </dl>
+          </div>
+        </section>
+        <JsonPanel title="config.json" file="config.json" value={data.config} />
+        <JsonPanel title="symbols.json" file="symbols.json" value={data.symbols} />
+      </div>
+    </main>
+  );
+}
+
+function RealSettingsPage({ data }: { data: DataBundle }) {
   const dev = import.meta.env.DEV;
   const [remember, setRemember] = useState(() => !dev && isRemembered());
   const toggle = (on: boolean) => {

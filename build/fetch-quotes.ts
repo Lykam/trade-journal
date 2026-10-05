@@ -7,9 +7,11 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { loadHistory, REPO_ROOT, resolveHistoryDir } from "../cli/lib/history";
-import { mergeQuotes, openSymbols, quoteCounts } from "../src/core/quotes";
-import type { Quote, QuotesFile } from "../src/core/types";
+import { loadHistory, REPO_ROOT, resolveHistoryDir } from "../cli/lib/history.ts";
+import { mergeQuotes, openSymbols, quoteCounts } from "../src/core/quotes.ts";
+import type { Quote, QuotesFile } from "../src/core/types.ts";
+import { isPublicLog, runMain } from "./public-log.ts";
+import { yahooClient } from "./yahoo.ts";
 
 /** A source of last prices. Swap in another implementation (Finnhub, Alpaca…) without touching callers. */
 export interface QuoteProvider {
@@ -18,16 +20,12 @@ export interface QuoteProvider {
   fetch(symbols: string[]): Promise<Record<string, Quote>>;
 }
 
-const silent = { info() {}, warn() {}, error() {}, debug() {}, dir() {} };
-
 export class YahooProvider implements QuoteProvider {
   readonly name = "yahoo";
 
   async fetch(symbols: string[]): Promise<Record<string, Quote>> {
     if (!symbols.length) return {};
-    const { default: YahooFinance } = await import("yahoo-finance2");
-    // The library logs validation details that can include symbols, so it gets a silent logger.
-    const yf = new YahooFinance({ logger: silent, suppressNotices: ["yahooSurvey"], validation: { logErrors: false } });
+    const yf = await yahooClient();
     const rows = await yf.quote(symbols, { return: "array" }, { validateResult: false });
     const out: Record<string, Quote> = {};
     for (const r of rows as Array<{ symbol?: string; regularMarketPrice?: number; regularMarketTime?: Date | number; marketState?: string }>) {
@@ -37,11 +35,6 @@ export class YahooProvider implements QuoteProvider {
     }
     return out;
   }
-}
-
-/** True in the workflows: their logs are public, so scripts print no counts (Q35). */
-export function isPublicLog(): boolean {
-  return process.env.TJ_PUBLIC_LOG === "1";
 }
 
 export function resolveQuotesFile(flag?: string): string {
@@ -94,10 +87,5 @@ export async function runFetchQuotes(
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
-  runFetchQuotes(process.argv.slice(2))
-    .then((code) => (process.exitCode = code))
-    .catch((e) => {
-      console.error((e as Error).message);
-      process.exitCode = 1;
-    });
+  await runMain("quotes", () => runFetchQuotes(process.argv.slice(2)));
 }

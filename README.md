@@ -1,53 +1,74 @@
 # Trade Journal
 
-A personal, Tradervue-style trade journal with weekly day/swing "temperature
-gauges" that recommend full, ½ or ¼ size based on this week's win rate versus
-the rolling 90-day average.
+[![ci](https://github.com/Lykam/trade-journal/actions/workflows/ci.yml/badge.svg)](https://github.com/Lykam/trade-journal/actions/workflows/ci.yml)
 
-- **This repo (public):** app source code only. It contains no trade data.
-- **Data:** read at build time from two private repos, `trade-history`
-  (normalized Schwab and Webull fills) and `Playbook` (trade reviews and
-  chart images). The data is published to GitHub Pages **encrypted** and
-  decrypted in the browser with a passphrase.
+A personal, Tradervue-style trading journal for a day account and a swing
+account. Its centerpiece is a pair of weekly "temperature gauges" that compare
+this week's win rate with the 90-day average and say whether to trade at full,
+½ or ¼ size.
 
-See [`docs/SPEC.md`](docs/SPEC.md) for the full specification and the
-decisions log (§10).
+**[Live demo →](https://lykam.github.io/trade-journal/demo/)** (synthetic data,
+generated in your browser; nothing to log in to)
 
-Status: milestone 5 (in-browser import and override editing through the GitHub API) complete. Next: milestone 6, Playbook integration. Site: https://lykam.github.io/trade-journal/
+![Dashboard](docs/screenshots/dashboard.png)
 
-The Import page and the Commit buttons need a fine-grained GitHub token (Contents: read and write on trade-history only), entered in Settings; see SPEC §2 and Q38.
+## Features
 
-## Development
+- **Gauges:** day and swing win rate vs. baseline, with open swing positions
+  marked to market, an 8-week sparkline and the size recommendation.
+- **Open positions** with adds, trims, realized and unrealized P&L.
+- **Trades** table with filters kept in the URL, bulk tags, style and exclude;
+  **trade detail** with executions, timeline, the linked review and charts.
+- **Calendar**, **Reports** (stats grid, breakdowns, win vs loss days,
+  drawdown, compare, tag breakdown) and a **Journal** of Playbook reviews.
+- **Import** of Schwab and Webull CSV exports in the browser or from a CLI,
+  with a preview before anything is written.
+
+| Trade detail | Reports | Phone |
+|---|---|---|
+| ![Trade detail](docs/screenshots/trade-detail.png) | ![Reports](docs/screenshots/reports.png) | ![Phone](docs/screenshots/phone-dashboard.png) |
+
+## Run it locally
 
 ```
 npm install
+npm run dev:demo         # the demo at http://localhost:5175/trade-journal/demo/ (synthetic data)
 npm test                 # Vitest, synthetic fixtures only
+npm run typecheck
+```
+
+## How the real site works
+
+The app's code is public; the data is not. Trades live in a private
+`trade-history` repo and reviews in a private `Playbook` repo. A GitHub Action
+builds the site, encrypts the data (AES-256-GCM, key from a passphrase) and
+deploys it to GitHub Pages, so the published files are ciphertext and only the
+owner can unlock them in the browser. The demo is a separate build with the
+encryption, storage and GitHub code compiled out.
+
+See [`docs/SPEC.md`](docs/SPEC.md) for the specification, the security model
+(§2, §8) and the decisions log (§10).
+
+<details>
+<summary>Owner commands (need the private sibling checkouts)</summary>
+
+```
+npm run dev              # app with local plaintext data from ../trade-history and ../Playbook
+npm run dev:fixtures     # the same on the test fixtures (port 5174)
 npm run import -- --dry-run [--all] [files…]   # preview an import into ../trade-history
 npm run trades -- --date 2026-10-01 --style swing
-npm run verify           # local only: recompute and check derived/trades.json
+npm run verify           # recompute and check derived/trades.json
 npm run quotes           # price open positions -> quotes.json (gitignored; prints counts only)
-npm run dev              # app at http://localhost:5173/trade-journal/ with local data
-npm run dev:demo         # the same on synthetic fixtures (port 5174), no real data needed
-npm run scan             # before committing: check added lines for real tickers / review names
+npm run scan             # before committing: check added lines for private data
 npm run build            # production build + leak guard (no data in dist/)
+npm run build:demo       # the public demo into dist-demo/ + its checks; npm run serve:demo serves it
 SITE_PASSPHRASE=… npm run encrypt   # bundle + encrypt into dist/data.enc, dist/img/*.enc
 npm run check:dist -- --encrypted   # leak guard on the encrypted dist
 npm run preview:demo     # encrypted production site on fixtures (port 4174), demo passphrase printed
 ```
 
-`npm run dev` serves plaintext data from `$TRADE_HISTORY_DIR` and Playbook
-reviews and chart images from `$PLAYBOOK_DIR` (default `../Playbook`) through
-dev-only endpoints that are never part of `vite build`. Add
-`?now=2026-10-02T15:00:00-04:00` to the URL to view the dashboard as of
-another time.
+Deploys run from `deploy.yml` (push to main, `repository_dispatch` from the
+data repos, manual) and `prices.yml` (every 15 minutes in market hours), both
+through `build-deploy.yml`; see SPEC §7.
 
-The CLI reads and writes `$TRADE_HISTORY_DIR` (default `../trade-history`).
-
-## Deploy
-
-`.github/workflows/deploy.yml` (push to main, `repository_dispatch: data-updated`
-from the data repos, manual) and `prices.yml` (every 15 min in market hours plus
-~16:20 ET) both call `build-deploy.yml`: test → check out the private repos →
-build → quotes → encrypt → leak guard → GitHub Pages. Secrets: read-only deploy
-keys `TRADE_HISTORY_DEPLOY_KEY` / `PLAYBOOK_DEPLOY_KEY` and `SITE_PASSPHRASE` here, `DISPATCH_TOKEN` in `trade-history` and `Playbook`
-(SPEC §2, §7).
+</details>

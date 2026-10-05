@@ -15,6 +15,7 @@ import { REPO_ROOT } from "../cli/lib/history";
 import { aadFor, decodeHeader, HEADER_BYTES, KIND_CACHE, TAG_BYTES, unpad } from "../src/core/crypto";
 import { deriveKeyNode, encryptPayload, type KdfParams, readKdfParams } from "./encrypt";
 import { resolveQuotesFile } from "./fetch-quotes";
+import { runMain } from "./public-log";
 
 const CACHE_BUCKET = 4 * 1024;
 
@@ -39,26 +40,28 @@ export function openCache(file: Uint8Array, passphrase: string): string | null {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
-  const { values, positionals } = parseArgs({
-    args: process.argv.slice(2), allowPositionals: true, options: { quotes: { type: "string" }, cache: { type: "string" } },
+  await runMain("quotes-cache", () => {
+    const { values, positionals } = parseArgs({
+      args: process.argv.slice(2), allowPositionals: true, options: { quotes: { type: "string" }, cache: { type: "string" } },
+    });
+    const mode = positionals[0];
+    const quotes = resolveQuotesFile(values.quotes);
+    const cache = resolve(values.cache ?? join(REPO_ROOT, "quotes-cache.enc"));
+    const passphrase = process.env.SITE_PASSPHRASE ?? "";
+    if (!passphrase || (mode !== "save" && mode !== "restore")) {
+      console.error("usage: SITE_PASSPHRASE=… npm run quotes:cache -- save|restore");
+      process.exitCode = 1;
+    } else if (mode === "save") {
+      if (existsSync(quotes)) {
+        writeFileSync(cache, sealCache(readFileSync(quotes, "utf8"), passphrase));
+        console.log("quotes-cache: saved (encrypted)");
+      } else console.log("quotes-cache: no quotes.json to save");
+    } else {
+      const json = existsSync(cache) ? openCache(new Uint8Array(readFileSync(cache)), passphrase) : null;
+      if (json !== null) {
+        writeFileSync(quotes, json);
+        console.log("quotes-cache: restored");
+      } else console.log("quotes-cache: no usable cache; starting without previous quotes");
+    }
   });
-  const mode = positionals[0];
-  const quotes = resolveQuotesFile(values.quotes);
-  const cache = resolve(values.cache ?? join(REPO_ROOT, "quotes-cache.enc"));
-  const passphrase = process.env.SITE_PASSPHRASE ?? "";
-  if (!passphrase || (mode !== "save" && mode !== "restore")) {
-    console.error("usage: SITE_PASSPHRASE=… npm run quotes:cache -- save|restore");
-    process.exitCode = 1;
-  } else if (mode === "save") {
-    if (existsSync(quotes)) {
-      writeFileSync(cache, sealCache(readFileSync(quotes, "utf8"), passphrase));
-      console.log("quotes-cache: saved (encrypted)");
-    } else console.log("quotes-cache: no quotes.json to save");
-  } else {
-    const json = existsSync(cache) ? openCache(new Uint8Array(readFileSync(cache)), passphrase) : null;
-    if (json !== null) {
-      writeFileSync(quotes, json);
-      console.log("quotes-cache: restored");
-    } else console.log("quotes-cache: no usable cache; starting without previous quotes");
-  }
 }

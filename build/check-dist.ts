@@ -6,14 +6,17 @@
 // Skips with a note when no trade-history checkout is available.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { loadHistory, REPO_ROOT, resolveHistoryDir } from "../cli/lib/history";
-import { parseReviewHeader } from "../src/core/reviews/parse-header";
-import { reviewIdOf } from "../src/core/reviews/join";
+import { REPO_ROOT, resolveHistoryDir } from "../cli/lib/history";
 import {
   DATA_BUCKET, decodeHeader, HEADER_BYTES, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, IMAGE_NAME_RE, KIND_DATA, KIND_IMAGE, TAG_BYTES,
 } from "../src/core/crypto";
-import { isPublicLog, readQuotes, resolveQuotesFile } from "./fetch-quotes";
-import { loadPlaybook, resolvePlaybookDir } from "./playbook";
+import { resolveQuotesFile } from "./fetch-quotes";
+import { checkDemoDist, DEMO_SHELL_RE } from "./demo-dist.ts";
+import { resolvePlaybookDir } from "./playbook";
+import { findLeaks, privateTokens } from "./private-tokens";
+import { isPublicLog, runMain } from "./public-log";
+
+export { findLeaks, playbookNames } from "./private-tokens";
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => {
@@ -22,51 +25,13 @@ function files(dir: string): string[] {
   });
 }
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-/** Symbols that appear as whole tokens. 1–2 letter symbols only count inside quotes (minified code is full of short identifiers). */
-export function findLeaks(text: string, symbols: Iterable<string>): string[] {
-  const hits: string[] = [];
-  for (const s of symbols) {
-    const re = s.length <= 2 ? new RegExp(`["'\`]${escape(s)}["'\`]`) : new RegExp(`(?<![A-Za-z0-9_$])${escape(s)}(?![A-Za-z0-9_$])`);
-    if (re.test(text)) hits.push(s);
-  }
-  return hits;
-}
-
 /**
- * Public third-party code the app bundles whose identifiers can look like
- * tickers (Ajv's code generator has short uppercase operator names). Like the app
- * source, it is public and holds no data (Q39).
+ * All app source text (src/ and index.html), ticker-scanned before each commit.
+ * The browser no longer bundles Ajv (its validators are precompiled, Q46), so
+ * no vendor code is exempted any more (supersedes Q39).
  */
-export const VENDOR_DIRS = ["node_modules/ajv/dist"];
-
-/** All app source text (src/ and index.html, ticker-scanned before each commit) plus the bundled vendor code above. */
 export function appSourceText(root = REPO_ROOT): string {
-  const vendor = VENDOR_DIRS.flatMap((d) => (existsSync(join(root, d)) ? files(join(root, d)).filter((f) => f.endsWith(".js")) : []));
-  return [...files(join(root, "src")), join(root, "index.html"), ...vendor].map((f) => readFileSync(f, "utf8")).join("\n");
-}
-
-/**
- * A symbol that is also a token in the app's own source (a UI word such as a
- * column label) can't be told apart from code, so it is skipped: dist/ can only
- * leak data that is not already in the public source.
- */
-/**
- * Private names that must never reach dist/: each review's file name and stem
- * ("2026-07-27-ABC.md", "2026-07-27-ABC") and each image's path and file name.
- */
-export function playbookNames(playbook: { reviews: Array<{ path: string }>; images: string[] }): Set<string> {
-  const names = new Set<string>();
-  for (const r of playbook.reviews) {
-    names.add(r.path.split("/").pop()!);
-    names.add(reviewIdOf(r.path));
-  }
-  for (const i of playbook.images) {
-    names.add(i);
-    names.add(i.split("/").pop()!);
-  }
-  return names;
+  return [...files(join(root, "src")), join(root, "index.html")].map((f) => readFileSync(f, "utf8")).join("\n");
 }
 
 /** Shannon entropy in bits per byte (8.0 for uniformly random bytes). */
@@ -97,7 +62,11 @@ export function checkEncFile(bytes: Uint8Array, kind: number): string[] {
 /** App-shell files vite emits; anything else in an encrypted dist (a .json, .md, image…) is a leak. */
 const SHELL_RE = /^(index\.html|favicon\.(ico|svg)|assets\/[\w.-]+\.(js|css|svg|woff2?))$/;
 
-/** Structure of an encrypted dist (Q34). Returns problems as "<file>: <what>". */
+/**
+ * Structure of an encrypted dist (Q34). Returns problems as "<file>: <what>".
+ * The public demo may sit under demo/ (Q51): app-shell files only, and they
+ * must pass the demo checks (no vault, no data.enc, no GitHub code).
+ */
 export function checkEncrypted(distDir: string): string[] {
   const problems: string[] = [];
   if (!existsSync(join(distDir, "data.enc"))) problems.push("data.enc: missing (run npm run encrypt)");
@@ -111,10 +80,13 @@ export function checkEncrypted(distDir: string): string[] {
       const name = rel.slice(4).replace(/\.enc$/, "");
       if (!rel.endsWith(".enc") || !IMAGE_NAME_RE.test(name)) problems.push(`${rel}: image file not named <32 hex>.enc`);
       problems.push(...checkEncFile(readFileSync(f), KIND_IMAGE).map((p) => `${rel}: ${p}`));
+    } else if (rel.startsWith("demo/")) {
+      if (!DEMO_SHELL_RE.test(rel.slice(5))) problems.push(`${rel}: unexpected file in the demo`);
     } else if (!SHELL_RE.test(rel)) {
       problems.push(`${rel}: unexpected file in an encrypted dist`);
     }
   }
+  if (existsSync(join(distDir, "demo"))) problems.push(...checkDemoDist(join(distDir, "demo")).map((p) => `demo/${p}`));
   if (imgs % IMAGE_COUNT_BUCKET !== 0 || imgs === 0) problems.push(`img/: file count not padded to a multiple of ${IMAGE_COUNT_BUCKET}`);
   return problems;
 }
@@ -178,21 +150,16 @@ export function checkDist(
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
-  const dir = resolveHistoryDir();
-  if (!existsSync(join(dir, "config.json"))) {
-    console.log("check-dist: no trade-history checkout; skipped");
-  } else {
-    const h = loadHistory(dir);
-    const playbook = loadPlaybook(resolvePlaybookDir()) ?? { reviews: [], images: [] };
-    const symbols = new Set<string>([
-      ...h.fills.map((f) => f.symbol),
-      ...(h.derived?.trades ?? []).flatMap((t) => [t.symbol, t.underlying]),
-      ...Object.keys(readQuotes(resolveQuotesFile())?.quotes ?? {}),
-      ...playbook.reviews.map((r) => parseReviewHeader(r.markdown).ticker).filter((t): t is string => t !== null),
-    ]);
-    process.exitCode = checkDist(join(REPO_ROOT, "dist"), symbols, console.log, appSourceText(), playbookNames(playbook), {
+  // A data file that fails to load ends the run with "<file>: <kind>" only, never its message (Q43).
+  await runMain("check-dist", () => {
+    const tokens = privateTokens(resolveHistoryDir(), resolvePlaybookDir(), resolveQuotesFile());
+    if (!tokens) {
+      console.log("check-dist: no trade-history checkout; skipped");
+      return 0;
+    }
+    return checkDist(join(REPO_ROOT, "dist"), tokens.symbols, console.log, appSourceText(), tokens.names, {
       encrypted: process.argv.includes("--encrypted"),
       publicLog: isPublicLog(),
     });
-  }
+  });
 }

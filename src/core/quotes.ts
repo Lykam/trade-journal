@@ -1,5 +1,5 @@
 // quotes.json bookkeeping (SPEC §5.4). Pure; the network part lives in build/fetch-quotes.ts.
-import type { Quote, QuotesFile, Trade } from "./types";
+import type { Quote, QuotesFile, Trade } from "./types.ts";
 
 /** Symbols to price: every open position's own symbol (the ETF held, not its underlying). */
 export function openSymbols(trades: Trade[]): string[] {

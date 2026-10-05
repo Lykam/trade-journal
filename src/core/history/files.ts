@@ -3,9 +3,10 @@
 // an import or override edit produces byte-identical files either way.
 import { sha1 } from "@noble/hashes/legacy.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
-import { etDate } from "../normalize/util";
-import { SCHEMAS, type SchemaTexts, type Validate } from "../schema-names";
-import type { Config, DerivedTrades, Fill, FillsFile, Overrides, SymbolsMap } from "../types";
+import { parseJsonFile } from "../data-error.ts";
+import { etDate } from "../normalize/util.ts";
+import { SCHEMAS, type SchemaTexts, type Validate } from "../schema-names.ts";
+import type { Config, DerivedTrades, Fill, FillsFile, Overrides, SymbolsMap } from "../types.ts";
 
 export interface HistorySnapshot {
   config: Config;
@@ -47,19 +48,19 @@ export function gitBlobSha(content: string | Uint8Array): string {
 
 /** Parse and schema-validate everything the importer and the override editor read. */
 export function parseHistory(t: HistoryTexts, validate: Validate): HistorySnapshot {
-  const config = JSON.parse(t.config) as Config;
+  const config = parseJsonFile<Config>(t.config, "config.json");
   validate("config", config, "config.json");
-  const symbols = t.symbols === undefined ? {} : (JSON.parse(t.symbols) as SymbolsMap);
+  const symbols = t.symbols === undefined ? {} : parseJsonFile<SymbolsMap>(t.symbols, "symbols.json");
   validate("symbols", symbols, "symbols.json");
-  const overrides = t.overrides === undefined ? { trades: {}, openingPositions: [] } : (JSON.parse(t.overrides) as Overrides);
+  const overrides = t.overrides === undefined ? { trades: {}, openingPositions: [] } : parseJsonFile<Overrides>(t.overrides, "overrides.json");
   validate("overrides", overrides, "overrides.json");
   const fills: Fill[] = [];
   for (const f of t.fills.filter((x) => FILLS_FILE_RE.test(x.name)).sort((a, b) => a.name.localeCompare(b.name))) {
-    const file = JSON.parse(f.text) as FillsFile;
+    const file = parseJsonFile<FillsFile>(f.text, `fills/${f.name}`);
     validate("fills", file, `fills/${f.name}`);
     fills.push(...file.fills);
   }
-  const derived = t.derived === undefined ? null : (JSON.parse(t.derived) as DerivedTrades);
+  const derived = t.derived === undefined ? null : parseJsonFile<DerivedTrades>(t.derived, "derived/trades.json");
   return { config, symbols, overrides, fills, derived };
 }
 
