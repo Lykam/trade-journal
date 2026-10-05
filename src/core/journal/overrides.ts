@@ -17,7 +17,7 @@ export type BulkAction =
 const sameTag = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /** Drop empty fields so an entry that matches the defaults disappears instead of lingering as {}. */
-function tidy(ov: TradeOverride, t: Trade, config: Config): TradeOverride | null {
+export function tidy(ov: TradeOverride, t: Trade, config: Config): TradeOverride | null {
   const out: TradeOverride = {};
   if (ov.style && ov.style !== config.styleByAccount[t.account]) out.style = ov.style;
   if (ov.exclude) out.exclude = true;

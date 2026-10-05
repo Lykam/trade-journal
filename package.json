@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "import": "tsx cli/import.ts",
+    "import:tradervue": "tsx cli/import-tradervue.ts",
     "trades": "tsx cli/trades.ts",
     "verify": "tsx cli/verify.ts",
     "quotes": "tsx build/fetch-quotes.ts",
