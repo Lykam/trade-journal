@@ -486,3 +486,24 @@ td.review-cell { width: 18px; }
 th.select-cell { width: 28px; }
 .ph-only-inline { display: none; }
 @media (max-width: 640px) { .ph-only-inline { display: inline; } }
+
+/* Charts (#19): readout, edge values, date ticks, legend. */
+.chart { display: flex; flex-direction: column; gap: 4px; }
+.chart-readout { min-height: 16px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chart-body { position: relative; }
+.y-label { position: absolute; left: 2px; padding: 0 3px; background: color-mix(in srgb, var(--panel) 75%, transparent); pointer-events: none; }
+.y-label.top { top: 0; }
+.y-label.bottom { bottom: 0; }
+.axis-labels.ticks-3 > span:nth-child(2) { position: absolute; left: 50%; transform: translateX(-50%); }
+.chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.key { display: inline-block; width: 8px; height: 8px; }
+.key-gray { background: var(--border-strong); }
+.crosshair { stroke: var(--muted); stroke-dasharray: 2 3; }
+.winbars { position: relative; height: 200px; display: flex; align-items: flex-end; gap: 2px; overflow: hidden; border-bottom: 1px solid var(--border-strong); }
+.winbars.tight { gap: 0; }
+.winbars .avg-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--accent); pointer-events: none; }
+.winbar { flex: 1 1 0; min-width: 0; }
+.winbar.up { background: var(--gain); }
+.winbar.down { background: var(--border-strong); }
+.winbar.none { background: var(--border); }
+.winbar.on { outline: 1px solid var(--accent); }

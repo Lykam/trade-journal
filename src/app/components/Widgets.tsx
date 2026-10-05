@@ -24,8 +24,36 @@ export interface CumPoint {
   cum: number;
 }
 
-/** Cumulative line from 0, with a hover band per point. `fmt` formats values ($ by default). */
+/** First, middle and last of a list of dates, for the axis under a chart (#19). */
+export const dateTicks = (dates: string[]): string[] =>
+  dates.length === 0 ? [] : dates.length < 3 ? [dates[0]!, dates[dates.length - 1]!] : [dates[0]!, dates[Math.floor((dates.length - 1) / 2)]!, dates[dates.length - 1]!];
+
+/**
+ * The frame every chart shares (#19): a one-line readout of the hovered (or tapped) point,
+ * the top and bottom values on the left edge, and dates under the chart.
+ */
+export function ChartFrame({ readout, hint = "Hover or tap for values", hi, lo, ticks, legend, children }: {
+  readout: string | null; hint?: string; hi?: string; lo?: string; ticks?: string[]; legend?: React.ReactNode; children: React.ReactNode;
+}) {
+  return (
+    <div className="chart">
+      <div className="chart-readout small" aria-live="polite">{readout ?? <span className="dim">{hint}</span>}</div>
+      <div className="chart-body">
+        {children}
+        {hi !== undefined && <span className="y-label top dim small">{hi}</span>}
+        {lo !== undefined && <span className="y-label bottom dim small">{lo}</span>}
+      </div>
+      {ticks && ticks.length > 0 && (
+        <div className={`axis-labels ticks-${ticks.length} dim small`}>{ticks.map((t, i) => <span key={i}>{t}</span>)}</div>
+      )}
+      {legend && <div className="chart-legend dim small">{legend}</div>}
+    </div>
+  );
+}
+
+/** Cumulative line from 0, with a crosshair and readout per point. `fmt` formats values ($ by default). */
 export function CumulativeChart({ pts, label, fmt = money, height = 200 }: { pts: CumPoint[]; label: string; fmt?: (n: number) => string; height?: number }) {
+  const [at, setAt] = useState<number | null>(null);
   if (pts.length === 0) return <div className="empty">No closed trades in range</div>;
   const W = 600, H = height, P = 10;
   const vals = [0, ...pts.map((p) => p.cum)];
@@ -35,17 +63,20 @@ export function CumulativeChart({ pts, label, fmt = money, height = 200 }: { pts
   const x = (i: number) => (pts.length === 1 ? W / 2 : (i / (pts.length - 1)) * W);
   const last = pts[pts.length - 1]!;
   const step = pts.length > 1 ? W / (pts.length - 1) : W;
+  const p = at === null ? null : pts[at]!;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: H }} role="img" aria-label={`${label}, ending at ${fmt(last.cum)}`}>
-      <line x1="0" x2={W} y1={y(0)} y2={y(0)} className="chart-axis" strokeDasharray="2 4" vectorEffect="non-scaling-stroke" />
-      <polyline points={pts.map((p, i) => `${x(i).toFixed(1)},${y(p.cum).toFixed(1)}`).join(" ")}
-        className={last.cum >= 0 ? "line-gain" : "line-loss"} vectorEffect="non-scaling-stroke" />
-      {pts.map((p, i) => (
-        <rect key={p.date} x={x(i) - step / 2} y="0" width={step} height={H} fill="transparent">
-          <title>{`${p.date}: day ${fmt(p.value)} · total ${fmt(p.cum)}`}</title>
-        </rect>
-      ))}
-    </svg>
+    <ChartFrame readout={p && `${p.date} · day ${fmt(p.value)} · total ${fmt(p.cum)}`} hi={fmt(hi)} lo={fmt(lo)} ticks={dateTicks(pts.map((q) => q.date))}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="fixed-h" style={{ height: H }} role="img" aria-label={`${label}, ending at ${fmt(last.cum)}`}
+        onMouseLeave={() => setAt(null)}>
+        <line x1="0" x2={W} y1={y(0)} y2={y(0)} className="chart-axis" strokeDasharray="2 4" vectorEffect="non-scaling-stroke" />
+        <polyline points={pts.map((q, i) => `${x(i).toFixed(1)},${y(q.cum).toFixed(1)}`).join(" ")}
+          className={last.cum >= 0 ? "line-gain" : "line-loss"} vectorEffect="non-scaling-stroke" />
+        {at !== null && <line x1={x(at)} x2={x(at)} y1="0" y2={H} className="crosshair" vectorEffect="non-scaling-stroke" />}
+        {pts.map((q, i) => (
+          <rect key={q.date} x={x(i) - step / 2} y="0" width={step} height={H} fill="transparent" onMouseEnter={() => setAt(i)} onClick={() => setAt(i)} />
+        ))}
+      </svg>
+    </ChartFrame>
   );
 }
 
@@ -57,25 +88,29 @@ export interface WinDay {
   value: number;
 }
 
-/** Win % per day as columns; days at or above the average are green. */
+/** Win % per day as columns; days at or above the average are green, the rest gray (with a legend, #19). */
 export function WinByDay({ days, avg, fmt = money }: { days: WinDay[]; avg: number | null; fmt?: (n: number) => string }) {
+  const [at, setAt] = useState<number | null>(null);
   if (days.length === 0) return <div className="empty">No closed trades in range</div>;
+  const d = at === null ? null : days[at]!;
   return (
-    <div style={{ position: "relative", height: 200, display: "flex", alignItems: "flex-end", gap: days.length > 60 ? 0 : 2, overflow: "hidden", borderBottom: "1px solid var(--border-strong)" }}
-      role="img" aria-label={`Win rate by day; average ${pct(avg)}`}>
-      {avg !== null && (
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: `${avg * 100}%`, borderTop: "1px dashed var(--accent)" }} />
-      )}
-      {days.map((d) => (
-        <div key={d.date} title={`${d.date}: ${pct(d.winRate)} · ${d.wins}W ${d.losses}L · ${fmt(d.value)}`}
-          style={{
-            flex: "1 1 0", minWidth: 0, height: `${Math.max(1, (d.winRate ?? 0) * 100)}%`,
-            background: d.winRate === null ? "var(--border)" : avg !== null && d.winRate >= avg ? "var(--gain)" : "var(--border-strong)",
-          }} />
-      ))}
-    </div>
+    <ChartFrame
+      readout={d && `${d.date} · ${pct(d.winRate)} · ${d.wins}W ${d.losses}L · ${fmt(d.value)}`}
+      hi="100%" lo="0%" ticks={dateTicks(days.map((x) => x.date))}
+      legend={<><span className="key bg-win" /> at or above average · <span className="key key-gray" /> below average · <span className="accent">┄</span> average</>}
+    >
+      <div className={`winbars ${days.length > 60 ? "tight" : ""}`} role="img" aria-label={`Win rate by day; average ${pct(avg)}`} onMouseLeave={() => setAt(null)}>
+        {avg !== null && <div className="avg-line" style={{ bottom: `${avg * 100}%` }} />}
+        {days.map((x, i) => (
+          // A 0% day keeps a visible stub, so it reads as a day traded rather than a gap (#19).
+          <div key={x.date} className={`winbar ${x.winRate === null ? "none" : avg !== null && x.winRate >= avg ? "up" : "down"} ${at === i ? "on" : ""}`}
+            style={{ height: `${Math.max(3, (x.winRate ?? 0) * 100)}%` }} onMouseEnter={() => setAt(i)} onClick={() => setAt(i)} />
+        ))}
+      </div>
+    </ChartFrame>
   );
 }
+
 
 function Donut({ r }: { r: RangeStats }) {
   const s = r.summary;
