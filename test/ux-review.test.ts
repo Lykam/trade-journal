@@ -66,6 +66,17 @@ describe("#14 open trades and positions", () => {
     expect(groupPnl(j, [won], "gross")).toEqual({ value: 40, open: false });
   });
 
+  it("marks an open trade in the P&L mode shown: gross leaves out the fees already paid", () => {
+    // Bought 10 @ 10 with a $1 buy fee, trimmed 5 @ 12 with a $1 sell fee: realized gross +10, net +8.
+    const t = {
+      ...open({ symbol: "SWGA", openedAt: "2026-09-25T00:00:00-04:00", qty: 10, price: 10 }),
+      grossPnl: 10, fees: 2, netPnl: 8, realizedPnl: 8, openQty: 5,
+    };
+    const j = journal([t], { SWGA: q(11) }); // 5 open shares × (11 − 10) = +5 unrealized
+    expect(groupPnl(j, [t], "net")).toEqual({ value: 13, open: true });
+    expect(groupPnl(j, [t], "gross")).toEqual({ value: 15, open: true });
+  });
+
   it("sorts open rows after closed ones on P&L, in both directions", () => {
     const loser = closed({ symbol: "ZZTA", closedAt: "2026-09-20T16:00:00-04:00", net: -5 });
     const winner = closed({ symbol: "ZZTB", closedAt: "2026-09-21T16:00:00-04:00", net: 5 });

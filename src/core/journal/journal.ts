@@ -17,7 +17,7 @@ export interface Journal {
   /** Every tag in use, automatic first, then manual, alphabetical within each. */
   allTags: string[];
   overnight: Set<string>;
-  /** Open trades with a quote: realized + unrealized at the last price (Total open P&L, §6.1a). */
+  /** Open trades with a quote: unrealized P&L at the last price. Tables add the trade's gross or net realized P&L (§6.1a). */
   marks: Map<string, number>;
   today: string;
   startsOn: "monday" | "sunday";
@@ -42,7 +42,7 @@ export function buildJournal(
   const byName = (a: string, b: string) => a.localeCompare(b);
   const quotes = data.quotes?.quotes ?? {};
   const marks = new Map<string, number>();
-  for (const t of trades) if (t.status === "open" && quotes[t.symbol]) marks.set(t.id, markToMarket(t, quotes[t.symbol]!.price).total);
+  for (const t of trades) if (t.status === "open" && quotes[t.symbol]) marks.set(t.id, markToMarket(t, quotes[t.symbol]!.price).unrealized);
   return {
     trades, ideas,
     tradeById: new Map(trades.map((t) => [t.id, t])),
@@ -75,7 +75,8 @@ export function groupPnl(j: Journal, trades: Trade[], mode: "gross" | "net"): Gr
     if (t.status === "open") {
       open = true;
       const m = j.marks.get(t.id);
-      value = m === undefined || value === null ? null : value + m;
+      // Realized so far (trims, minus fees in net mode) plus the open shares at the last price.
+      value = m === undefined || value === null ? null : value + m + (mode === "gross" ? t.grossPnl : t.netPnl);
     } else if (value !== null) value += mode === "gross" ? t.grossPnl : t.netPnl;
   }
   return { value: value === null ? null : cents(value), open };
