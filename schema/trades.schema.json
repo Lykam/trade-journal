@@ -15,7 +15,8 @@
         "at": { "type": "string" },
         "qty": { "type": "number" },
         "price": { "type": "number" },
-        "realized": { "type": "number" }
+        "realized": { "type": "number" },
+        "fees": { "type": "number" }
       }
     },
     "trade": {

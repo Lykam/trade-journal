@@ -118,6 +118,7 @@ export function positionAt(t: Trade, now: string): PositionAt {
     if (e.kind === "open" || e.kind === "add") {
       avgCost = (avgCost * shares + e.price * e.qty) / (shares + e.qty);
       shares = round(shares + e.qty, 6);
+      realized -= e.fees ?? 0;
     } else {
       shares = round(Math.max(0, shares - e.qty), 6);
       realized += e.realized ?? 0;

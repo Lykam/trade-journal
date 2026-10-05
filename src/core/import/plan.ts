@@ -155,10 +155,15 @@ export function importFingerprint(p: ImportPlan): string {
 }
 
 /**
- * Oldest export first, from the file names: Webull numbers re-downloads
- * (Webull_Orders_Records.csv, then (1), (2), …) and Schwab stamps the export
- * time (…_Transactions_20260930-194206.csv). Order matters because Webull keeps
- * the first-seen symbol (Q18). Ties fall back to the modified time, then the name.
+ * Oldest export first, the same rule for the Import page and the CLI (SPEC
+ * §4.5). Order matters because Webull keeps the first-seen symbol (Q18).
+ * 1. The file's modified time, when both files have one: Webull's numbering
+ *    restarts after Downloads is cleaned, so an old "(3)" can predate a new
+ *    unnumbered export.
+ * 2. Then the name: Webull numbers re-downloads (Webull_Orders_Records.csv,
+ *    then (1), (2), …) and Schwab stamps the export time
+ *    (…_Transactions_20260930-194206.csv).
+ * 3. Then the plain name.
  */
 export function exportOrder<T extends { name: string; lastModified?: number }>(files: T[]): T[] {
   const key = (f: T): [number, string] => {
@@ -171,6 +176,8 @@ export function exportOrder<T extends { name: string; lastModified?: number }>(f
   return [...files].sort((a, b) => {
     const [ga, ka] = key(a);
     const [gb, kb] = key(b);
-    return ga - gb || ka.localeCompare(kb) || (a.lastModified ?? 0) - (b.lastModified ?? 0) || a.name.localeCompare(b.name);
+    const ta = a.lastModified ?? 0;
+    const tb = b.lastModified ?? 0;
+    return (ta && tb ? ta - tb : 0) || ga - gb || ka.localeCompare(kb) || a.name.localeCompare(b.name);
   });
 }

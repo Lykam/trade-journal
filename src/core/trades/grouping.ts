@@ -104,7 +104,8 @@ class TradeBuilder {
   buy(s: Step) {
     const { qty, price, fees, executedAt } = s.fill;
     this.steps.push(s);
-    this.events.push({ kind: this.pos > EPS ? "add" : "open", at: executedAt, qty, price });
+    // Buy fees are part of realized P&L (realizedPnl), so the event keeps them for positionAt.
+    this.events.push({ kind: this.pos > EPS ? "add" : "open", at: executedAt, qty, price, ...(fees ? { fees } : {}) });
     this.avgCost = (this.avgCost * this.pos + price * qty) / (this.pos + qty);
     this.pos = qtyRound(this.pos + qty);
     this.maxPos = Math.max(this.maxPos, this.pos);

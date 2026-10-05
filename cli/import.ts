@@ -8,7 +8,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { importWrites, planImport, previewLines } from "../src/core/import/plan";
+import { exportOrder, importWrites, planImport, previewLines } from "../src/core/import/plan";
 import { archivedRaw, generatorVersion, loadHistory, resolveHistoryDir, schemaTexts, validate, writeFiles } from "./lib/history";
 
 export const PATTERNS = {
@@ -20,11 +20,12 @@ export const PATTERNS = {
 export function findExports(dir: string, all: boolean): string[] {
   const entries = readdirSync(dir)
     .filter((n) => PATTERNS.webull.test(n) || PATTERNS.schwab.test(n))
-    .map((n) => ({ path: join(dir, n), name: n, mtime: statSync(join(dir, n)).mtimeMs }));
+    .map((n) => ({ path: join(dir, n), name: n, lastModified: statSync(join(dir, n)).mtimeMs }));
   const pick = all
     ? entries
-    : Object.values(PATTERNS).flatMap((re) => entries.filter((e) => re.test(e.name)).sort((a, b) => b.mtime - a.mtime).slice(0, 1));
-  return pick.sort((a, b) => a.mtime - b.mtime).map((e) => e.path);
+    : Object.values(PATTERNS).flatMap((re) => exportOrder(entries.filter((e) => re.test(e.name))).slice(-1));
+  // The Import page's rule, so both paths apply the same exports in the same order.
+  return exportOrder(pick).map((e) => e.path);
 }
 
 export function runImport(argv: string[], log: (s: string) => void = console.log): number {

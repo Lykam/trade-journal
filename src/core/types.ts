@@ -80,6 +80,8 @@ export interface TradeEvent {
   qty: number;
   price: number;
   realized?: number;
+  /** open and add only: the buy's fees, when non-zero (they count in realizedPnl). */
+  fees?: number;
 }
 
 export type TradeStatus = "open" | "closed" | "unmatched";

@@ -44,7 +44,8 @@ export interface Row {
 export const PAGE_SIZE = 50;
 
 const instant = (t: Trade) => Date.parse(t.closedAt ?? t.openedAt);
-const volumeOf = (t: Trade) => t.events.reduce((s, e) => s + e.qty, 0) + t.unmatchedQty;
+/** Shares bought plus shares sold. A sell event already holds the full fill qty, oversold shares included. */
+const volumeOf = (t: Trade) => t.events.reduce((s, e) => s + e.qty, 0);
 
 function makeRow(kind: Row["kind"], id: string, trades: Trade[], j: Journal, order: Map<string, number>): Row {
   const sorted = [...trades].sort((a, b) => Date.parse(a.openedAt) - Date.parse(b.openedAt) || order.get(a.id)! - order.get(b.id)!);
