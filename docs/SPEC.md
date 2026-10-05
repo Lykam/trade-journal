@@ -1054,11 +1054,13 @@ other than date they read **‹ Prev / Next ›**.
   (Tag Breakdown's open grid).
 - **Breakdown sub-tabs** under the grid. Each is a set of horizontal bar
   charts of P&L, with win rate, trade count and expectancy on hover:
-  - **Days/Times:** day of week, hour of day (Webull only; Schwab is
-    excluded and labeled), month.
+  - **Days/Times:** day of week, entry time (15-minute buckets from 09:30
+    to 11:00, then hourly, with pre-market apart; Webull only, Schwab is
+    excluded and labeled; Q61), month.
   - **Price/Volume:** entry price buckets and position size buckets.
   - **Instrument:**
-    - Performance by symbol, **Top 20 / Bottom 20**.
+    - Performance by symbol: up to 40 symbols, one list best to worst;
+      more, the **best 20** and the **worst 20 of the losing ones** (Q61).
     - The same by **underlying**.
     - **Stock vs leveraged ETF**.
     - **"Same underlying, stock vs ETF":** for each underlying traded both
@@ -1089,7 +1091,11 @@ other than date they read **‹ Prev / Next ›**.
 - **Tag Breakdown:** the stats grid for each tag, plus each review
   `Category`, plus each style. A summary table per kind (count, win %, P&L,
   expectancy, profit factor, SQN); picking a tag opens its full grid. A trade
-  with several tags counts in each.
+  with several tags counts in each. The tables are headed **Tag (manual)** and
+  **Category (from review)**, kept apart even when names match (owner
+  decision). Profit factor, SQN and Kelly are grayed under 10 units, and a
+  group without losses shows "—" for profit factor with the hover "No
+  losses" (Q61).
 
 ### 6.6 Tags
 
@@ -1459,6 +1465,8 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q61 | Breakdowns | UX review (#20). **Entry time:** 15-minute buckets 09:30–11:00, hourly after, pre-market apart (`entryBucket`, from the unit's `entryMinute`). **Best / worst:** `topBottom` splits only above 2 × 20 groups, and the worst list holds losing groups only, worst first; a shorter list is one list, so winners never sit under "worst". **Small samples:** under 10 units, profit factor, SQN and Kelly are grayed with a hover saying so; ∞ is shown as "—" ("No losses"). **Tag vs Category** stay separate (owner decision), with clearer headings. SQN, K-ratio, Kelly % and Chance it's luck each have a one-line hover. (2026-10-04, #20) |
+
 | Q60 | Chart readouts | UX review (#19), within Q22's hand-rolled SVG: every chart shows its top and bottom values on the left edge, first / middle / last dates under it, and a one-line readout of the hovered or tapped point (date and value; P&L and running total on cumulative charts) with a crosshair, instead of slow native tooltips. Daily win % has a legend (green at or above average, gray below) and a minimum bar height so 0% days stay visible; the gauges' 8-week bars put the hovered week in place of their label; breakdown bars read `P&L · count · win %` (win % on desktop only). (2026-10-04, #19) |
 
 | Q59 | Compare presets | UX review (#18), owner decision 2026-10-04: a preset resets the fields presets own (style, instrument, broker, date preset and range) on both sides before applying its own, keeping every other filter. Before, DAY VS SWING set STYLE = DAY on the global filter and THIS MONTH VS LAST MONTH then compared day trades only, without saying so. Side names come from `compareLabels` (the fields that differ, then the dates); B − A is shown for the numeric stats (win % in points). (2026-10-04, #18) |

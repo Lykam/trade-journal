@@ -3,7 +3,8 @@ import { addDays, dayOfWeek, daysBetween, weekStart } from "../calendar";
 import { quoteStatus, type QuoteStatus } from "../gauge/gauge";
 import { cents, etDate, round } from "../normalize/util";
 import { byCloseDesc, heldOvernightDayTrades, isScored, markToMarket, summarize, type Summary } from "../trades/stats";
-import type { Broker, Fill, Quote, Style, Trade, TradeEvent } from "../types";
+import type { Quote, Style, Trade, TradeEvent } from "../types";
+
 
 
 // ---------------------------------------------------------------- open positions
@@ -267,14 +268,6 @@ export function rangeStats(trades: Trade[], days: number, now: string, style: St
   };
 }
 
-// ---------------------------------------------------------------- imports
-
-/** The latest import time per broker, from the fills' `importedAt` (empty values ignored). */
-export function lastImports(fills: Fill[]): Partial<Record<Broker, string>> {
-  const out: Partial<Record<Broker, string>> = {};
-  for (const f of fills) if (f.importedAt && (!out[f.broker] || Date.parse(f.importedAt) > Date.parse(out[f.broker]!))) out[f.broker] = f.importedAt;
-  return out;
-}
 
 // ---------------------------------------------------------------- needs attention
 

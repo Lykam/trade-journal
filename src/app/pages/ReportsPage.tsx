@@ -11,7 +11,8 @@ import {
   TAB_LABELS, TABS, tagGroups, topBottom, winLossDays, type Grid, type ReportState, type Unit, type ValueOpts,
 } from "../../core/reports";
 import { BucketBars, BucketTable, Underwater, VBars } from "../components/ReportCharts";
-import { GridColumns, holdText, StatsGrid, type Fmt } from "../components/StatsGrid";
+import { GridColumns, holdText, small, smallTitle, StatsGrid, type Fmt } from "../components/StatsGrid";
+
 
 import { FilterBar, viewHref } from "../components/FilterBar";
 import { CumulativeChart, dateTicks, Widget, WinByDay } from "../components/Widgets";
@@ -107,7 +108,7 @@ function Breakdowns({ c }: { c: Ctx }) {
     body = (
       <>
         {W("By day of week (close date)", <BucketBars buckets={byDayOfWeek(units, o)} fmt={fmt} unit={unit} />)}
-        {W(<>By hour of entry (ET) {h.untimed > 0 && <span className="dim">· {h.untimed} Schwab {unit}{h.untimed === 1 ? "" : "s"} without times left out</span>}</>,
+        {W(<>By entry time (ET) {h.untimed > 0 && <span className="dim">· {h.untimed} Schwab {unit}{h.untimed === 1 ? " has" : "s have"} no time</span>}</>,
           <BucketBars buckets={h.buckets} fmt={fmt} unit={unit} empty="No timed (Webull) trades in range" />)}
         {W("By month (close date)", <BucketBars buckets={byMonth(units, o)} fmt={fmt} unit={unit} />)}
       </>
@@ -126,10 +127,11 @@ function Breakdowns({ c }: { c: Ctx }) {
     const same = sameUnderlying(units, o);
     body = (
       <>
-        {W("By symbol · top 20", <BucketBars buckets={sym.top} fmt={fmt} unit={unit} />)}
-        {W("By symbol · bottom 20", <BucketBars buckets={sym.bottom} fmt={fmt} unit={unit} empty="—" />)}
-        {W("By underlying · top 20", <BucketBars buckets={und.top} fmt={fmt} unit={unit} />)}
-        {W("By underlying · bottom 20", <BucketBars buckets={und.bottom} fmt={fmt} unit={unit} empty="—" />)}
+        {/* Up to 40 groups: one list, best to worst. More: best 20 and the losing ones, worst first (#20). */}
+        {W(sym.bottom.length ? "Best symbols" : "By symbol", <BucketBars buckets={sym.top} fmt={fmt} unit={unit} />)}
+        {sym.bottom.length > 0 && W("Worst symbols", <BucketBars buckets={sym.bottom} fmt={fmt} unit={unit} />)}
+        {W(und.bottom.length ? "Best underlyings" : "By underlying", <BucketBars buckets={und.top} fmt={fmt} unit={unit} />)}
+        {und.bottom.length > 0 && W("Worst underlyings", <BucketBars buckets={und.bottom} fmt={fmt} unit={unit} />)}
         {W("Stock vs leveraged ETF", <BucketTable buckets={byInstrument(units, o)} fmt={fmt} unit={f.unit} />)}
         {W("Same underlying · stock vs ETF", same.length === 0 ? <div className="empty">No underlying traded both ways in range</div> : (
           <div className="scroll-x">
@@ -304,8 +306,8 @@ function TagBreakdown({ c }: { c: Ctx }) {
   const keyOf = (g: (typeof groups)[number]) => `${g.kind}:${g.tag}`;
   const sel = groups.find((g) => keyOf(g) === c.r.tag) ?? null;
   const KINDS: Array<[(typeof groups)[number]["kind"], string, string]> = [
-    ["manual", "Manual tags", "No manual tags on these trades"],
-    ["category", "Review category", "No reviewed trades with a Category here"],
+    ["manual", "Tag (manual)", "No manual tags on these trades"],
+    ["category", "Category (from review)", "No reviewed trades with a Category here"],
     ["style", "Style", ""],
   ];
   return (
@@ -319,7 +321,7 @@ function TagBreakdown({ c }: { c: Ctx }) {
                 <div className="scroll-x">
                   <table className="grid dense">
                     <thead>
-                      <tr><th>TAG</th><th className="num">{c.f.unit}S</th><th className="num">WIN %</th><th className="num">P&amp;L</th><th className="num">EXPECTANCY</th><th className="num">PF</th><th className="num">SQN</th></tr>
+                      <tr><th>{kind === "manual" ? "TAG" : kind === "category" ? "CATEGORY" : "STYLE"}</th><th className="num">{c.f.unit}S</th><th className="num">WIN %</th><th className="num">P&amp;L</th><th className="num">EXPECTANCY</th><th className="num">PF</th><th className="num">SQN</th></tr>
                     </thead>
                     <tbody>
                       {gs.map((g) => (
@@ -329,8 +331,9 @@ function TagBreakdown({ c }: { c: Ctx }) {
                           <td className="num">{pct(g.grid.winRate, 1)}</td>
                           <td className={`num b ${pnlClass(g.grid.total)}`}>{c.f.v(g.grid.total)}</td>
                           <td className="num">{c.f.v(g.grid.expectancy)}</td>
-                          <td className="num">{g.grid.profitFactor?.toFixed(2) ?? (g.grid.wins ? "∞" : "—")}</td>
-                          <td className="num">{g.grid.sqn?.toFixed(2).replace("-", MINUS) ?? "—"}</td>
+                          {/* Under 10 trades these ratios mean little: grayed, with ∞ shown as "—" (#20). */}
+                          <td className={`num ${small(g.grid) ? "dim" : ""}`} title={smallTitle(g.grid)}>{g.grid.profitFactor?.toFixed(2) ?? "—"}</td>
+                          <td className={`num ${small(g.grid) ? "dim" : ""}`} title={smallTitle(g.grid)}>{g.grid.sqn?.toFixed(2).replace("-", MINUS) ?? "—"}</td>
                         </tr>
                       ))}
                     </tbody>

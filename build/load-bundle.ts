@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadHistory, validate } from "../cli/lib/history.ts";
-import { lastImports } from "../src/core/dashboard/dashboard.ts";
+import { lastImports } from "../src/core/imports.ts";
 import type { DataBundle } from "../src/core/types.ts";
 
 import { readQuotes } from "./fetch-quotes.ts";

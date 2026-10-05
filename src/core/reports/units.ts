@@ -46,12 +46,19 @@ export interface Unit {
   entryPrice: number;
   /** ET hour (0–23) of the first open, or null for date-only (Schwab) trades. */
   entryHour: number | null;
+  /** ET minutes after midnight of the first open (09:30 = 570), or null for date-only trades. */
+  entryMinute: number | null;
 }
 
 const closeTime = (t: Trade) => Date.parse(t.closedAt!);
 const bought = (t: Trade) => t.events.filter((e) => e.kind === "open" || e.kind === "add");
 const ET_HOUR = new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", hourCycle: "h23" });
 const etHour = (iso: string) => Number(ET_HOUR.format(new Date(iso)));
+const ET_HM = new Intl.DateTimeFormat("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const etMinute = (iso: string) => {
+  const [h, m] = ET_HM.format(new Date(iso)).split(":").map(Number) as [number, number];
+  return h * 60 + m;
+};
 
 function makeUnit(kind: Unit["kind"], id: string, trades: Trade[], order: Map<string, number>): Unit {
   const ts = [...trades].sort((a, b) => Date.parse(a.openedAt) - Date.parse(b.openedAt) || order.get(a.id)! - order.get(b.id)!);
@@ -84,6 +91,8 @@ function makeUnit(kind: Unit["kind"], id: string, trades: Trade[], order: Map<st
     volume: ts.reduce((s, t) => s + t.events.reduce((q, e) => q + e.qty, 0), 0),
     entryPrice: first.avgEntry,
     entryHour: first.holdMinutes === null ? null : etHour(first.openedAt),
+    entryMinute: first.holdMinutes === null ? null : etMinute(first.openedAt),
+
   };
 }
 

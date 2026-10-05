@@ -36,6 +36,11 @@ export interface Cell {
 }
 
 const MINUS = "−";
+
+/** Fewer units than this and ratio stats (PF, SQN, Kelly) are shown grayed (#20). */
+export const SMALL_SAMPLE = 10;
+export const small = (g: Grid) => g.count < SMALL_SAMPLE;
+export const smallTitle = (g: Grid) => (small(g) ? `Only ${g.count}: too few to mean much` : g.profitFactor === null && g.wins ? "No losses" : undefined);
 const signedCount = (d: number) => `${d > 0 ? "+" : d < 0 ? MINUS : ""}${Math.abs(d)}`;
 const signedNum = (d: number) => `${d > 0 ? "+" : d < 0 ? MINUS : ""}${Math.abs(d).toFixed(2)}`;
 const signedPts = (d: number) => `${d > 0 ? "+" : d < 0 ? MINUS : ""}${(Math.abs(d) * 100).toFixed(1)} pts`;
@@ -94,11 +99,21 @@ export function gridCells(g: Grid, f: Fmt): Cell[] {
     { key: "sw", label: "Max consecutive wins", value: <StreakLink s={g.streaks.win} f={f} /> },
     { key: "sl", label: "Max consecutive losses", value: <StreakLink s={g.streaks.loss} f={f} /> },
     { key: "sd", label: `${f.unit === "IDEA" ? "Idea" : "Trade"} P&L std dev`, value: f.v(g.stdDev).replace("+", "") },
-    { key: "sqn", label: "SQN", value: num(g.sqn), title: "√n × mean ÷ std dev", ...plain(g.sqn) },
-    { key: "p", label: "Chance it's luck", value: pct(g.randomChance, 1), title: "Two-sided t-test of mean P&L ≠ 0; lower is better" },
-    { key: "k", label: "Kelly %", value: pct(g.kelly, 1).replace("-", "−"), title: "W − (1 − W) ÷ (avg win ÷ |avg loss|)" },
-    { key: "kr", label: "K-ratio", value: num(g.kRatio), title: "Kestner 2003 on daily cumulative P&L" },
-    { key: "pf", label: "Profit factor", value: g.profitFactor === null ? (g.wins ? "∞" : "—") : num(g.profitFactor), ...plain(g.profitFactor) },
+    {
+      key: "sqn", label: "SQN", value: num(g.sqn), cls: small(g) ? "dim" : "", ...plain(g.sqn),
+      title: smallTitle(g) ?? "System quality: how steady the edge is. √n × mean ÷ std dev of P&L",
+    },
+    { key: "p", label: "Chance it's luck", value: pct(g.randomChance, 1), title: "Chance of results this good if the true average were 0 (two-sided t-test); lower is better" },
+    {
+      key: "k", label: "Kelly %", value: pct(g.kelly, 1).replace("-", "−"), cls: small(g) ? "dim" : "",
+      title: smallTitle(g) ?? "Share of capital the win rate and payoff would justify: W − (1 − W) ÷ (avg win ÷ |avg loss|)",
+    },
+    { key: "kr", label: "K-ratio", value: num(g.kRatio), title: "How straight the cumulative P&L climbs: slope ÷ its standard error (Kestner 2003, daily)" },
+    {
+      key: "pf", label: "Profit factor", value: g.profitFactor === null ? "—" : num(g.profitFactor), cls: small(g) ? "dim" : "", ...plain(g.profitFactor),
+      title: smallTitle(g) ?? "Gross wins ÷ gross losses",
+    },
+
     { key: "fees", label: "Fees & commissions", value: money(g.fees, { sign: false }), title: "Brokers report one combined figure" },
     { key: "wr", label: "Win %", value: pct(g.winRate, 1), title: "wins ÷ (wins + losses), breakevens left out: the same win % as everywhere else", num: { v: g.winRate, diff: signedPts } },
     { key: "ex", label: "Expectancy", value: f.v(g.expectancy), cls: pnlClass(g.expectancy), title: `Per decisive ${u}: W × avg win + (1 − W) × avg loss`, ...val(g.expectancy) },

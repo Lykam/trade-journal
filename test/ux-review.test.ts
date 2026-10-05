@@ -1,6 +1,7 @@
 // Logic behind the UX review fixes (issues #13–#23, SPEC Q54+). Synthetic trades, fake tickers only.
 import { describe, expect, it } from "vitest";
-import { buyFees, daysHeld, lastImports, openPositions, rangeStats, sortOpenRows } from "../src/core/dashboard/dashboard";
+import { buyFees, daysHeld, openPositions, rangeStats, sortOpenRows } from "../src/core/dashboard/dashboard";
+import { lastImports } from "../src/core/imports";
 import { computeGauge, winsToFull } from "../src/core/gauge/gauge";
 import { importBehind, lastSessionDate } from "../src/core/market";
 import { defaultView } from "../src/core/journal/filter";
@@ -11,6 +12,7 @@ import type { Fill, QuotesFile, Trade } from "../src/core/types";
 import { batch, closed, ideasOf, open } from "./factory";
 import { compactMoney } from "../src/app/format";
 import { dateTicks } from "../src/app/components/Widgets";
+import { small, smallTitle } from "../src/app/components/StatsGrid";
 import { config } from "./helpers";
 
 const q = (price: number, time = "2026-10-02T16:00:00-04:00") => ({ price, time });
@@ -167,5 +169,16 @@ describe("#19 charts", () => {
     expect(dateTicks(["09-01", "09-02"])).toEqual(["09-01", "09-02"]);
     expect(dateTicks(["a", "b", "c", "d", "e"])).toEqual(["a", "c", "e"]);
     expect(dateTicks(["a", "b", "c", "d"])).toEqual(["a", "b", "d"]);
+  });
+});
+
+describe("#20 breakdowns", () => {
+  it("grays ratio stats under 10 units and says why; no losses reads as a reason, not infinity", () => {
+    const g = (count: number, wins: number, pf: number | null) => ({ count, wins, profitFactor: pf }) as never;
+    expect(small(g(9, 3, 2))).toBe(true);
+    expect(smallTitle(g(4, 4, null))).toBe("Only 4: too few to mean much");
+    expect(small(g(10, 5, 1.5))).toBe(false);
+    expect(smallTitle(g(12, 12, null))).toBe("No losses");
+    expect(smallTitle(g(12, 6, 1.2))).toBeUndefined();
   });
 });
