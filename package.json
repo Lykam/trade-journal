@@ -16,12 +16,14 @@
     "quotes": "tsx build/fetch-quotes.ts",
     "quotes:cache": "tsx build/quotes-cache.ts",
     "market": "tsx build/market-open.ts",
+    "pages-guard": "tsx build/pages-guard.ts",
     "encrypt": "tsx build/encrypt.ts",
     "scan": "tsx cli/scan-public.ts",
     "dev:demo": "tsx build/dev-demo.ts",
     "preview:demo": "tsx build/preview-demo.ts"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "@noble/hashes": "^2.4.0",
     "ajv": "^8.20.0",
     "papaparse": "^5.7.0",

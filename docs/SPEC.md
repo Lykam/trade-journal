@@ -1057,8 +1057,10 @@ two in step (§4.6).
   `npm run dev:demo` runs the same server on the synthetic fixtures
   (`test/fixtures/{history,expected,playbook}`).
 - **Before each commit:** `npm run scan [-- --message "…"]` checks the lines a
-  commit adds (and the message) for real traded symbols and review / image
-  names, read from the sibling checkouts. Local only.
+  commit adds (and the message) for real traded symbols (1–2 letter ones as
+  whole words, minus a fixed list of common words), Schwab account ids, stored
+  fill ids and review / image names, read from the sibling checkouts
+  (`cli/lib/private-scan.ts`, Q47). Local only.
 - **Shared logic:** pure TS in `src/core/`, imported by both the app and the
   CLI. Hashing uses `@noble/hashes` (synchronous, identical in browser and
   Node).
@@ -1104,7 +1106,8 @@ trade-journal/
   schema/              canonical JSON Schemas (copied into trade-history)
   build/               fetch-quotes.ts, load-bundle.ts, playbook.ts, dev-data-plugin.ts,
                        dev-demo.ts, check-dist.ts
-                       bundle-data.ts, encrypt.ts, quotes-cache.ts, market-open.ts, preview-demo.ts, kdf.json
+                       bundle-data.ts, encrypt.ts, quotes-cache.ts, market-open.ts, preview-demo.ts, kdf.json,
+                       public-log.ts (public-safe errors), pages-guard.ts, csp-plugin.ts, validators-plugin.ts
   test/fixtures/       synthetic CSVs + expected JSON
   .github/workflows/
     build-deploy.yml   reusable: checkout data → [quotes] → build → encrypt → deploy
@@ -1121,7 +1124,9 @@ All of this lives in the reusable `build-deploy.yml`; `deploy.yml` and
 `prices.yml` only call it.
 
 1. Check that the deploy-key secrets and `SITE_PASSPHRASE` exist, check out
-   `trade-journal`, `npm ci`, `npm test` (synthetic fixtures only).
+   `trade-journal`, `npm ci`, `npm test` (synthetic fixtures only), then
+   `npm run pages-guard`: fail if any other repo of the account serves GitHub
+   Pages (Q48).
 2. Only then check out `trade-history` and `Playbook` into `./_data/` using
    their read-only deploy keys (`persist-credentials: false`), so neither the install
    nor the tests ever have the private data on disk (Q36).
@@ -1186,6 +1191,26 @@ the commit leaves the private repo.
   counts (Q35). The `actions/cache` entry is encrypted (Q34). Fork pull
   requests should need approval for **all** outside contributors
   (Settings → Actions → General), so no fork workflow runs unreviewed.
+  (Owner setting; the repo was on "first-time contributors" in the
+  2026-10-04 review.)
+- **One origin for all Pages sites (Q48).** `lykam.github.io` serves every
+  project Pages site of the account, and the owner's browser keeps the site
+  key and the sealed token in that origin's `localStorage`. Nothing may be
+  served there that isn't built from this repo, so **no other Lykam repo
+  enables GitHub Pages**; `npm run pages-guard` fails the deploy if one does.
+  Visitors are not at risk either way: only the owner's browser holds a key.
+- **Content-Security-Policy (Q46).** The built `index.html` carries a CSP
+  meta tag: scripts, styles and fonts from the site only (the inline
+  cache-reload script by hash), images also as `blob:` / `data:`, network to
+  the site and `https://api.github.com` only, no `eval`. JetBrains Mono is
+  self-hosted, so the page that holds the key loads no third-party CSS.
+- **Actions pinned to commit SHAs** (with the version in a comment) in every
+  workflow, since the deploy job holds the deploy keys and `SITE_PASSPHRASE`.
+  Owner setting: Settings → Actions → General → allow GitHub-owned actions
+  only.
+- **Checkout SHAs in the log.** `actions/checkout` prints the trade-history
+  and Playbook HEAD commit ids in the public log. They reveal only timing,
+  which the run timestamps already show; accepted.
 - **Error messages in public logs (Q43).** Every script the workflows run
   (`check-dist`, `fetch-quotes`, `encrypt`, `quotes-cache`, `market-open`)
   ends through `build/public-log.ts`: with `TJ_PUBLIC_LOG=1` an error prints
@@ -1255,13 +1280,16 @@ the commit leaves the private repo.
 | Q36 | Deploy order | The private repos are checked out **after** `npm ci` and `npm test` (the user's list had them first), so dependency install scripts and the test suite never run with private data on disk. Everything after that is as in §7. (2026-10-04, milestone 4) |
 | Q37 | Data read access | The deploy reads `trade-history` and `Playbook` with **read-only SSH deploy keys** (secrets `TRADE_HISTORY_DEPLOY_KEY`, `PLAYBOOK_DEPLOY_KEY`) instead of a fine-grained PAT: each key reaches one repo, can't write, doesn't expire, and can be created with `gh` (PATs can't). `DISPATCH_TOKEN` stays a PAT, since `repository_dispatch` needs API access. (2026-10-04, milestone 4) |
 | Q38 | Browser tokens | A fine-grained token's permissions apply to **every** repo it selects, so one token with Contents on `trade-history` and Actions on `trade-journal` would also get Contents: write on the public app repo, which deploys the site. "Refresh prices" therefore uses an optional **second** token (Actions: read & write on `trade-journal` only). Both are sealed together under an HKDF subkey of the site key in `localStorage`; Settings warns if the main token reaches `trade-journal`. The data repo is a setting, for testing on a throwaway repo. (2026-10-04, milestone 5) |
-| Q39 | Leak guard vs. libraries | `check-dist` also skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`, now Ajv, whose code generator has short uppercase operator names that match a traded symbol). Ajv loads only with the import / commit chunk. (2026-10-04, milestone 5) |
+| Q39 | Leak guard vs. libraries | *(Superseded by Q46: Ajv is no longer bundled.)* `check-dist` also skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`, now Ajv, whose code generator has short uppercase operator names that match a traded symbol). Ajv loads only with the import / commit chunk. (2026-10-04, milestone 5) |
 | Q40 | Commit safety | Commits are computed from `trade-history` read fresh through the API, never from `data.enc`. On a moved `main` the app re-reads and recomputes (up to 3 tries) and commits only if the result matches the approved preview (new fill ids, ETF mappings and trade counts for an import; the changed override entries for an edit); otherwise it shows the new preview. Unchanged files are skipped by git blob id, so an import that adds nothing archives only new CSVs, and an edit already on `main` commits nothing. "Deploying…" resolves when a new `data.enc` was built from that commit or a later one (`history` in the bundle). (2026-10-04, milestone 5) |
 | Q41 | Playbook skill | The `playbook-review` skill lists **ideas** from `derived/trades.json` (Python, no Node dependency) and names reviews `<IDEA DATE>-<UNDERLYING>.md`, filling in `**Idea ID:**` from the listing. Grouping stays in the journal; the skill only reads it. Its review matcher mirrors `join.ts` and is checked against a golden file from the journal's synthetic fixtures. The skill never imports trades itself, so imports keep their preview-and-OK step. `sync_review.py` embeds charts for every symbol traded in a pinned idea. (2026-10-04, milestone 6) |
 | Q42 | Report stats | Every stat is computed over **units** (scored trades, or ideas in the Idea view) in close order, on the unit's value ($ gross / net, or % return on the cost bought). **Std dev:** sample (n − 1). **SQN:** √n × mean ÷ std dev, n not capped at 100, on $ P&L since no R is recorded. **Probability of random chance:** two-sided p-value of a one-sample t-test that mean P&L is 0 (t = SQN, df = n − 1). **Kelly %:** W − (1 − W) ÷ (avg win ÷ \|avg loss\|), W = wins ÷ (wins + losses). **K-ratio:** Kestner's 2003 form, slope ÷ (standard error × n) of a least-squares line through cumulative P&L at the end of each trading day (no account size, so not log equity); needs 3 days. **Expectancy:** W × avg win + (1 − W) × avg loss, per decisive unit, so it agrees with the win rate; "avg trade" is the plain mean including breakevens. **Streaks:** a breakeven ends a run of wins or losses. **Avg hold:** timed minutes, else whole calendar days for multi-day date-only trades; same-day Schwab trades have no hold and are left out. **Avg per-share:** $ P&L ÷ shares bought. **Avg daily:** total ÷ ET dates with a close. **Drawdown:** from the running peak of cumulative P&L starting at 0 (an opening loss counts), each unit a step so a dip within a day counts; longest = calendar days from the peak until back at it (or to the last close); recovery = trough to back at peak. With no account size, max drawdown % is taken on the summed % returns. Fees and commissions are one figure, since both brokers report them combined. (2026-10-04, milestone 7) |
 | Q43 | Public error messages | A data file that fails to parse or validate throws a `DataFileError` carrying the file label and the kind (`invalid JSON` / `schema mismatch`). Node's `JSON.parse` quotes its input and an Ajv instance path starts with the object key (a ticker or fill id), so with `TJ_PUBLIC_LOG=1` the workflow scripts print only "`<script>: <file>: <kind>`" (or the error type), never the message or a stack, and exit non-zero; fixed messages with no data in them (`PublicError`) still print. Locally, and in the browser, the full message is kept. A test runs each entry point against a temp history carrying a canary ticker. (2026-10-04, milestone 8, #1) |
 | Q44 | Buy fees on events | Open and add events carry the buy's `fees` (only when non-zero, so $0 fills keep their bytes), because `realizedPnl` already subtracts buy fees while trim / close `realized` holds sell fees only. `positionAt` subtracts them, so a swing gauge mark rebuilt for a past week agrees with Open Positions. Additive and optional in `trades.schema.json`; it reaches trade-history with the next regenerated `derived/trades.json`. Also: a trade's volume is the sum of its event quantities (a sell event already holds oversold shares). (2026-10-04, milestone 8, #4) |
 | Q45 | Webull partial fills | **Detect and error only** (owner, 2026-10-04): a Webull fill whose order already has a different stored fill missing from the export is an import error, which blocks the commit; the fix is to remove the stored partial by hand and import the finished export. No order key is stored, so the fills contract (§3.1) is unchanged; the order is recognized by re-hashing the stored fill's id with the incoming `Placed Time` (§4.3). Checked against every real export in Downloads: no false positives. (2026-10-04, milestone 8, #2) |
+| Q46 | CSP | The built site has a strict CSP (§8) with no `unsafe-inline` / `unsafe-eval`: the inline cache-reload script is allowed by a SHA-256 hash computed at build time (`build/csp-plugin.ts`), the font is self-hosted (`@fontsource/jetbrains-mono`, Latin, 400/500/700), and the browser's JSON Schema validators are precompiled by Ajv's standalone mode (`build/validators-plugin.ts`, `virtual:tj-validators`) because Ajv otherwise compiles with `new Function`. The CLI still compiles the same schema files at runtime; a test checks both give the same result. The dev server gets no CSP (hot reload needs inline styles). Ajv is no longer bundled, so `check-dist` no longer exempts its code (supersedes Q39's `VENDOR_DIRS`). (2026-10-04, milestone 8, #5) |
+| Q47 | Scan coverage | `npm run scan` also checks Schwab account ids (in their `XXX<id>`, masked `...<id>` and quoted forms; a bare number is too common to match) and stored fill ids, and matches 1–2 letter symbols as whole words outside a fixed list of common words (`SHORT_WORDS`, not derived from the data). `check-dist` keeps its quoted-only rule for short symbols, since minified code is full of short identifiers. (2026-10-04, milestone 8, #5) |
+| Q48 | Shared Pages origin | No repo of the account other than trade-journal may enable GitHub Pages, because every project site shares `lykam.github.io` with the stored key and token. `build-deploy.yml` checks the public repo list (`has_pages`) before checking out private data and fails the deploy otherwise. (2026-10-04, milestone 8, #5) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open

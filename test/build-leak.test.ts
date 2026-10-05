@@ -105,6 +105,14 @@ describe("vite build output", () => {
     expect(allText(outDir)).not.toContain("__data");
   });
 
+  it("has a CSP, self-hosted fonts and no runtime code compilation (Q46)", () => {
+    const html = readFileSync(join(outDir, "index.html"), "utf8");
+    expect(html).toMatch(/<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-/);
+    expect(html).not.toMatch(/googleapis|gstatic/);
+    expect(readdirSync(join(outDir, "assets")).some((f) => f.endsWith(".woff2"))).toBe(true);
+    expect(allText(outDir)).not.toContain("new Function");
+  });
+
   it("passes the dist leak guard, which catches a planted symbol", () => {
     const logs: string[] = [];
     expect(checkDist(outDir, new Set([CANARY, "ZZ"]), (s) => logs.push(s))).toBe(0);

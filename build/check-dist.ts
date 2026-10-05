@@ -36,16 +36,12 @@ export function findLeaks(text: string, symbols: Iterable<string>): string[] {
 }
 
 /**
- * Public third-party code the app bundles whose identifiers can look like
- * tickers (Ajv's code generator has short uppercase operator names). Like the app
- * source, it is public and holds no data (Q39).
+ * All app source text (src/ and index.html), ticker-scanned before each commit.
+ * The browser no longer bundles Ajv (its validators are precompiled, Q46), so
+ * no vendor code is exempted any more (supersedes Q39).
  */
-export const VENDOR_DIRS = ["node_modules/ajv/dist"];
-
-/** All app source text (src/ and index.html, ticker-scanned before each commit) plus the bundled vendor code above. */
 export function appSourceText(root = REPO_ROOT): string {
-  const vendor = VENDOR_DIRS.flatMap((d) => (existsSync(join(root, d)) ? files(join(root, d)).filter((f) => f.endsWith(".js")) : []));
-  return [...files(join(root, "src")), join(root, "index.html"), ...vendor].map((f) => readFileSync(f, "utf8")).join("\n");
+  return [...files(join(root, "src")), join(root, "index.html")].map((f) => readFileSync(f, "utf8")).join("\n");
 }
 
 /**
