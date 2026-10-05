@@ -11,6 +11,7 @@ import {
 } from "../../core/journal/overrides";
 import { initialStaging, stagingReducer, type Staged, type StagingEvent, type StagingState } from "../../core/journal/staging";
 import type { DataBundle, Trade } from "../../core/types";
+import { DEMO_COMMIT_NOTE } from "../demo-text";
 import { ACTIONS_URL, clientFor, feedsSite, useToken, watchDeploy } from "../github";
 
 /** Staged override edits: the actions so far, the overrides they produce, and the commit lock and outcome. */
@@ -186,7 +187,14 @@ function StagedEdits({ data, staging: s, staged, onDiscard }: { data: DataBundle
       </details>
       <div className="row">
         {/* Keyed on the actions, so a changed staged list never keeps an old preview open. */}
-        <CommitFlow key={staged.actions.length} staged={staged} onLock={s.setLocked} onCommitted={s.markCommitted} />
+        {__TJ_DEMO__ ? (
+          <>
+            <button type="button" className="btn primary" disabled>COMMIT…</button>
+            <span className="note-line">{DEMO_COMMIT_NOTE}</span>
+          </>
+        ) : (
+          <CommitFlow key={staged.actions.length} staged={staged} onLock={s.setLocked} onCommitted={s.markCommitted} />
+        )}
         <button type="button" className="btn" disabled={s.locked} onClick={() => { s.discard(); onDiscard?.(); }}>DISCARD</button>
       </div>
       {s.locked && <div className="dim small">Staging is paused while the commit preview is open: CONFIRM or go BACK first.</div>}

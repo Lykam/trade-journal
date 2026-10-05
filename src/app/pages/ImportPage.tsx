@@ -6,10 +6,40 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { gitBlobSha } from "../../core/history/files";
 import { exportOrder, previewLines, type ImportInput } from "../../core/import/plan";
 import { detectBroker } from "../../core/normalize";
-import type { SymbolInfo, SymbolsMap } from "../../core/types";
-import { ACTIONS_URL, clientFor, feedsSite, useToken, watchDeploy } from "../github";
+import type { DataBundle, SymbolInfo, SymbolsMap } from "../../core/types";
+import type { TokenRecord } from "../../core/github/token-store";
+import { sampleCsvs } from "../../demo/samples";
+import { appNow } from "../data";
+import { DEMO_COMMIT_NOTE, DEMO_IMPORT_NOTE } from "../demo-text";
+import { ACTIONS_URL, clientFor, feedsSite, useToken, watchDeploy, type TokenState } from "../github";
 import type { ImportCommit, RemoteHistory } from "../remote";
 import { money, pnlClass } from "../format";
+
+/** Demo build (Q50): the demo history stands in for trade-history; there is no token and no commit. */
+const DEMO_TOKEN: TokenState = { status: "ok", record: { repo: "demo/trade-history" } as TokenRecord };
+
+function demoRemote(data: DataBundle): RemoteHistory {
+  return {
+    state: { repo: { owner: "demo", repo: "trade-history" }, branch: "main", headSha: "demo000", treeSha: "", files: new Map() },
+    snap: { config: data.config, symbols: data.symbols, overrides: data.overrides, fills: data.fills, derived: data.derived },
+    archived: { paths: new Set(), blobShas: new Set() },
+  };
+}
+
+/** Demo build: the sample exports, as files to pick and as downloads. */
+function DemoSamples({ onPick }: { onPick: (files: File[]) => void }) {
+  const files = useMemo(() => sampleCsvs(appNow()).map((s) => new File([s.text], s.name, { type: "text/csv", lastModified: Date.now() })), []);
+  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls]);
+  return (
+    <div className="row">
+      <button type="button" className="btn" onClick={() => onPick(files)}>TRY THE SAMPLES</button>
+      {files.map((f, i) => (
+        <a key={f.name} href={urls[i]} download={f.name} className="small">DOWNLOAD {f.name.startsWith("Webull") ? "WEBULL" : "SCHWAB"} SAMPLE ↓</a>
+      ))}
+    </div>
+  );
+}
 
 type Remote = typeof import("../remote");
 
@@ -42,8 +72,9 @@ async function readFiles(list: FileList | File[]): Promise<Picked[]> {
   return exportOrder(out);
 }
 
-export function ImportPage() {
-  const token = useToken();
+export function ImportPage({ data }: { data: DataBundle }) {
+  // A compile-time constant, so the hook order never changes at runtime.
+  const token = __TJ_DEMO__ ? DEMO_TOKEN : useToken();
   const [files, setFiles] = useState<Picked[]>([]);
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +97,7 @@ export function ImportPage() {
     setError(null);
     (async () => {
       const mod = await import("../remote");
-      const { gh, repo } = clientFor(record);
-      const r = await mod.read(gh, repo);
+      const r = __TJ_DEMO__ ? demoRemote(data) : await mod.read(clientFor(record).gh, clientFor(record).repo);
       if (!live) return;
       setRemoteMod(mod);
       setRemote(r);
@@ -77,7 +107,7 @@ export function ImportPage() {
     return () => {
       live = false;
     };
-  }, [record, files]);
+  }, [record, files, data]);
 
   const mappings: SymbolsMap = useMemo(() => {
     const out: SymbolsMap = {};
@@ -153,7 +183,8 @@ export function ImportPage() {
   }
 
   const plan = computed && !("error" in computed) ? computed.plan : null;
-  const commit = async () => {
+  // The demo has no commit at all (and no GitHub code in its build).
+  const commit = __TJ_DEMO__ ? undefined : async () => {
     if (!computed || "error" in computed || !remote || !remoteMod) return;
     setStatus({ kind: "committing" });
     try {
@@ -188,6 +219,14 @@ export function ImportPage() {
       <header className="page-head">
         <h1>IMPORT <span className="sub">/ INTO {record.repo.toUpperCase()}</span></h1>
       </header>
+      {__TJ_DEMO__ && (
+        <section className="panel" aria-label="Demo">
+          <div className="body">
+            <p className="muted">{DEMO_IMPORT_NOTE}</p>
+            <DemoSamples onPick={(f) => void pick(f)} />
+          </div>
+        </section>
+      )}
 
       <section
         className={`panel dropzone ${drag ? "drag" : ""}`}
@@ -336,9 +375,10 @@ export function ImportPage() {
               )}
               <div className="muted small">Message: <code>{computed.message}</code></div>
               <div className="row">
-                <button type="button" className="btn primary" disabled={blocked || status.kind !== "idle" || writes.length === 0} onClick={commit}>
+                <button type="button" className="btn primary" disabled={__TJ_DEMO__ || blocked || status.kind !== "idle" || writes.length === 0} onClick={commit}>
                   {status.kind === "committing" ? "COMMITTING…" : `COMMIT TO ${record.repo.toUpperCase()}`}
                 </button>
+                {__TJ_DEMO__ && <span className="note-line">{DEMO_COMMIT_NOTE}</span>}
                 {plan.errors.length > 0 && <span className="loss small">Errors block the commit. Fix the files and drop them again.</span>}
                 {status.kind === "done" && (
                   <span className="gain small">COMMITTED{status.url ? <> · <a href={status.url} target="_blank" rel="noopener noreferrer">VIEW COMMIT ↗</a></> : " (nothing changed)"}</span>

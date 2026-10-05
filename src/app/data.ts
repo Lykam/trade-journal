@@ -22,6 +22,17 @@ async function fetchDevBundle(): Promise<DataBundle> {
 
 export const WRONG_PASSPHRASE = "Wrong passphrase. Nothing was decrypted; try again.";
 
+/** Demo build only: the generated charts, by Playbook image path. */
+let demoImages: Record<string, string> = {};
+
+/** Demo build only (Q50): synthetic data generated in the browser; no data.enc, no key, no lock screen. */
+async function demoBundle(): Promise<DataBundle> {
+  const { generateDemo } = await import("../demo/generate");
+  const { bundle, images } = generateDemo(appNow());
+  demoImages = images;
+  return bundle;
+}
+
 /**
  * The data bundle. In dev it comes from the dev server in plaintext; that branch
  * is dropped from `vite build`, so production has no loader for it. In
@@ -34,6 +45,12 @@ export function useBundle(): Load {
 
   useEffect(() => {
     let live = true;
+    if (__TJ_DEMO__) {
+      demoBundle().then((data) => live && setLoad({ status: "ready", data }), (e) => live && fail(e));
+      return () => {
+        live = false;
+      };
+    }
     if (import.meta.env.DEV) {
       fetchDevBundle().then((data) => live && setLoad({ status: "ready", data }), (e) => live && fail(e));
       return () => {
@@ -92,7 +109,11 @@ export function useRoute(): { path: string; params: URLSearchParams } {
   return route;
 }
 
-export function usePersisted<T extends string>(key: string, initial: T, allowed: readonly T[]): [T, (v: T) => void] {
+/** The demo keeps its UI preferences apart from the real site's (same origin): "tj.range" → "tj.demo.range". */
+export const prefKey = (key: string) => (__TJ_DEMO__ ? key.replace(/^tj\./, "tj.demo.") : key);
+
+export function usePersisted<T extends string>(name: string, initial: T, allowed: readonly T[]): [T, (v: T) => void] {
+  const key = prefKey(name);
   const [v, setV] = useState<T>(() => {
     try {
       const s = localStorage.getItem(key) as T | null;
@@ -120,11 +141,12 @@ export function usePersisted<T extends string>(key: string, initial: T, allowed:
  */
 export function useImageSrcs(paths: string[]): Map<string, string | null | undefined> {
   const key = paths.join("\n");
-  const initial = () => new Map(paths.map((p) => [p, import.meta.env.DEV ? devImageUrl(p) : hasEncryptedImage(p) ? undefined : null] as const));
+  const initial = () =>
+    new Map(paths.map((p) => [p, __TJ_DEMO__ ? (demoImages[p] ?? null) : import.meta.env.DEV ? devImageUrl(p) : hasEncryptedImage(p) ? undefined : null] as const));
   const [srcs, setSrcs] = useState(initial);
   useEffect(() => {
     setSrcs(initial());
-    if (import.meta.env.DEV) return;
+    if (__TJ_DEMO__ || import.meta.env.DEV) return;
     let live = true;
     for (const p of paths) {
       encryptedImageUrl(p)?.then(

@@ -42,11 +42,8 @@ export const DEMO_SYMBOLS: SymbolsMap = {
   HXQY: { underlying: "999990.KS", type: "leveraged_etf", leverage: 2, direction: "long", issuer: "Demo Funds" },
 };
 
-export const ETF_NAMES: Record<string, string> = {
-  NVQU: "DEMO DAILY NVQX BULL 2X SHARES",
-  MZRU: "DEMO DAILY MZRT BULL 2X SHARES",
-  NVQD: "DEMO DAILY NVQX BEAR 2X SHARES",
-};
+/** In the Import page's sample Webull CSV only: a 2x ETF on ZNRG that symbols.json doesn't map yet. */
+export const SAMPLE_ONLY_SYMBOLS = ["ZNRU"];
 
 /** Every symbol the demo can show, for scans and tests. */
-export const ALL_DEMO_SYMBOLS = [...DAY_TICKERS, ...SWING_TICKERS].map((t) => t.symbol).concat(Object.keys(DEMO_SYMBOLS));
+export const ALL_DEMO_SYMBOLS = [...DAY_TICKERS, ...SWING_TICKERS].map((t) => t.symbol).concat(Object.keys(DEMO_SYMBOLS), SAMPLE_ONLY_SYMBOLS);

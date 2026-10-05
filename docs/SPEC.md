@@ -1054,8 +1054,25 @@ two in step (§4.6).
   list), and reloads the page when any of them change. The app fetches it only behind `import.meta.env.DEV`, so `vite build`
   contains neither the data nor the loader (`test/build-leak.test.ts`).
   `?now=<ISO>` pins the app's clock for checking past weeks.
-  `npm run dev:demo` runs the same server on the synthetic fixtures
+  `npm run dev:fixtures` runs the same server on the synthetic fixtures
   (`test/fixtures/{history,expected,playbook}`).
+- **Public demo build (Q50):** `vite build --mode demo` sets `__TJ_DEMO__`
+  (false in every other build, so the demo code is dropped from the real
+  site). It generates its data in the browser (`src/demo/`, Q49): no lock
+  screen, no `data.enc`, no key or token storage, no GitHub code, and a CSP
+  without `api.github.com`. IMPORT is a browser-only dry run against the demo
+  history, with sample Webull and Schwab CSVs to try or download; COMMIT,
+  bulk-edit / tag / note CONFIRM and Refresh prices are disabled with a
+  one-line reason; Settings shows one line instead of the token panel; LOCK
+  is a `DEMO` chip and a "DEMO · synthetic data" line sits under the nav. UI
+  preferences use a `tj.demo.*` prefix. Base path `/trade-journal/demo/`
+  (`TJ_BASE` overrides it), output `dist-demo/`. `npm run build:demo` builds
+  and runs `build/check-demo.ts` (app shell only, none of `data.enc`, `img/`,
+  `tj.key`, `tj.gh`, `__data`, OPEN DEMO or the GitHub API, plus the
+  plaintext leak guard when the sibling checkouts exist); `npm run
+  serve:demo` serves it; `npm run dev:demo` is the dev server in demo mode.
+  `test/build-leak.test.ts` builds both and checks each has none of the
+  other's code.
 - **Before each commit:** `npm run scan [-- --message "…"]` checks the lines a
   commit adds (and the message) for real traded symbols (1–2 letter ones as
   whole words, minus a fixed list of common words), Schwab account ids, stored
@@ -1305,6 +1322,7 @@ the commit leaves the private repo.
 | Q47 | Scan coverage | `npm run scan` also checks Schwab account ids (in their `XXX<id>`, masked `...<id>` and quoted forms; a bare number is too common to match) and stored fill ids, and matches 1–2 letter symbols as whole words outside a fixed list of common words (`SHORT_WORDS`, not derived from the data). `check-dist` keeps its quoted-only rule for short symbols, since minified code is full of short identifiers. (2026-10-04, milestone 8, #5) |
 | Q48 | Shared Pages origin | No repo of the account other than trade-journal may enable GitHub Pages, because every project site shares `lykam.github.io` with the stored key and token. `build-deploy.yml` checks the public repo list (`has_pages`) before checking out private data and fails the deploy otherwise. (2026-10-04, milestone 8, #5) |
 | Q49 | Demo data | The public demo runs on **synthetic** data only (owner decision): real data with renamed tickers would still identify the stocks by price and date and publish real P&L, and the generator is not calibrated from real files. `src/demo/generate.ts` makes about 6 months of fills ending at "now" (ET) from a seeded PRNG (mulberry32) keyed by trading days before the anchor date, so a date always gives the same bundle and a later date shifts it; nothing is dated after now. A Webull-style day account (about 250 trades, timed to the second, partial scale-outs, one trade held overnight) and a Schwab-style swing account (about 50 trades, date-only, adds, trims, small fees, 6 open positions) trade 12 made-up tickers plus two 2x ETFs and an inverse ETF (`src/demo/tickers.ts`); trades and ideas come from the real `buildTrades`. The current week is scripted by searching the outcomes of the trades the gauges read, so Day shows ½ size (¼ if ½ can't be reached) and Swing Full size. Overrides sit on trades older than the baseline window. 9 reviews are built mechanically from the template's sections with fixed placeholder lines and a Category from a fixed list (no narrative); charts are generated SVG candlesticks from the same prices, with entry and exit markers, under the usual `Images/<date>/<TICKER>-daily.png` paths so the real site's image rules don't change. It runs in about 100 ms. (2026-10-04, milestone 10, #8) |
+| Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open

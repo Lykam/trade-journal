@@ -409,3 +409,11 @@ table.grid tr.sub td { border-top-color: var(--rule-faint); }
   table.grid.cols td:first-child { width: 38%; }
 }
 .nowrap { white-space: nowrap; }
+
+/* ---- marker line and large chip (used by the demo build) */
+.nav .chip-lg { font-size: 12px; line-height: 34px; padding: 0 12px; font-weight: 700; }
+.marker-line {
+  padding: 4px 20px; border-bottom: 1px solid var(--border); background: var(--bar);
+  color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.note-line { color: var(--muted); font-size: 11px; }

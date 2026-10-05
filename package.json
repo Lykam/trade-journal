@@ -19,7 +19,10 @@
     "pages-guard": "tsx build/pages-guard.ts",
     "encrypt": "tsx build/encrypt.ts",
     "scan": "tsx cli/scan-public.ts",
-    "dev:demo": "tsx build/dev-demo.ts",
+    "dev:demo": "vite --mode demo --port 5175",
+    "dev:fixtures": "tsx build/dev-demo.ts",
+    "build:demo": "vite build --mode demo && tsx build/check-demo.ts",
+    "serve:demo": "vite preview --mode demo --port 4175",
     "preview:demo": "tsx build/preview-demo.ts"
   },
   "dependencies": {

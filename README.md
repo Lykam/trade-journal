@@ -27,7 +27,8 @@ npm run trades -- --date 2026-10-01 --style swing
 npm run verify           # local only: recompute and check derived/trades.json
 npm run quotes           # price open positions -> quotes.json (gitignored; prints counts only)
 npm run dev              # app at http://localhost:5173/trade-journal/ with local data
-npm run dev:demo         # the same on synthetic fixtures (port 5174), no real data needed
+npm run dev:fixtures     # the same on the test fixtures (port 5174), no real data needed
+npm run dev:demo         # the public demo build in dev: synthetic data generated in the browser (port 5175)
 npm run scan             # before committing: check added lines for real tickers / review names
 npm run build            # production build + leak guard (no data in dist/)
 SITE_PASSPHRASE=… npm run encrypt   # bundle + encrypt into dist/data.enc, dist/img/*.enc

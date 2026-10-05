@@ -11,6 +11,7 @@ import { RecentTen } from "../components/Recent";
 import { WeekStrip } from "../components/WeekStrip";
 import { WidgetGrid } from "../components/Widgets";
 import { usePersisted } from "../data";
+import { DEMO_REFRESH_NOTE } from "../demo-text";
 import { refreshPrices, useDeploy, useToken } from "../github";
 
 /** Optional (SPEC §5.4): shown only when a token may start prices.yml. */
@@ -36,6 +37,13 @@ function RefreshPrices() {
   );
 }
 
+/** Demo build: the button, disabled, with its reason. */
+function DemoRefreshPrices() {
+  return <button type="button" className="btn" disabled title={DEMO_REFRESH_NOTE}>REFRESH PRICES</button>;
+}
+
+const RefreshButton = __TJ_DEMO__ ? DemoRefreshPrices : RefreshPrices;
+
 const RANGES = ["30", "60", "90"] as const;
 
 export function Dashboard({ data, journal, now }: { data: DataBundle; journal: Journal; now: string }) {
@@ -57,7 +65,7 @@ export function Dashboard({ data, journal, now }: { data: DataBundle; journal: J
     <main className="page">
       <header className="page-head">
         <h1>DASHBOARD <span className="sub">/ WK OF {wk.start} – {wk.end}</span></h1>
-        <RefreshPrices />
+        <RefreshButton />
       </header>
 
       <div className="gauges">

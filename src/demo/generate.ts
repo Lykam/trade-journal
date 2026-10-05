@@ -465,7 +465,8 @@ function intradayCandles(seed: number, open: number, close: number, points: Arra
   const out: Candle[] = [];
   for (let m = OPEN_MIN; m < CLOSE_MIN; m += 5) {
     const level = (x: number) => {
-      const j = Math.max(0, anchors.findIndex((a) => a.min > x) - 1);
+      const next = anchors.findIndex((a) => a.min > x);
+      const j = next < 0 ? anchors.length - 2 : Math.max(0, next - 1);
       const a = anchors[j]!;
       const b = anchors[Math.min(j + 1, anchors.length - 1)]!;
       const f = b.min === a.min ? 0 : (x - a.min) / (b.min - a.min);
