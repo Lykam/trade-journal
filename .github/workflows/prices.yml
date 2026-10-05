@@ -6,9 +6,8 @@ name: prices
 
 on:
   schedule:
-    # TEMPORARY TEST (2026-10-05): every 5 minutes at all hours, to prove scheduled runs fire.
-    # Restore afterwards: "*/15 13-21 * * 1-5" (13:00–21:45 UTC covers 09:30–16:00 ET in both EDT and EST).
-    - cron: "*/5 * * * *"
+    # 13:00–21:45 UTC covers 09:30–16:00 ET in both EDT and EST; build/market-open.ts trims the rest.
+    - cron: "*/15 13-21 * * 1-5"
     # 16:20 ET is 20:20 UTC in EDT and 21:20 UTC in EST; the other slot is skipped.
     - cron: "20 20,21 * * 1-5"
   workflow_dispatch:
@@ -38,12 +37,8 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           MODE: ${{ github.event.schedule == '20 20,21 * * 1-5' && 'post-close' || 'regular' }}
-          # TEMPORARY TEST (2026-10-05): scheduled runs still do the market check, then deploy anyway,
-          # so the whole scheduled path can be tested outside market hours. Remove with the cron above.
-          TEST_FORCE_RUN: "true"
         run: |
           if [ "$EVENT" = "schedule" ]; then npm run market -- --mode "$MODE"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
-          if [ "$EVENT" = "schedule" ] && [ "$TEST_FORCE_RUN" = "true" ]; then echo "market: TEST_FORCE_RUN set; deploying anyway"; echo "run=true" >> "$GITHUB_OUTPUT"; fi
 
   deploy:
     needs: market
