@@ -248,7 +248,7 @@ function IdeaPanel({ journal: j, t, view }: { journal: Journal; t: Trade; view: 
               <td style={{ width: 14 }}>{x.id === t.id ? <span className="accent">▶</span> : null}</td>
               <td>{x.id === t.id ? <b>{x.symbol}</b> : <a className="sym" href={tradeLink(x.id, view)}>{x.symbol}</a>} <EtfBadge t={x} /></td>
               <td className="muted">{tradeDate(x)}</td>
-              <td className="muted">{x.status === "open" ? "open" : holdLabel(x)}</td>
+              <td className="muted ph-hide">{x.status === "open" ? "open" : holdLabel(x)}</td>
               <td className="num"><Pnl p={groupPnl(j, [x], view.pnl)} /></td>
             </tr>
           ))}

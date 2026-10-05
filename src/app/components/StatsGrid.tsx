@@ -151,7 +151,7 @@ export function GridColumns({ sides, f, diff }: { sides: Array<{ label: React.Re
           <tr>
             <th>STAT</th>
             {sides.map((s, i) => <th key={i} className="num">{s.label}</th>)}
-            {diff && <th className="num" title="Second column minus first">B − A</th>}
+            {diff && <th className="num ph-hide" title="Second column minus first">B − A</th>}
           </tr>
         </thead>
         <tbody>
@@ -159,7 +159,7 @@ export function GridColumns({ sides, f, diff }: { sides: Array<{ label: React.Re
             <tr key={c.key}>
               <td className="muted" title={c.title}>{c.label}</td>
               {cols.map((col, i) => <td key={i} className={`num b ${col[r]!.cls ?? ""}`}>{col[r]!.value}</td>)}
-              {diff && (() => { const d = diffText(cols[0]![r]!, cols[1]![r]!); return <td className={`num muted ${d.cls}`}>{d.text}</td>; })()}
+              {diff && (() => { const d = diffText(cols[0]![r]!, cols[1]![r]!); return <td className={`num muted ph-hide ${d.cls}`}>{d.text}</td>; })()}
 
             </tr>
           ))}
