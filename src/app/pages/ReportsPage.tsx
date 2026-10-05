@@ -5,8 +5,7 @@ import { useMemo } from "react";
 import { dateRange, type TradeFilter, type ViewState } from "../../core/journal/filter";
 import { filterTrades, type Journal } from "../../core/journal/journal";
 import {
-  applyPreset, buildUnits, byBroker, compareLabels,
- byCost, byDayOfWeek, byEntryPrice, byHour, byInstrument, byMonth, byShares, bySymbol, byStyle,
+  applyPreset, buildUnits, byBroker, compareLabels, byCost, byDayOfWeek, byEntryPrice, byHour, byInstrument, byMonth, byShares, bySymbol, byStyle,
   byUnderlying, COMPARE_PRESETS, computeGrid, distribution, drawdownReport, parseReport, reportExtra, sameUnderlying, SUB_LABELS, SUBS,
   TAB_LABELS, TABS, tagGroups, topBottom, winLossDays, type Grid, type ReportState, type Unit, type ValueOpts,
 } from "../../core/reports";

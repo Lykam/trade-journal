@@ -2,13 +2,19 @@
 // filter bar, and a read-only review page with the linked idea's trades.
 import { useMemo } from "react";
 import type { ViewState } from "../../core/journal/filter";
-import { filterReviews, groupPnl, type Journal } from "../../core/journal/journal";
+import { exitMissing, filterReviews, groupPnl, journalOrder, type Journal } from "../../core/journal/journal";
+import { etDate } from "../../core/normalize/util";
+import { mmdd } from "../format";
 import type { Review } from "../../core/reviews/join";
 import type { Trade } from "../../core/types";
 import { FilterBar, viewHref } from "../components/FilterBar";
 import { LazyReview } from "../components/LazyReview";
 import { Pnl } from "../components/Pnl";
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
+
+/** ET date of the idea's last close, or null while any of it is open. */
+const lastClose = (trades: Trade[]) =>
+  trades.some((t) => !t.closedAt) || !trades.length ? null : etDate(trades.map((t) => t.closedAt!).sort().at(-1)!);
 
 function ideaFor(j: Journal, r: Review) {
   const idea = j.ideaById.get(j.reviews.ideaOf.get(r.id) ?? "");
@@ -22,15 +28,26 @@ function StatusChip({ r }: { r: Review }) {
   return <span className={`chip ${r.header.status === "open" ? "accent" : ""}`}>{r.header.status.toUpperCase()}</span>;
 }
 
+/**
+ * The REVIEW column (#22): the review's own status, with the idea's folded in. An OPEN review
+ * on a closed idea is the one that needs work, so it says EXIT MISSING in the loss color.
+ */
+function ReviewCell({ j, r }: { j: Journal; r: Review }) {
+  const { idea } = ideaFor(j, r);
+  if (!idea) return <><StatusChip r={r} /> <span className="half small">NO MATCHING IDEA</span></>;
+  if (exitMissing(j, r)) return <span className="chip loss" title="The review is still OPEN but the idea has closed: write the exit">EXIT MISSING</span>;
+  return <><StatusChip r={r} />{r.header.status === "open" && idea.status === "open" ? null : r.header.status !== idea.status ? <span className="muted small"> · idea {idea.status}</span> : null}</>;
+}
+
 export function JournalPage({ journal: j, view }: { journal: Journal; view: ViewState }) {
-  const reviews = useMemo(() => filterReviews(j, view.filter), [j, view.filter]);
+  const reviews = useMemo(() => journalOrder(j, filterReviews(j, view.filter)), [j, view.filter]);
   const total = j.reviews.reviews.length;
   return (
     <main className="page">
       <header className="page-head">
         <h1>JOURNAL <span className="sub">/ {reviews.length}{reviews.length !== total ? ` OF ${total}` : ""} PLAYBOOK REVIEWS</span></h1>
       </header>
-      <FilterBar view={view} journal={j} base="#/journal" count={false} />
+      <FilterBar view={view} journal={j} base="#/journal" count={false} review={false} />
       <section className="panel">
         {total === 0 ? (
           <div className="empty">
@@ -44,8 +61,8 @@ export function JournalPage({ journal: j, view }: { journal: Journal; view: View
             <table className="grid">
               <thead>
                 <tr>
-                  <th>DATE</th><th>TICKER</th><th className="ph-hide">TYPE</th><th>STATUS</th><th className="ph-hide">CATEGORY</th>
-                  <th className="num">IDEA {view.pnl.toUpperCase()} P&amp;L</th><th className="num ph-hide">TRADES</th><th className="ph-hide">IDEA</th>
+                  <th>DATE</th><th>TICKER</th><th className="ph-hide">TYPE</th><th>REVIEW</th><th className="ph-hide">CATEGORY</th>
+                  <th className="num">IDEA {view.pnl.toUpperCase()} P&amp;L</th><th className="num ph-hide">TRADES</th>
                 </tr>
               </thead>
               <tbody>
@@ -59,12 +76,10 @@ export function JournalPage({ journal: j, view }: { journal: Journal; view: View
                         {r.underlying && r.underlying !== r.ticker && <span className="tag"> →{r.underlying}</span>}
                       </td>
                       <td className="muted ph-hide">{r.header.tradeType?.toUpperCase() ?? "—"}</td>
-                      <td><StatusChip r={r} /></td>
+                      <td><ReviewCell j={j} r={r} /></td>
                       <td className="muted ph-hide">{r.header.category ?? ""}</td>
                       <td className="num">{idea ? <Pnl p={groupPnl(j, trades, view.pnl)} b /> : <span className="dim">—</span>}</td>
                       <td className="num ph-hide">{idea ? trades.length : "—"}</td>
-                      <td className="ph-hide">{idea ?
- <span className="muted small">{idea.style.toUpperCase()} · {idea.status.toUpperCase()}</span> : <span className="half small">NO MATCHING IDEA</span>}</td>
                     </tr>
                   );
                 })}
@@ -112,7 +127,9 @@ export function ReviewPage({ journal: j, id, view }: { journal: Journal; id: str
             <>
               <h2>Idea: {idea.underlying} · {trades.length} trade{trades.length === 1 ? "" : "s"} · <Pnl p={groupPnl(j, trades, view.pnl)} /> {view.pnl.toUpperCase()}</h2>
               <span className="grow" />
-              <span className="muted small">{idea.style.toUpperCase()} · OPENED {idea.date} · {idea.status.toUpperCase()} · LINKED BY {method === "idea-id" ? "IDEA ID" : method === "re-entry" ? "RE-ENTRY DATE" : "DATE + TICKER"}</span>
+              <span className="muted small" title={`Linked by ${method === "idea-id" ? "Idea ID" : method === "re-entry" ? "re-entry date" : "date + ticker"}`}>
+                {idea.style.toUpperCase()} · {mmdd(idea.date)} → {lastClose(trades) ? mmdd(lastClose(trades)!) : "open"} · {idea.status.toUpperCase()}
+              </span>
             </>
           ) : (
             <h2 className="half">No matching idea for {r.date} {r.ticker}: check the date and ticker, or add an Idea ID line</h2>

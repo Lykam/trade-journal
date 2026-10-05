@@ -2,8 +2,7 @@
 // can be bookmarked; each control just navigates to the updated URL.
 import { useEffect, useId, useState } from "react";
 import {
-  activeFilterCount, activeFilterLabels, dateRange,
- emptyFilter, PRESET_LABELS, PRESET_SHORT, PRESETS, queryOf, viewToParams, type Flag, type TradeFilter, type ViewState,
+  activeFilterCount, activeFilterLabels, dateRange, emptyFilter, PRESET_LABELS, PRESET_SHORT, PRESETS, queryOf, viewToParams, type Flag, type TradeFilter, type ViewState,
 } from "../../core/journal/filter";
 import type { Journal } from "../../core/journal/journal";
 import type { TradeResult } from "../../core/types";
@@ -44,7 +43,7 @@ const RESULTS: Array<{ value: TradeResult; label: string; cls: string }> = [
 ];
 
 export function FilterBar({
-  view, journal, base, extra, count = true, dates = true, pnl = true, controls, hrefFor, title = "FILTERS", defaultOpen,
+  view, journal, base, extra, count = true, dates = true, pnl = true, review = true, controls, hrefFor, title = "FILTERS", defaultOpen,
 }: {
   view: ViewState;
   journal: Journal;
@@ -56,6 +55,8 @@ export function FilterBar({
   dates?: boolean;
   /** Show the Gross / Net toggle. */
   pnl?: boolean;
+  /** Show the Reviewed filter (the Journal lists only reviews, so it hides it, #22). */
+  review?: boolean;
   /** Page-specific toggles beside Gross / Net and Count. */
   controls?: React.ReactNode;
   /** Where a change navigates; defaults to `base` with the view and `extra`. */
@@ -154,8 +155,7 @@ export function FilterBar({
               ))}
             </div>
           </div>
-          <Seg label="REVIEWED" value={f.review}
- options={[{ value: null, label: "ALL" }, { value: "yes", label: "YES" }, { value: "no", label: "NO" }]} onChange={(review) => set({ review })} />
+          {review && <Seg label="REVIEWED" value={f.review} options={[{ value: null, label: "ALL" }, { value: "yes", label: "YES" }, { value: "no", label: "NO" }]} onChange={(v) => set({ review: v })} />}
           <div className="fgroup">
             <span className="flabel">TAGS</span>
             <details className="dropdown">

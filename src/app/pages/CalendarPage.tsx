@@ -69,6 +69,10 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
           <div className="panel-head">
             <h2>{month.slice(0, 4)} · <span className={pnlClass(total)}>{money(Math.round(total * 100) / 100)}</span></h2>
             <span className="muted small">{months.reduce((s, m) => s + m.green, 0)} GREEN DAYS · {months.reduce((s, m) => s + m.red, 0)} RED DAYS</span>
+            <span className="grow" />
+            <span className="dim small year-legend">
+              <span className="key key-gain" /> green day · <span className="key key-loss" /> red day · darker = bigger · <span className="key key-none" /> no trades
+            </span>
           </div>
           <div className="year">
             {months.map((m) => (
@@ -77,6 +81,10 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                   <b>{MONTH_NAMES[Number(m.month.slice(5)) - 1]!.toUpperCase()}</b>
                   <span className={pnlClass(m.pnl)}>{m.trades ? money(m.pnl) : ""}</span>
                 </a>
+                {/* Weekday letters, in the configured week order (#22). */}
+                <div className="ygrid ydow" aria-hidden="true">
+                  {(startsOn === "sunday" ? "SMTWTFS" : "MTWTFSS").split("").map((l, i) => <span key={i}>{l}</span>)}
+                </div>
                 <div className="ygrid" role="grid" aria-label={monthLabel(m.month)}>
                   {Array.from({ length: m.lead }, (_, i) => <span key={`l${i}`} />)}
                   {m.days.map((d) => (

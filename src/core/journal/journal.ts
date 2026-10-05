@@ -102,13 +102,20 @@ export interface ReviewAttention {
   multiple: ReviewJoin["multiple"];
 }
 
+/** A review still marked OPEN whose idea has closed: its exit sections are missing (#22). */
+export function exitMissing(j: Journal, r: Review): boolean {
+  const idea = j.ideaById.get(j.reviews.ideaOf.get(r.id) ?? "");
+  return r.header.status === "open" && idea?.status === "closed";
+}
+
+/** The Journal list order: reviews missing their exit first (the ones that need work), then as given (newest first). */
+export const journalOrder = (j: Journal, reviews: Review[]): Review[] =>
+  reviews.map((r, i) => ({ r, i, m: exitMissing(j, r) ? 0 : 1 })).sort((a, b) => a.m - b.m || a.i - b.i).map((x) => x.r);
+
 /** Review checks for the dashboard's Needs attention widget (SPEC §6.1 item 6). */
 export function reviewAttention(j: Journal): ReviewAttention {
   return {
-    openButClosed: j.reviews.reviews.filter((r) => {
-      const idea = j.ideaById.get(j.reviews.ideaOf.get(r.id) ?? "");
-      return r.header.status === "open" && idea?.status === "closed";
-    }),
+    openButClosed: j.reviews.reviews.filter((r) => exitMissing(j, r)),
     unmatched: j.reviews.unmatched,
     multiple: j.reviews.multiple,
   };

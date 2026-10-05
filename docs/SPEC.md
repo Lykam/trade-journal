@@ -943,8 +943,10 @@ dashboard quick view has, plus:
   so (`WK · INCL. SEP`), since its total includes those days. At phone width
   amounts are whole dollars (`+16`, `−43`) and the weekend columns are
   narrower.
-- Clicking a day opens the Trades page filtered to that date. Arrows step
-  between months, and a **year view** shows a 12-month heatmap.
+- Clicking a day opens the Trades page filtered to that date. Today's cell
+  has an amber outline. Arrows step between months, and a **year view**
+  shows a 12-month heatmap with weekday letters above each month and a
+  one-line color legend.
 
 ### 6.3 Trades
 
@@ -1121,10 +1123,14 @@ other than date they read **‹ Prev / Next ›**.
 ### 6.7 Journal (Playbook reviews)
 
 - A list of reviews, newest first, with the date, ticker, Trade Type,
-  Status (OPEN / CLOSED), the linked idea's P&L and the trade count. It is
-  filterable by the global filter bar.
+  review status (with the idea's folded in: `CLOSED · idea open`), category,
+  the linked idea's P&L and the trade count. An OPEN review whose idea has
+  closed shows **EXIT MISSING** in the loss color and sorts to the top
+  (Q63). It is filterable by the global filter bar, without the Reviewed
+  filter (every row is a review).
 - The review page renders the full markdown with images. A header strip
-  shows the linked idea's trades and P&L, with links to each trade.
+  shows the linked idea's trades and P&L (`DAY · 10-01 → 10-01 · CLOSED`, how
+  it was linked on hover), with links to each trade.
 - Read-only. Reviews are written in Playbook with the `playbook-review`
   skill.
 
@@ -1474,6 +1480,7 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q63 | Journal and Calendar | UX review (#22). The Journal's REVIEW column folds in the idea status; an OPEN review on a closed idea (`exitMissing`, the same check Needs attention uses) reads EXIT MISSING and sorts first (`journalOrder`). The second IDEA column is gone and the Reviewed filter is hidden there. The review page header gives the idea's date span. The calendar outlines today and the year view gets weekday letters and a legend. (2026-10-04, #22) |
 | Q62 | Trades and Trade detail | UX review (#21). The Date column is always one date (close, or open while open), with a multi-day range moved to Hold. The bulk bar docks at the bottom of the screen under the table. Notes hides when the page has none. Filter bars start collapsed unless something is filtered, with the active filters as chips. Trade detail moves the charts into the left column, links its review with 📄 (the one reviewed marker everywhere, replacing the dashboard's `R` and the detail chip), and steps with `j` / `k`. Native date inputs stay (owner decision): a text field would lose the phone date picker. (2026-10-04, #21) |
 
 | Q61 | Breakdowns | UX review (#20). **Entry time:** 15-minute buckets 09:30–11:00, hourly after, pre-market apart (`entryBucket`, from the unit's `entryMinute`). **Best / worst:** `topBottom` splits only above 2 × 20 groups, and the worst list holds losing groups only, worst first; a shorter list is one list, so winners never sit under "worst". **Small samples:** under 10 units, profit factor, SQN and Kelly are grayed with a hover saying so; ∞ is shown as "—" ("No losses"). **Tag vs Category** stay separate (owner decision), with clearer headings. SQN, K-ratio, Kelly % and Chance it's luck each have a one-line hover. (2026-10-04, #20) |
