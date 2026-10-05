@@ -1,7 +1,9 @@
 // The Detailed stats grid (SPEC §6.5), over units in close order.
 import { cents } from "../normalize/util";
 import { kelly, kRatio, maxStreaks, mean, randomChance, sqn, stdDev, sum } from "./math";
+import type { Style } from "../types";
 import { holdOf, valueOf, type Unit, type ValueOpts } from "./units";
+
 
 export interface DayPoint {
   date: string;
@@ -58,8 +60,8 @@ export interface Grid {
   avgUnit: number | null;
   avgWin: number | null;
   avgLoss: number | null;
-  /** Minutes (see holdOf). */
-  hold: { all: number | null; winners: number | null; losers: number | null; untimed: number };
+  /** Minutes (see holdOf). `byStyle` when both styles are present, since one average of scalps and swings means little (#16). */
+  hold: Holds & { untimed: number; byStyle: Record<Style, Holds> | null };
   streaks: { win: StreakRef | null; loss: StreakRef | null };
   stdDev: number | null;
   sqn: number | null;
@@ -73,6 +75,18 @@ export interface Grid {
   /** Per decisive unit: W × avg win + (1 − W) × avg loss. */
   expectancy: number | null;
   daily: DayPoint[];
+}
+
+export interface Holds {
+  all: number | null;
+  winners: number | null;
+  losers: number | null;
+}
+
+/** Mean hold (minutes) of all units, the winners and the losers; untimed units are left out. */
+export function holdsOf(units: Unit[]): Holds {
+  const m = (us: Unit[]) => mean(us.map(holdOf).filter((h): h is number => h !== null));
+  return { all: m(units), winners: m(units.filter((u) => u.result === "win")), losers: m(units.filter((u) => u.result === "loss")) };
 }
 
 export function computeGrid(units: Unit[], o: ValueOpts): Grid {
@@ -89,7 +103,7 @@ export function computeGrid(units: Unit[], o: ValueOpts): Grid {
       const v = valueOf(u, o);
       return !best || dir * v > dir * best.value ? { value: v, unit: u } : best;
     }, null);
-  const holds = (us: Unit[]) => mean(us.map(holdOf).filter((h): h is number => h !== null));
+  const both = units.some((u) => u.style === "day") && units.some((u) => u.style === "swing");
   const st = maxStreaks(units.map((u) => u.result));
   const ref = (s: { length: number; start: number; end: number } | null) => (s ? { length: s.length, units: units.slice(s.start, s.end + 1) } : null);
   const shares = sum(units.map((u) => u.shares));
@@ -113,7 +127,10 @@ export function computeGrid(units: Unit[], o: ValueOpts): Grid {
     avgUnit: mean(vals),
     avgWin,
     avgLoss,
-    hold: { all: holds(units), winners: holds(wins), losers: holds(losses), untimed: units.filter((u) => holdOf(u) === null).length },
+    hold: {
+      ...holdsOf(units), untimed: units.filter((u) => holdOf(u) === null).length,
+      byStyle: both ? { day: holdsOf(units.filter((u) => u.style === "day")), swing: holdsOf(units.filter((u) => u.style === "swing")) } : null,
+    },
     streaks: { win: ref(st.win), loss: ref(st.loss) },
     stdDev: stdDev(vals),
     sqn: sqn(vals),

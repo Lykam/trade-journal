@@ -78,10 +78,15 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
       <FilterBar view={view} journal={j} base="#/trades" />
 
       <section className="panel statrow" aria-label="Summary">
-        <div><div className="label small">{view.pnl.toUpperCase()} P&amp;L</div><div className={`v ${pnlClass(summary.pnl)}`}>{money(summary.pnl)}</div><div className="muted small">REALIZED, CLOSED</div></div>
-        <div><div className="label small">WIN % ({unit})</div><div className="v">{pct(summary.winRate, 1)}</div><div className="muted small">{summary.wins}W {summary.losses}L {summary.breakevens}BE · ON NET</div></div>
-        <div><div className="label small">{unit}</div><div className="v">{summary.rows}</div><div className="muted small">{view.count === "idea" ? `${summary.trades} TRADES` : `${new Set(rows.flatMap((r) => r.trades.map((t) => t.ideaId))).size} IDEAS`}</div></div>
-        <div><div className="label small">VOLUME</div><div className="v">{qty(summary.volume)}</div><div className="muted small">SHARES</div></div>
+        <div><div className="label small">{view.pnl.toUpperCase()} P&amp;L · CLOSED {unit}</div><div className={`v ${pnlClass(summary.pnl)}`}>{money(summary.pnl)}</div></div>
+        <div>
+          <div className="label small">WIN % ({unit})</div><div className="v">{pct(summary.winRate, 1)}</div>
+          <div className="muted small">{summary.wins}W {summary.losses}L{summary.breakevens ? ` ${summary.breakevens}BE` : ""}{view.pnl === "gross" ? " · ON NET" : ""}</div>
+        </div>
+        {/* Open rows are listed but have no result: say how many, so the count matches Reports (closed only) (#16). */}
+        <div><div className="label small">{unit}</div><div className="v">{summary.rows}</div><div className="muted small">{summary.open} OPEN · {summary.rows - summary.open} CLOSED</div></div>
+        <div><div className="label small">SHARES TRADED</div><div className="v">{qty(summary.volume)}</div></div>
+
       </section>
 
       {selected.size > 0 && <BulkBar data={data} journal={j} selected={selected} onClear={() => setSelected(new Set())} />}

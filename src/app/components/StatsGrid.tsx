@@ -1,7 +1,7 @@
 // The Reports stats grid (SPEC §6.5): one list of cells, shown as the 3-column
 // grid on Detailed and as side-by-side columns on Compare and Win vs Loss Days.
 import { viewToParams, queryOf, type ViewState } from "../../core/journal/filter";
-import type { Grid, StreakRef } from "../../core/reports/grid";
+import type { Grid, Holds, StreakRef } from "../../core/reports/grid";
 import type { Unit } from "../../core/reports/units";
 import { minutes, money, mmdd, pct, pnlClass, qty } from "../format";
 import { tradeLink } from "../pages/TradesPage";
@@ -12,9 +12,17 @@ export interface Fmt {
   /** "TRADE" or "IDEA". */
   unit: string;
   view: ViewState;
+  /** % mode: totals are sums of per-trade returns, not account returns, and say so (#16). */
+  pct?: boolean;
 }
 
 export const holdFmt = (m: number | null) => (m === null ? "—" : m < 1440 ? minutes(m) : `${(m / 1440).toFixed(1)}d`);
+
+/** A hold average, split "day 39m · swing 16.0d" when both styles are in it (#16). */
+export function holdText(h: Grid["hold"], key: keyof Holds): string {
+  if (!h.byStyle) return holdFmt(h[key]);
+  return `day ${holdFmt(h.byStyle.day[key])} · swing ${holdFmt(h.byStyle.swing[key])}`;
+}
 const num = (n: number | null, d = 2) => (n === null ? "—" : !Number.isFinite(n) ? (n > 0 ? "∞" : "−∞") : n.toFixed(d).replace("-", "−"));
 
 export interface Cell {
@@ -55,34 +63,35 @@ function StreakLink({ s, f }: { s: StreakRef | null; f: Fmt }) {
 /** Every grid stat, in the spec's order (rows of three). */
 export function gridCells(g: Grid, f: Fmt): Cell[] {
   const u = f.unit.toLowerCase();
-  const n = (x: number, of: number | null) => `${x} (${pct(of, 1)})`;
+  const sumPct = f.pct ? { title: `A sum of per-${u} % returns, not a return on the account` } : {};
   return [
-    { key: "total", label: "Total gain/loss", value: f.v(g.total), cls: pnlClass(g.total) },
+    { key: "total", label: f.pct ? `Sum of ${u} %` : "Total gain/loss", value: f.v(g.total), cls: pnlClass(g.total), ...sumPct },
     { key: "lg", label: "Largest gain", value: g.largestGain ? <><span className="gain">{f.v(g.largestGain.value)}</span> <UnitLink u={g.largestGain.unit} f={f} /></> : "—" },
     { key: "ll", label: "Largest loss", value: g.largestLoss ? <><span className="loss">{f.v(g.largestLoss.value)}</span> <UnitLink u={g.largestLoss.unit} f={f} /></> : "—" },
-    { key: "ad", label: "Avg daily gain/loss", value: f.v(g.avgDaily), cls: pnlClass(g.avgDaily), title: `Over ${g.days} trading days with closes` },
+    { key: "ad", label: f.pct ? `Avg daily sum of ${u} %` : "Avg daily gain/loss", value: f.v(g.avgDaily), cls: pnlClass(g.avgDaily), title: `Over ${g.days} days with closes` },
     { key: "av", label: "Avg daily volume", value: g.avgDailyVolume === null ? "—" : qty(Math.round(g.avgDailyVolume)), title: "Shares bought + sold per trading day" },
     { key: "ps", label: "Avg per-share gain/loss", value: money(g.avgPerShare), cls: pnlClass(g.avgPerShare), title: "$ P&L ÷ shares bought" },
     { key: "au", label: `Avg ${u} gain/loss`, value: f.v(g.avgUnit), cls: pnlClass(g.avgUnit) },
     { key: "aw", label: `Avg winning ${u}`, value: f.v(g.avgWin), cls: "gain" },
     { key: "al", label: `Avg losing ${u}`, value: f.v(g.avgLoss), cls: "loss" },
     { key: "n", label: `Total ${u}s`, value: String(g.count) },
-    { key: "nw", label: "# winning (%)", value: n(g.wins, g.winShare), title: "Share of all, breakevens included" },
-    { key: "nl", label: "# losing (%)", value: n(g.losses, g.lossShare) },
-    { key: "h", label: "Avg hold (all)", value: holdFmt(g.hold.all), title: g.hold.untimed ? `${g.hold.untimed} same-day ${u}s without times left out` : undefined },
-    { key: "hw", label: "Avg hold (winners)", value: holdFmt(g.hold.winners) },
-    { key: "hl", label: "Avg hold (losers)", value: holdFmt(g.hold.losers) },
-    { key: "be", label: "# breakeven ($0.00)", value: String(g.breakevens) },
+    { key: "nw", label: "Winners", value: String(g.wins) },
+    { key: "nl", label: "Losers", value: String(g.losses) },
+    { key: "h", label: "Avg hold (all)", value: holdText(g.hold, "all"), title: g.hold.untimed ? `${g.hold.untimed} same-day ${u}s without times left out` : undefined },
+    { key: "hw", label: "Avg hold (winners)", value: holdText(g.hold, "winners") },
+    { key: "hl", label: "Avg hold (losers)", value: holdText(g.hold, "losers") },
+    { key: "be", label: "Breakeven", value: String(g.breakevens), title: "Exactly $0.00 net; left out of win %" },
     { key: "sw", label: "Max consecutive wins", value: <StreakLink s={g.streaks.win} f={f} /> },
     { key: "sl", label: "Max consecutive losses", value: <StreakLink s={g.streaks.loss} f={f} /> },
     { key: "sd", label: `${f.unit === "IDEA" ? "Idea" : "Trade"} P&L std dev`, value: f.v(g.stdDev).replace("+", "") },
     { key: "sqn", label: "SQN", value: num(g.sqn), title: "√n × mean ÷ std dev" },
-    { key: "p", label: "Probability of random chance", value: pct(g.randomChance, 1), title: "Two-sided t-test of mean P&L ≠ 0; lower is better" },
+    { key: "p", label: "Chance it's luck", value: pct(g.randomChance, 1), title: "Two-sided t-test of mean P&L ≠ 0; lower is better" },
     { key: "k", label: "Kelly %", value: pct(g.kelly, 1).replace("-", "−"), title: "W − (1 − W) ÷ (avg win ÷ |avg loss|)" },
     { key: "kr", label: "K-ratio", value: num(g.kRatio), title: "Kestner 2003 on daily cumulative P&L" },
     { key: "pf", label: "Profit factor", value: g.profitFactor === null ? (g.wins ? "∞" : "—") : num(g.profitFactor) },
     { key: "fees", label: "Fees & commissions", value: money(g.fees, { sign: false }), title: "Brokers report one combined figure" },
-    { key: "wr", label: "Win % (excl. BE)", value: pct(g.winRate, 1), title: "wins ÷ (wins + losses)" },
+    { key: "wr", label: "Win %", value: pct(g.winRate, 1), title: "wins ÷ (wins + losses), breakevens left out: the same win % as everywhere else" },
+
     { key: "ex", label: "Expectancy", value: f.v(g.expectancy), cls: pnlClass(g.expectancy), title: `Per decisive ${u}: W × avg win + (1 − W) × avg loss` },
   ];
 }

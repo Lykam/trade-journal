@@ -5,7 +5,8 @@ import { computeGauge, winsToFull } from "../src/core/gauge/gauge";
 import { importBehind, lastSessionDate } from "../src/core/market";
 import { defaultView } from "../src/core/journal/filter";
 import { buildJournal, groupPnl, type Journal } from "../src/core/journal/journal";
-import { buildRows, sortRows } from "../src/core/journal/rows";
+import { buildRows, sortRows, summarizeRows } from "../src/core/journal/rows";
+import { buildUnits, computeGrid } from "../src/core/reports";
 import type { Fill, QuotesFile, Trade } from "../src/core/types";
 import { batch, closed, ideasOf, open } from "./factory";
 import { config } from "./helpers";
@@ -123,5 +124,31 @@ describe("#15 dashboard", () => {
     expect(rangeStats(trades, 30, now).summary.closed).toBe(4);
     expect(rangeStats(trades, 30, now, "day").summary.closed).toBe(3);
     expect(rangeStats(trades, 30, now, "swing").summary).toMatchObject({ closed: 1, netPnl: 50 });
+  });
+});
+
+describe("#16 numbers that agree", () => {
+  const usd = { pnl: "net" as const, mode: "usd" as const };
+
+  it("splits average hold by style when a grid mixes day and swing trades", () => {
+    const day = [
+      closed({ closedAt: "2026-09-29T10:10:00-04:00", openedAt: "2026-09-29T10:00:00-04:00", net: 5, holdMinutes: 10 }),
+      closed({ closedAt: "2026-09-29T11:30:00-04:00", openedAt: "2026-09-29T11:00:00-04:00", net: -5, holdMinutes: 30 }),
+    ];
+    const swing = [closed({ style: "swing", openedAt: "2026-09-19T00:00:00-04:00", closedAt: "2026-09-29T00:00:00-04:00", net: 20 })];
+    const mixed = computeGrid(buildUnits([...day, ...swing], "trade"), usd);
+    expect(mixed.hold.byStyle).toEqual({
+      day: { all: 20, winners: 10, losers: 30 },
+      swing: { all: 10 * 1440, winners: 10 * 1440, losers: null },
+    });
+    // One style only: no split, the plain averages as before.
+    expect(computeGrid(buildUnits(day, "trade"), usd).hold).toMatchObject({ all: 20, byStyle: null });
+  });
+
+  it("counts open rows apart on the Trades summary, so closed matches Reports", () => {
+    const a = closed({ closedAt: "2026-09-29T10:10:00-04:00", net: 5 });
+    const b = open({ openedAt: "2026-09-30T00:00:00-04:00" });
+    const j = journal([a, b]);
+    expect(summarizeRows(buildRows(j.trades, j, "trade"), "net")).toMatchObject({ rows: 2, open: 1, wins: 1 });
   });
 });

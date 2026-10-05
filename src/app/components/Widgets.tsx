@@ -105,13 +105,15 @@ function Donut({ r }: { r: RangeStats }) {
           off += len;
           return el;
         })}
-        <text x="60" y="66" textAnchor="middle" style={{ fill: "var(--text)", font: "700 16px var(--font)" }}>{pct(s.winRate)}</text>
+        {/* One win % everywhere: wins ÷ (wins + losses), the tile's and the gauges' figure (#16). */}
+        <text x="60" y="66" textAnchor="middle" className="donut-value">{pct(s.winRate, 1)}</text>
       </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <span><span className="dot bg-win" /> WIN <b>{s.wins}</b> <span className="muted">{pct(s.wins / total)}</span></span>
-        <span><span className="dot bg-loss" /> LOSS <b>{s.losses}</b> <span className="muted">{pct(s.losses / total)}</span></span>
-        <span><span className="dot bg-breakeven" /> BE <b>{s.breakevens}</b> <span className="muted">(not in win %)</span></span>
+      <div className="donut-legend">
+        <span><span className="dot bg-win" /> WIN <b>{s.wins}</b></span>
+        <span><span className="dot bg-loss" /> LOSS <b>{s.losses}</b></span>
+        <span><span className="dot bg-breakeven" /> BE <b>{s.breakevens}</b> <span className="muted">(excluded)</span></span>
       </div>
+
     </div>
   );
 }

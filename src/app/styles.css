@@ -462,3 +462,6 @@ td.review-cell { width: 18px; }
   .week .pnl { font-size: 12px; }
   .week a.day .muted { font-size: 11px; }
 }
+.donut-value { fill: var(--text); font: 700 15px var(--font); }
+.donut-legend { display: flex; flex-direction: column; gap: 4px; }
+.cal-cell.week.spans .cal-pnl, .cal-cell.week.spans .cal-n { opacity: 0.5; }

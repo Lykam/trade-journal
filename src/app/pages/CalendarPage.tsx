@@ -111,22 +111,26 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
             {dows.map((d) => <div key={d} role="columnheader">{d}</div>)}
             <div role="columnheader">WEEK</div>
           </div>
-          {weeks.map((w) => (
-            <div key={w.start} className="cal-row" role="row">
-              {w.days.map((d) => {
-                const body = (
-                  <>
-                    <span className="cal-date">{Number(d.date.slice(8))}{d.review && <span className="rv" title="Review written this day"> 📄</span>}</span>
-                    {d.trades > 0 && (
-                      <>
-                        <span className={`cal-pnl ${pnlClass(d.pnl)}`}>
-                          <span className="full">{money(d.pnl)}</span>
-                          <span className="compact">{compactMoney(d.pnl)}</span>
-                        </span>
-                        <span className="cal-n muted">{n(d)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(d) === 1 ? "" : "S"}</span></span>
-                      </>
-                    )}
-                  </>
+          {weeks.map((w) => {
+            // A week that reaches into the next or previous month: its total includes those days, so it is dimmed and says so (#16).
+            const other = w.days.filter((d) => !d.inMonth && d.trades > 0).map((d) => MONTH_NAMES[Number(d.date.slice(5, 7)) - 1]!.toUpperCase());
+            const incl = [...new Set(other)].join("/");
+            return (
+              <div key={w.start} className="cal-row" role="row">
+                {w.days.map((d) => {
+                  const body = (
+                    <>
+                      <span className="cal-date">{Number(d.date.slice(8))}{d.review && <span className="rv" title="Review written this day"> 📄</span>}</span>
+                      {d.trades > 0 && (
+                        <>
+                          <span className={`cal-pnl ${pnlClass(d.pnl)}`}>
+                            <span className="full">{money(d.pnl)}</span>
+                            <span className="compact">{compactMoney(d.pnl)}</span>
+                          </span>
+                          <span className="cal-n muted">{n(d)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(d) === 1 ? "" : "S"}</span></span>
+                        </>
+                      )}
+                    </>
                 );
                 const cls = `cal-cell ${d.inMonth ? "" : "out"} ${d.date === j.today ? "today" : ""}`;
                 return d.trades ? (
@@ -136,9 +140,9 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                   <div key={d.date} role="gridcell" className={cls}>{body}</div>
                 );
               })}
-              <a role="gridcell" className="cal-cell week" href={w.trades ? rangeHref(w.start, addDays(w.start, 6)) : undefined} style={bg(w.pnl, weekMax)}
-                aria-label={`Week of ${w.start}: ${money(w.pnl)}`}>
-                <span className="cal-date muted">WK</span>
+              <a role="gridcell" className={`cal-cell week ${incl ? "spans" : ""}`} href={w.trades ? rangeHref(w.start, addDays(w.start, 6)) : undefined} style={incl ? undefined : bg(w.pnl, weekMax)}
+                aria-label={`Week of ${w.start}: ${money(w.pnl)}${incl ? `, including ${incl} days` : ""}`} title={incl ? `Includes ${incl} days` : undefined}>
+                <span className="cal-date muted">WK{incl && <span className="full"> · INCL. {incl}</span>}</span>
                 {w.trades > 0 && (
                   <>
                     <span className={`cal-pnl ${pnlClass(w.pnl)}`}><span className="full">{money(w.pnl)}</span><span className="compact">{compactMoney(w.pnl)}</span></span>
@@ -147,7 +151,9 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                 )}
               </a>
             </div>
-          ))}
+            );
+          })}
+
         </div>
       </section>
       <div className="dim small">Realized P&amp;L of closed trades by ET close date; tint scales with the size of the day. 📄 = a Playbook review dated that day.</div>

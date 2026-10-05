@@ -162,6 +162,8 @@ export interface RowSummary {
   winRate: number | null;
   /** Realized P&L of scored trades (gross or net). */
   pnl: number;
+  /** Rows still open (no result yet). */
+  open: number;
   volume: number;
 }
 
@@ -173,7 +175,9 @@ export function summarizeRows(rows: Row[], pnl: PnlMode): RowSummary {
   const scored = rows.flatMap((r) => r.trades).filter(isScored);
   return {
     rows: rows.length,
+    open: rows.filter((r) => r.open).length,
     trades: rows.reduce((s, r) => s + r.trades.length, 0),
+
     wins, losses, breakevens: count("breakeven"),
     winRate: wins + losses ? wins / (wins + losses) : null,
     pnl: cents(scored.reduce((s, t) => s + (pnl === "gross" ? t.grossPnl : t.netPnl), 0)),

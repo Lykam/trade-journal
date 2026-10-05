@@ -935,7 +935,8 @@ dashboard quick view has, plus:
 
 - A month grid. Each day cell shows net P&L (green or red background tint),
   the number of trades, and 📄 if a review exists. A weekly total column sits
-  on the right.
+  on the right; a week that reaches into another month is dimmed and says
+  so (`WK · INCL. SEP`), since its total includes those days.
 - Clicking a day opens the Trades page filtered to that date. Arrows step
   between months, and a **year view** shows a 12-month heatmap.
 
@@ -1015,25 +1016,30 @@ Schwab trades show the date only). Below it are the tag chips, with an
   | Total gain/loss | Largest gain ↗ | Largest loss ↗ |
   | Avg daily gain/loss | Avg daily volume | Avg per-share gain/loss |
   | Avg trade gain/loss | Avg winning trade | Avg losing trade |
-  | Total trades | # winning (%) | # losing (%) |
+  | Total trades | Winners | Losers |
   | Avg hold (all) | Avg hold (winners) | Avg hold (losers) |
-  | # breakeven ($0.00) | Max consecutive wins ↗ | Max consecutive losses ↗ |
-  | Trade P&L std dev | SQN | Probability of random chance |
+  | Breakeven | Max consecutive wins ↗ | Max consecutive losses ↗ |
+  | Trade P&L std dev | SQN | Chance it's luck |
   | Kelly % | K-ratio | Profit factor |
-  | Fees & commissions | Win % (excl. BE) | Expectancy |
+  | Fees & commissions | Win % | Expectancy |
 
   ↗ links to the trade (Trade detail, carrying the filter) or the streak (the
   Trades page for the streak's dates under the same filter). MFE/MAE rows are
   left out until price history exists. The exports carry one combined
   "Fees & Comm" figure, so commissions and fees are one stat, and the freed
-  cell shows the win rate as defined in §4.4 (Q42).
+  cell shows the win rate as defined in §4.4 (Q42). Win % appears once, as
+  wins ÷ (wins + losses), the same figure as the dashboard tile, its donut
+  and the gauges; the counts rows carry no second percentage (Q56). When
+  both styles are in the grid, the three hold cells split by style
+  (`day 1h 08m · swing 16.0d`).
 - **What counts:** closed, matched, non-excluded trades that pass the global
   filter (`isScored`). In the Idea view each idea is one unit built from its
   trades that pass (Q28). Results always come from net P&L; Gross / Net only
   changes the values. Formulas are in Q42 and `src/core/reports/`.
 - **$ / % return:** % mode replaces each unit's P&L by P&L ÷ the cost of the
   shares it bought (every open and add), and totals, averages, std dev, SQN and
-  the curves use those returns (totals add them). Per-share P&L, volume and
+  the curves use those returns (totals add them). Totals are labeled **sum of
+  trade %** (not an account return; Q56). Per-share P&L, volume and
   fees stay in dollars. URL: `#/reports?tab=detailed&sub=price&mode=pct&…`,
   plus `b=` (Compare's second filter, as its own query string) and `tag=`
   (Tag Breakdown's open grid).
@@ -1058,8 +1064,9 @@ Schwab trades show the date only). Below it are the tag chips, with an
   counted as flat.
 - **Drawdown:** an underwater equity curve, max drawdown $ and %, the longest
   drawdown in days, and recovery time. Max drawdown % is the drawdown of the
-  summed % returns (points), with the $ drawdown as a share of its peak shown
-  beside it when that peak is above $0 (Q42).
+  summed % returns (points), with the $ drawdown as a share of its peak
+  (`OF PEAK PROFIT`) shown beside it when that peak is above $0 and the view
+  is in $ (Q42, Q56).
 - **Compare:** two filter sets side by side, each with its own stats grid and
   cumulative P&L. Examples are "Day vs Swing", "Stock vs ETF", or "this month
   vs last month". Set A is the global filter; set B has its own filter bar.
@@ -1438,6 +1445,8 @@ the commit leaves the private repo.
 | Q50 | Demo build | One app, two builds: a compile-time flag (`__TJ_DEMO__`, Vite `define`, `--mode demo`) switches the data source and the write features, so the real build has no demo code, data, passphrase or button and the demo build has no vault, token or GitHub code (both checked by building them in a test). The demo keeps the app fully usable: every page, Trade detail with review and charts, Reports, and Import as a browser-only dry run; anything that would write or fetch real data is disabled with one line saying what the real site does. No About page and no narrative (owner decision), only the "DEMO · synthetic data" line. (2026-10-04, milestone 9, #7) |
 | Q51 | Demo hosting | Owner decision: the demo lives at `https://lykam.github.io/trade-journal/demo/`, inside the same Pages deploy, with no separate org, repo or host. Same origin is acceptable because only the owner's browser holds the key and token, and the demo build provably contains no code that reads them (§8). It is built after `npm test` and before the private repos are checked out, copied into `dist/demo/` after encryption, and checked as part of the encrypted dist. Pages serves one artifact per repo, so a broken demo fails the whole deploy rather than going out unnoticed. The repo homepage points at the demo. (2026-10-04, milestone 11, #9) |
 | Q52 | Public repo | No license (owner decision). README: what the app is, a live demo link, features, screenshots taken from the demo only, how to run it locally, and a pointer to this spec and its security model; no "how it was built" narrative. Every real ticker in the current docs is replaced by the demo's made-up names (NVQX / NVQU 2x / NVQD inverse, MZRT / MZRU, HXQY → 999990.KS as the Korean-listed example, and so on), keeping each example's meaning; history is not rewritten. `SPY` in `build/market-open.ts` stays: it is the broad index ETF the prices workflow asks for the market state, not a holding. `ci.yml` gives the README its badge. (2026-10-04, milestone 12, #10) |
+| Q56 | One set of numbers | UX review (#16). **Win %** is always wins ÷ (wins + losses): the dashboard donut's legend shows counts only and its center the tile's figure, and the Detailed grid shows Winners / Losers / Breakeven as counts with Win % once. **% mode** (owner decision): totals stay, labeled `SUM OF TRADE %`, with a hover saying it is not an account return; drawdown drops "of peak" in % mode. **Hold** splits by style whenever both are in a grid (Detailed, Compare, Win vs Loss Days). The Trades tile counts open rows apart (`8 OPEN · 296 CLOSED`), so its closed count matches Reports. A calendar week that spans two months is dimmed and names the other month. (2026-10-04, #16) |
+
 | Q55 | Dashboard top | UX review (#15), owner decisions 2026-10-04. **Needs attention** joins the pinned top blocks as one line under the gauges that opens into the list, hidden when empty, and adds today's unreviewed trades. **Backfill stays** (Q13, Q20): there is no "not enough trades" state, since earlier trades always fill the window; the gauge says so instead (`1 CLOSED THIS WEEK, 4 EARLIER` and a note). **Full-size target:** the fewest extra wins this week that reach Δ ≥ 0 with nothing else changing, each win pushing the oldest backfilled trade out; none at full size, without a baseline or beyond 50. **Imports:** the bundle carries the latest `importedAt` per broker (`imports`; fills keep theirs blank), and the top bar flags one older than the latest closed session (weekdays 16:00 ET, no holidays, like Q21). The 30/60/90 block gets an ALL / DAY / SWING toggle; the week strip hides empty weekend days and says it covers all styles; the Recent 10 strip runs newest first like its list; largest gain / loss are two bars instead of a half-gauge. (2026-10-04, #15) |
 
 | Q54 | Open trades in tables | UX review (#14): an open trade has no result, so tables never show its booked P&L (often 0.00, or a red buy fee) as if it were one. Trades, the Journal list, the review page and the Idea panel show the mark at the last price in muted text (`open +19.50`; `open —` without a quote); an idea with closed and open trades adds the closed results and the open marks, and still reads as open. Open rows sort after closed ones on P&L in both directions. Buy fees stay in realized P&L (Q44, average-cost basis unchanged), labeled `REALIZED · 0 TRIMS · 0.65 FEES`. Days held are whole ET calendar days everywhere (`daysHeld`). Stops and risk are deferred (§11). (2026-10-04, #14) |

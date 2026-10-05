@@ -10,7 +10,8 @@ import {
   TAB_LABELS, TABS, tagGroups, topBottom, winLossDays, type Grid, type ReportState, type Unit, type ValueOpts,
 } from "../../core/reports";
 import { BucketBars, BucketTable, Underwater, VBars } from "../components/ReportCharts";
-import { GridColumns, holdFmt, StatsGrid, type Fmt } from "../components/StatsGrid";
+import { GridColumns, holdText, StatsGrid, type Fmt } from "../components/StatsGrid";
+
 import { FilterBar, viewHref } from "../components/FilterBar";
 import { CumulativeChart, Widget, WinByDay } from "../components/Widgets";
 import { money, pct, pnlClass, qty, signedPct } from "../format";
@@ -55,10 +56,13 @@ function Totals({ items }: { items: Array<{ label: string; value: React.ReactNod
 
 function headline(g: Grid, c: Ctx) {
   return [
-    { label: `${c.view.pnl.toUpperCase()} ${c.r.mode === "pct" ? "Σ RETURN" : "P&L"}`, value: c.f.v(g.total), cls: pnlClass(g.total), sub: `${g.days} DAYS` },
-    { label: `WIN % (${c.f.unit}S)`, value: pct(g.winRate, 1), sub: `${g.wins}W ${g.losses}L ${g.breakevens}BE · ON NET` },
+    {
+      label: `${c.view.pnl.toUpperCase()} ${c.f.pct ? `SUM OF ${c.f.unit} %` : "P&L"}`, value: c.f.v(g.total), cls: pnlClass(g.total), sub: `${g.days} DAYS TRADED`,
+      title: c.f.pct ? "A sum of per-trade % returns, not a return on the account" : undefined,
+    },
+    { label: `WIN % (${c.f.unit}S)`, value: pct(g.winRate, 1), sub: `${g.wins}W ${g.losses}L${g.breakevens ? ` ${g.breakevens}BE` : ""}${c.view.pnl === "gross" ? " · ON NET" : ""}` },
     { label: `${c.f.unit}S`, value: String(g.count), sub: c.f.unit === "IDEA" ? `${c.units.reduce((s, u) => s + u.trades.length, 0)} TRADES` : `${new Set(c.units.map((u) => u.trades[0]!.ideaId)).size} IDEAS` },
-    { label: "PROFIT FACTOR", value: g.profitFactor?.toFixed(2) ?? (g.wins ? "∞" : "—"), sub: "WINS / |LOSSES|" },
+    { label: "PROFIT FACTOR", value: g.profitFactor?.toFixed(2) ?? (g.wins ? "∞" : "—") },
     { label: "EXPECTANCY", value: c.f.v(g.expectancy), cls: pnlClass(g.expectancy), sub: `PER ${c.f.unit}` },
   ];
 }
@@ -72,7 +76,7 @@ function Overview({ c, g }: { c: Ctx; g: Grid }) {
     <>
       <Totals items={headline(g, c)} />
       <div className="widgets">
-        <Widget title={<>Cumulative {c.view.pnl} {c.r.mode === "pct" ? "return" : "P&L"} · <span className={pnlClass(g.total)}>{c.f.v(g.total)}</span></>}>
+        <Widget title={<>Cumulative {c.f.pct ? `sum of ${c.f.unit.toLowerCase()} %` : "P&L"} · <span className={pnlClass(g.total)}>{c.f.v(g.total)}</span></>}>
           <CumulativeChart pts={d} fmt={fmt} label="Cumulative P&L" />
         </Widget>
         <Widget title={<>Daily {c.r.mode === "pct" ? "return" : "P&L"} · avg {c.f.v(g.avgDaily)}</>}>
@@ -194,7 +198,7 @@ function WinLossDays({ c }: { c: Ctx }) {
     ["Volume per day (shares)", (s) => (s.perDay.volume === null ? "—" : qty(Math.round(s.perDay.volume)))],
     [`Avg shares bought per ${u}`, (s) => s.perDay.shares?.toFixed(1) ?? "—"],
     [`Avg $ bought per ${u}`, (s) => money(s.perDay.cost, { sign: false })],
-    ["Avg hold", (s) => holdFmt(s.perDay.hold)],
+    ["Avg hold", (s) => holdText(s.grid.hold, "all")],
   ];
   return (
     <>
@@ -229,22 +233,27 @@ function DrawdownTab({ c }: { c: Ctx }) {
   return (
     <>
       <Totals items={[
-        { label: "MAX DRAWDOWN $", value: m ? money(-m.depth) : "—", cls: m ? "loss" : "", sub: usd.maxPctOfPeak !== null ? `${pct(usd.maxPctOfPeak, 1)} OF THE $ PEAK` : m ? "PEAK ≤ $0" : "NONE", title: "Deepest fall of cumulative P&L below a running peak" },
-        { label: "MAX DRAWDOWN %", value: ret.max ? signedPts(-ret.max.depth) : "—", cls: ret.max ? "loss" : "", sub: "Σ % RETURNS", title: "The same on the curve of summed % returns per unit (points)" },
-        { label: "MAX DD DATES", value: m ? `${(m.peakDate || c.units[0]!.date).slice(5)}→${m.troughDate.slice(5)}` : "—", sub: m ? `${usd.declineDays} DAY${usd.declineDays === 1 ? "" : "S"} DOWN · ${m.recoveredDate ? `BACK ${m.recoveredDate.slice(5)}` : "NOT RECOVERED"}` : "" },
-        { label: "RECOVERY", value: usd.recoveryDays === null ? "—" : `${usd.recoveryDays}d`, sub: "TROUGH → BACK AT PEAK" },
+        {
+          label: "MAX DRAWDOWN", value: m ? money(-m.depth) : "—", cls: m ? "loss" : "",
+          // A share of peak profit, not of the account; left out in % mode, where it would read as an account figure (#16).
+          sub: c.f.pct ? "" : usd.maxPctOfPeak !== null ? `${pct(usd.maxPctOfPeak, 1)} OF PEAK PROFIT` : m ? "PEAK ≤ 0" : "NONE",
+          title: "Deepest fall of cumulative P&L below a running peak",
+        },
+        { label: "MAX DRAWDOWN %", value: ret.max ? signedPts(-ret.max.depth).toUpperCase() : "—", cls: ret.max ? "loss" : "", sub: `SUM OF ${c.f.unit} %`, title: "The same on the curve of summed % returns (points), not a share of the account" },
+        { label: "WORST DRAWDOWN", value: m ? `${(m.peakDate || c.units[0]!.date).slice(5)}→${m.troughDate.slice(5)}` : "—", sub: m ? (m.recoveredDate ? `RECOVERED ${m.recoveredDate.slice(5)}` : "NOT RECOVERED") : "", title: m ? `${usd.declineDays} day${usd.declineDays === 1 ? "" : "s"} from peak to low` : undefined },
+        { label: "RECOVERY", value: usd.recoveryDays === null ? "—" : `${usd.recoveryDays}d`, sub: "LOW TO NEW HIGH" },
         { label: "LONGEST DRAWDOWN", value: usd.longest ? `${usd.longest.days}d` : "—", sub: usd.longest ? `${(usd.longest.peakDate || c.units[0]!.date).slice(5)}→${usd.longest.recoveredDate?.slice(5) ?? "NOW"}` : "" },
-        { label: "NOW", value: d.current ? fmt(d.current) : "AT PEAK", cls: d.current ? "loss" : "gain", sub: "BELOW PEAK" },
+        { label: "NOW", value: d.current ? fmt(d.current).toUpperCase() : "AT PEAK", cls: d.current ? "loss" : "gain", sub: "BELOW PEAK" },
       ]} />
       <div className="widgets">
-        <Widget title={<>Cumulative {c.r.mode === "pct" ? "Σ return" : "P&L"} (end of day)</>} wide>
+        <Widget title={<>Cumulative {c.f.pct ? `sum of ${c.f.unit.toLowerCase()} %` : "P&L"}</>} wide>
           <CumulativeChart pts={d.days.map((x, i) => ({ date: x.date, cum: x.equity, value: x.equity - (d.days[i - 1]?.equity ?? 0) }))} fmt={fmt} label="Cumulative P&L" height={180} />
         </Widget>
-        <Widget title={<>Underwater · below running peak (deepest point each day)</>} wide>
+        <Widget title={<>Below peak (worst point each day)</>} wide>
           <Underwater days={d.days} fmt={fmt} height={160} />
         </Widget>
       </div>
-      <div className="dim small">Each closed {c.f.unit.toLowerCase()} is a step, in close order, so a dip inside a day counts. The curve starts at 0, so an opening loss is a drawdown.</div>
+      <div className="dim small">Measured {c.f.unit.toLowerCase()} by {c.f.unit.toLowerCase()} from 0, so intraday dips count.</div>
     </>
   );
 }
@@ -349,7 +358,7 @@ export function ReportsPage({ journal: j, view, params }: { journal: Journal; vi
   const grid = useMemo(() => computeGrid(units, o), [units, o]);
   const href = (patch: Partial<ReportState>, v: ViewState = view) => viewHref("#/reports", v, reportExtra({ ...r, ...patch }));
   const unit = view.count === "idea" ? "IDEA" : "TRADE";
-  const f: Fmt = { v: r.mode === "pct" ? (n) => signedPct(n ?? null, 2) : (n) => money(n), unit, view };
+  const f: Fmt = { v: r.mode === "pct" ? (n) => signedPct(n ?? null, 2) : (n) => money(n), unit, view, pct: r.mode === "pct" };
   const c: Ctx = { j, view, r, o, f, units, trades, href };
   const range = dateRange(view.filter, j.today, j.startsOn);
 
@@ -384,8 +393,8 @@ export function ReportsPage({ journal: j, view, params }: { journal: Journal; vi
       <Tabs items={TABS} labels={TAB_LABELS} on={r.tab} href={(t) => href({ tab: t })} label="Report" />
       {body}
       <div className="dim small">
-        Closed, matched, non-excluded trades only. Results and win % always use net P&amp;L.{" "}
-        {r.mode === "pct" ? "% return = P&L ÷ cost of the shares bought; totals add the returns. " : ""}
+        Closed trades only. Win/loss always uses net P&amp;L.{" "}
+        {r.mode === "pct" ? "% return = P&L ÷ cost of the shares bought; totals are sums of those returns, not account returns. " : ""}
         {view.count === "idea" ? "Each idea counts once, scored on its trades that pass the filter." : ""}
       </div>
     </main>
