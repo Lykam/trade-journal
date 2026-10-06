@@ -305,6 +305,7 @@ tr.current { background: var(--inset); }
 /* ---- calendar */
 .cal { display: flex; flex-direction: column; }
 .cal-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, 1.1fr); }
+.cal.weekdays .cal-row { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.1fr); }
 .cal-row.head > div { padding: 6px 8px; color: var(--dim); font-size: 11px; letter-spacing: 0.1em; border-bottom: 1px solid var(--border); }
 .cal-cell {
   min-height: 84px; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; color: var(--text);
@@ -322,6 +323,7 @@ a.cal-cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; color
 .ymonth { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ylabel { display: flex; justify-content: space-between; color: var(--text); }
 .ygrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.ygrid.five { grid-template-columns: repeat(5, 1fr); }
 .ygrid > * { aspect-ratio: 1; }
 .ycell { background: var(--rule-faint); border: 1px solid var(--rule); }
 a.ycell[href]:hover { outline: 1px solid var(--accent); }

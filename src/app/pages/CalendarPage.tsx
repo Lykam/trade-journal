@@ -11,6 +11,9 @@ import { compactMoney, DOW, money, MONTH_NAMES, monthLabel, pnlClass } from "../
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
+/** Saturday or Sunday. Weekend columns only show when a weekend day in view has trades (Q69). */
+const isWeekend = (date: string) => dayOfWeek(date) % 6 === 0;
+
 function bg(pnl: number, maxAbs: number): React.CSSProperties | undefined {
   const a = tint(pnl, maxAbs);
   if (!a) return undefined;
@@ -61,6 +64,13 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
     const months = yearView(trades, Number(month.slice(0, 4)), { pnl: view.pnl, startsOn });
     const maxAbs = Math.max(0, ...months.flatMap((m) => m.days.map((d) => Math.abs(d.pnl))));
     const total = months.reduce((s, m) => s + m.pnl, 0);
+    const fiveDay = !months.some((m) => m.days.some((d) => d.trades > 0 && isWeekend(d.date)));
+    // Mon–Fri: blanks before the month's first weekday, so columns line up by weekday.
+    const cellsOf = (m: (typeof months)[number]) => {
+      if (!fiveDay) return { lead: m.lead, days: m.days };
+      const days = m.days.filter((d) => !isWeekend(d.date));
+      return { lead: dayOfWeek(days[0]!.date) - 1, days };
+    };
     return (
       <main className="page">
         {head}
@@ -82,12 +92,12 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                   <span className={pnlClass(m.pnl)}>{m.trades ? money(m.pnl) : ""}</span>
                 </a>
                 {/* Weekday letters, in the configured week order (#22). */}
-                <div className="ygrid ydow" aria-hidden="true">
-                  {(startsOn === "sunday" ? "SMTWTFS" : "MTWTFSS").split("").map((l, i) => <span key={i}>{l}</span>)}
+                <div className={`ygrid ydow ${fiveDay ? "five" : ""}`} aria-hidden="true">
+                  {(fiveDay ? "MTWTF" : startsOn === "sunday" ? "SMTWTFS" : "MTWTFSS").split("").map((l, i) => <span key={i}>{l}</span>)}
                 </div>
-                <div className="ygrid" role="grid" aria-label={monthLabel(m.month)}>
-                  {Array.from({ length: m.lead }, (_, i) => <span key={`l${i}`} />)}
-                  {m.days.map((d) => (
+                <div className={`ygrid ${fiveDay ? "five" : ""}`} role="grid" aria-label={monthLabel(m.month)}>
+                  {Array.from({ length: cellsOf(m).lead }, (_, i) => <span key={`l${i}`} />)}
+                  {cellsOf(m).days.map((d) => (
                     <a key={d.date} className="ycell" href={d.trades ? dayHref(d.date) : undefined} style={bg(d.pnl, maxAbs)}
                       title={`${d.date}: ${d.trades ? `${money(d.pnl)} · ${n(d)} ${unit}` : "no trades"}`} aria-label={`${d.date} ${d.trades ? money(d.pnl) : "no trades"}`} />
                   ))}
@@ -105,7 +115,10 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
   const { weeks, total } = monthGrid(trades, month, { pnl: view.pnl, startsOn, reviewDates: reviews });
   const maxAbs = Math.max(0, ...weeks.flatMap((w) => w.days.filter((d) => d.inMonth).map((d) => Math.abs(d.pnl))));
   const weekMax = Math.max(0, ...weeks.map((w) => Math.abs(w.pnl)));
-  const dows = Array.from({ length: 7 }, (_, i) => DOW[dayOfWeek(addDays(weeks[0]!.start, i))]!);
+  // Weekends are hidden unless a weekend day in view has trades, so nothing is ever left out (Q69).
+  const fiveDay = !weeks.some((w) => w.days.some((d) => d.trades > 0 && isWeekend(d.date)));
+  const shown = (date: string) => !fiveDay || !isWeekend(date);
+  const dows = Array.from({ length: 7 }, (_, i) => addDays(weeks[0]!.start, i)).filter(shown).map((d) => DOW[dayOfWeek(d)]!);
   return (
     <main className="page">
       {head}
@@ -115,7 +128,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
           <h2>{monthLabel(month)} · <span className={pnlClass(total.pnl)}>{money(total.pnl)}</span></h2>
           <span className="muted small">{n(total)} {unit.toUpperCase()}</span>
         </div>
-        <div className={`cal starts-${startsOn}`} role="grid">
+        <div className={fiveDay ? "cal weekdays" : `cal starts-${startsOn}`} role="grid">
 
           <div className="cal-row head" role="row">
             {dows.map((d) => <div key={d} role="columnheader">{d}</div>)}
@@ -127,7 +140,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
             const incl = [...new Set(other)].join("/");
             return (
               <div key={w.start} className="cal-row" role="row">
-                {w.days.map((d) => {
+                {w.days.filter((d) => shown(d.date)).map((d) => {
                   const body = (
                     <>
                       <span className="cal-date">{Number(d.date.slice(8))}{d.review && <span className="rv" title="Review written this day"> 📄</span>}</span>

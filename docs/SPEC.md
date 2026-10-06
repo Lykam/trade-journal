@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.16)
+# Trade Journal — Spec (v0.17)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -974,8 +974,10 @@ dashboard quick view has, plus:
   shows the number of trades that booked P&L that day, and 📄 if a review
   exists. A weekly total column sits on the right; a week that reaches into another month is dimmed and says
   so (`WK · INCL. SEP`), since its total includes those days. At phone width
-  amounts are whole dollars (`+16`, `−43`) and the weekend columns are
-  narrower.
+  amounts are whole dollars (`+16`, `−43`).
+- **Weekdays only** (Q69): the month grid and the year heatmap show Mon–Fri.
+  If a weekend day in view has trades, that month (or year) shows all seven
+  days again, in the `weekStartsOn` order, so nothing is ever hidden.
 - Clicking a day opens the Trades page with the trades booked that day
   (`booked=1`, Q67). Today's cell
   has an amber outline. Arrows step between months, and a **year view**
@@ -1546,7 +1548,7 @@ the commit leaves the private repo.
 | Q66 | Symbol mappings in the app | Owner request 2026-10-05: two ETFs whose broker names didn't look leveraged were never offered at import, so `symbols.json` is now editable from Trade detail and Settings. One commit writes `symbols.json` and a regenerated `derived/trades.json` (`src/core/symbols/mapping.ts`), through the same read-fresh / preview / CONFIRM / retry flow as override edits (Q40), with the changed entries as the fingerprint. Mapping stays an explicit choice (Q8): nothing is mapped without CONFIRM. The demo shows the form with COMMIT disabled, and its GitHub code is not in the demo bundle (Q50). (2026-10-05) |
 | Q67 | Trims on the calendar | Owner request 2026-10-06: a trim on a still-open swing should count on the day it was taken. The calendar (month, week totals, year view) and the dashboard week strip now sum P&L **by booked date**: each trim and the close on its own ET day (`bookedByDay` in `core/trades/stats`). Buy fees go with the first sale after them; the close books whatever is left, so a closed trade's days add up to its gross or net P&L exactly. Open trades count their trims; excluded and unmatched trades book nothing. A day's trade and idea counts are the trades and ideas that booked P&L that day. Clicking a day or week opens Trades with `booked=1`, listing trades with a trim or close in the range, so a day and its list still agree. With BOOKED, the Trades P&L column, its sort and the total tile (`NET P&L · BOOKED THESE DAYS`) use what each trade booked in the range: an open trade shows its trims (`+4.46 TRIM`), with the whole trade's figure in the title (owner report 2026-10-06: the day list showed the open mark and closed-only total, so it didn't match the calendar). Q26 still holds for the date filter, the Trades date column and Reports, which score closed trades on their close date. (2026-10-06) || Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 | Q68 | Account value | Owner request 2026-10-06: see each holding's share of the swing account. `config.json` gets optional `balances`: per account a **start** (date and cash amount; trades opened before it are left out) and **checkpoints** (an actual value from the broker at a close, with the price of each symbol held then). **Cash** = start + every buy and sale since, from the events' prices and the trades' fees, so it is exact to the cent; **value** = cash + open positions at the last quote, or at cost without one (`N AT COST`). Excluded trades still move cash. The latest checkpoint up to today adds a **correction**: its value minus what the trades give for that close at its stored prices. It is recomputed from today's trades, so fills imported after it was entered don't count twice, and it carries forward until the next one; it covers what fills miss (interest, fees, transfers; the owner says this account has none). Dashboard and Open Positions show an account line and **% ACCT** (market value, or cost when unpriced, ÷ account value). Settings → Account value edits it; a commit writes `config.json` and trade-history's `schema/config.schema.json`, never trades. The demo's swing account gets a round starting balance. Code: `core/account`. (2026-10-06) |
-### Still open
+| Q69 | Weekdays-only calendar | Owner request 2026-10-06: Saturday and Sunday columns are noise, since nothing is traded then. The month grid and year heatmap show **Mon–Fri** (plus the WEEK column); week totals still cover the whole week. Fallback: if any weekend day in view has trades (a mis-dated fill, say), the full seven-day layout returns for that month or year, so no P&L is ever hidden. The dashboard week strip already hides empty weekends (#15). (2026-10-06) |### Still open
 
 - UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
   desktop and 390 px width; the owner checks the real site after the merge.
