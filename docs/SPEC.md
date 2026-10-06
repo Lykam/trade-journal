@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.14)
+# Trade Journal — Spec (v0.15)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -278,6 +278,15 @@ that it was an ETF trade.
   name (e.g. "DEMO DAILY MZRT BULL2X SHARES" → MZRT, 2x, long). The answer
   is written to `symbols.json` in the same commit. Symbols that are never
   answered stay unmapped and are listed under "Needs attention".
+- **Mapping from the app (Q66):** an ETF whose broker name doesn't look like
+  one is never offered at import. Trade detail (**SET UNDERLYING +**, or
+  **UNDERLYING … · EDIT** once mapped) and Settings → **Symbol mappings**
+  (EDIT, ADD MAPPING +) set, change or remove a mapping. COMMIT reads
+  trade-history fresh, previews the trades whose underlying changes and the
+  ideas that regroup, and writes `symbols.json` plus a regenerated
+  `derived/trades.json` in one commit (the Q40 flow). Existing keys keep their
+  order and new ones are appended, as the importer writes them; a mapping
+  trade-history already has commits nothing.
 
 ### 3.5 `derived/trades.json`: trades and ideas
 
@@ -1158,8 +1167,8 @@ top bar.
 - **Gauge rules** in plain words, from `config.json` ("Average = your win %
   over the last 90 days, this week excluded. Half size below your average;
   quarter size 10+ points below it…", Q64).
-- A read-only view of `config.json` and `symbols.json` side by side, with
-  links to edit them on GitHub.
+- A read-only view of `config.json` with a link to edit it on GitHub, and a
+  **Symbol mappings** table for `symbols.json`, editable in the app (§3.4, Q66).
 
 ### 6.10 Not in v1 (compared with Tradervue)
 
@@ -1502,6 +1511,7 @@ the commit leaves the private repo.
 | Q63 | Journal and Calendar | UX review (#22). The Journal's REVIEW column folds in the idea status; an OPEN review on a closed idea (`exitMissing`, the same check Needs attention uses) reads EXIT MISSING and sorts first (`journalOrder`). The second IDEA column is gone and the Reviewed filter is hidden there. The review page header gives the idea's date span. The calendar outlines today and the year view gets weekday letters and a legend. (2026-10-04, #22) |
 | Q64 | Import and Settings | UX review (#23), owner decision 2026-10-04: a new ETF mapping row is pre-ticked when its guessed underlying is already traded (`preTick`). It stays visible and editable and is written only on Commit, so Q8's explicit mapping holds. Import plumbing (file list, ref) is collapsed; a commit ends with a link back to the dashboard; IMPORT shows as active on its page. Settings states the gauge rules from config (`gaugeRules`) and puts the two JSON views side by side. (2026-10-04, #23) |
 | Q65 | Leak guard vs. HTML names | `check-dist` again skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`), now **parse5**, the HTML parser behind `rehype-raw`, which lists every HTML tag and entity name in capitals. A newly traded ticker that is also an HTML tag name failed a deploy on 2026-10-05 as a false positive. Like the app source, library code is public and can hold no data; the guard still checks every other symbol, and `.enc` files are unaffected (Q39, Q46). (2026-10-05) |
+| Q66 | Symbol mappings in the app | Owner request 2026-10-05: two ETFs whose broker names didn't look leveraged were never offered at import, so `symbols.json` is now editable from Trade detail and Settings. One commit writes `symbols.json` and a regenerated `derived/trades.json` (`src/core/symbols/mapping.ts`), through the same read-fresh / preview / CONFIRM / retry flow as override edits (Q40), with the changed entries as the fingerprint. Mapping stays an explicit choice (Q8): nothing is mapped without CONFIRM. The demo shows the form with COMMIT disabled, and its GitHub code is not in the demo bundle (Q50). (2026-10-05) |
 | Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
 
 ### Still open

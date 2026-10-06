@@ -262,6 +262,10 @@ table.trades tr.sub td { padding-top: 5px; padding-bottom: 5px; }
 /* ---- trade detail */
 .tagrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .tagrow .chip + .chip { margin-left: 0; }
+/* Symbol → underlying form (Trade detail, Settings). */
+.symmap { display: flex; flex-direction: column; gap: 8px; flex-basis: 100%; padding: 6px 0; }
+.symmap .row { flex-wrap: wrap; align-items: flex-end; }
+.symmap .field { display: flex; flex-direction: column; gap: 4px; }
 .detail { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
 .detail .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }

@@ -13,6 +13,7 @@ import {
 import { clearToken, loadToken, saveToken, tokenKey, TOKEN_STORAGE_KEY, type KeyValueStore, type TokenRecord } from "../src/core/github/token-store";
 import { importFingerprint, importMessage, importWrites, planImport } from "../src/core/import/plan";
 import { MissingTradesError, planOverrideCommit, type StagedAction } from "../src/core/journal/overrides";
+import { applySymbolChanges, mappingError, planSymbolCommit } from "../src/core/symbols/mapping";
 import { FakeGitHub, TOKEN } from "./fake-github";
 import { FIXTURES, IMPORTED_AT, SCHWAB_A, SCHWAB_B, WEBULL_A, WEBULL_B } from "./helpers";
 
@@ -399,5 +400,65 @@ describe("Import page file order", () => {
       const sym = (rels: string[]) => planImport(inputs(rels), remote.snap, { importedAt: IMPORTED_AT }).result.fills.map((f) => f.symbol);
       expect(sym([WEBULL_A, WEBULL_B])).not.toEqual(sym([WEBULL_B, WEBULL_A]));
     });
+  });
+});
+
+describe("symbol mappings (symbols.json from the app)", () => {
+  const twoX = (underlying: string, leverage = 2) => ({ underlying, type: "leveraged_etf" as const, leverage, direction: "long" as const });
+
+  it("maps a symbol to its underlying and regenerates the trades in one commit", async () => {
+    const { fake, gh } = await seededRepo();
+    const remote = await readHistory(gh, DATA, validate);
+    const before = remote.snap.derived!.trades.filter((t) => t.symbol === "TSTU");
+    expect(before.length).toBeGreaterThan(0);
+    expect(before.every((t) => t.underlying === "TSTU" && t.instrument === "stock")).toBe(true);
+
+    const plan = planSymbolCommit(remote.snap, [{ symbol: "TSTU", info: twoX("TSTZ") }], { generator: generatorVersion() }, validate);
+    expect(plan.changes).toEqual({ TSTU: twoX("TSTZ") });
+    expect(plan.preview.trades).toBe(before.length);
+    expect(plan.message).toBe("Map symbols: TSTU → TSTZ 2x long");
+    // Existing mappings keep their place; the new one goes at the end, as the importer writes it.
+    expect(Object.keys(plan.symbols)).toEqual([...Object.keys(remote.snap.symbols), "TSTU"]);
+
+    const res = await commitFiles(gh, remote.state, plan.files, plan.message);
+    expect(res!.paths.sort()).toEqual(["derived/trades.json", "symbols.json"]);
+    const derived = JSON.parse(fake.text("derived/trades.json")!);
+    const after = derived.trades.filter((t: { symbol: string }) => t.symbol === "TSTU");
+    expect(after.every((t: { underlying: string; instrument: string; leverage: number }) => t.underlying === "TSTZ" && t.instrument === "leveraged_etf" && t.leverage === 2)).toBe(true);
+    // P&L stays on the symbol actually traded.
+    expect(after.map((t: { netPnl: number }) => t.netPnl)).toEqual(before.map((t) => t.netPnl));
+  });
+
+  it("changes and removes an existing mapping", async () => {
+    const { gh } = await seededRepo();
+    const remote = await readHistory(gh, DATA, validate);
+    const ctx = { generator: generatorVersion() };
+    const edited = planSymbolCommit(remote.snap, [{ symbol: "FAKU", info: { ...remote.snap.symbols.FAKU!, leverage: 3 } }], ctx, validate);
+    expect(Object.keys(edited.changes)).toEqual(["FAKU"]);
+    expect(edited.derived.trades.filter((t) => t.symbol === "FAKU").every((t) => t.leverage === 3)).toBe(true);
+
+    const removed = planSymbolCommit(remote.snap, [{ symbol: "FAKU", info: null }], ctx, validate);
+    expect(removed.changes).toEqual({ FAKU: null });
+    expect(removed.message).toBe("Map symbols: FAKU unmapped");
+    const faku = removed.derived.trades.filter((t) => t.symbol === "FAKU");
+    expect(faku.length).toBeGreaterThan(0);
+    expect(faku.every((t) => t.underlying === "FAKU" && t.instrument === "stock")).toBe(true);
+  });
+
+  it("finds nothing to commit when trade-history already has the mapping", async () => {
+    const { gh } = await seededRepo();
+    const remote = await readHistory(gh, DATA, validate);
+    const plan = planSymbolCommit(remote.snap, [{ symbol: "FAKU", info: remote.snap.symbols.FAKU! }], { generator: generatorVersion() }, validate);
+    expect(plan.changes).toEqual({});
+    expect(await commitFiles(gh, remote.state, plan.files, plan.message)).toBeNull();
+  });
+
+  it("refuses a mapping that can't be right", () => {
+    expect(mappingError("TSTU", twoX("TSTU"))).toMatch(/different ticker/);
+    expect(mappingError("TSTU", twoX(""))).toMatch(/Underlying/);
+    expect(mappingError("TSTU", twoX("TSTZ", 0))).toMatch(/Leverage/);
+    expect(mappingError("tst u", twoX("TSTZ"))).toMatch(/Symbol/);
+    expect(mappingError("TSTU", twoX("TSTZ"))).toBeNull();
+    expect(applySymbolChanges({}, [{ symbol: "TSTU", info: { ...twoX("TSTZ"), issuer: "  " } }])).toEqual({ TSTU: twoX("TSTZ") });
   });
 });

@@ -12,6 +12,7 @@ import { cents, etDate } from "../../core/normalize/util";
 import { markToMarket } from "../../core/trades/stats";
 import type { DataBundle, Trade } from "../../core/types";
 import { StagedPreview, useStagedOverrides } from "../components/BulkBar";
+import { SymbolMapForm } from "../components/SymbolMap";
 import { viewHref } from "../components/FilterBar";
 import { Lightbox, type LightboxImage } from "../components/Lightbox";
 import { Timeline } from "../components/OpenPositions";
@@ -82,6 +83,7 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
         </nav>
       </header>
       <TagRow data={data} journal={j} t={t} />
+      <UnderlyingRow data={data} t={t} />
 
       <div className="detail">
         <div className="col">
@@ -109,6 +111,23 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
 function openNow(data: DataBundle, t: Trade, now: string) {
   const q = data.quotes?.quotes[t.symbol];
   return { shares: t.openQty, last: q?.price ?? null, stale: q ? quoteStatus(q, now).isStale : false };
+}
+
+/** Map the traded symbol to the ticker it tracks (an ETF → its underlying), or change that mapping (§3.4). */
+function UnderlyingRow({ data, t }: { data: DataBundle; t: Trade }) {
+  const [open, setOpen] = useState(false);
+  const mapped = data.symbols[t.symbol];
+  return (
+    <section className="tagrow" aria-label="Underlying">
+      {open ? (
+        <SymbolMapForm data={data} symbol={t.symbol} onClose={() => setOpen(false)} />
+      ) : (
+        <button type="button" className="btn ghost" onClick={() => setOpen(true)}>
+          {mapped ? `UNDERLYING ${mapped.underlying} · EDIT` : "SET UNDERLYING +"}
+        </button>
+      )}
+    </section>
+  );
 }
 
 function TagRow({ data, journal: j, t }: { data: DataBundle; journal: Journal; t: Trade }) {
