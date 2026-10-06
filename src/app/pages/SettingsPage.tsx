@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { gaugeRules } from "../../core/gauge/gauge";
 import type { DataBundle } from "../../core/types";
+import { SymbolsPanel } from "../components/SymbolMap";
 import { DEMO_TOKEN_NOTE } from "../demo-text";
 import { dateTimeOf } from "../format";
 import { DEFAULT_DATA_REPO, forgetToken, saveCheckedToken, useToken } from "../github";
@@ -192,7 +193,7 @@ function JsonPair({ data }: { data: DataBundle }) {
   return (
     <div className="json-pair">
       <JsonPanel title="config.json" file="config.json" value={data.config} />
-      <JsonPanel title="symbols.json" file="symbols.json" value={data.symbols} />
+      <SymbolsPanel data={data} />
     </div>
   );
 }

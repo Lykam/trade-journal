@@ -5,6 +5,7 @@ import { commitPlan, readHistory, type GitHubClient, type RemoteHistory } from "
 import { importFingerprint, importMessage, importWrites, planImport, type ImportInput, type ImportPlan } from "../core/import/plan";
 import { planOverrideCommit, type OverrideCommitPlan, type StagedAction } from "../core/journal/overrides";
 import { validatorFrom, type SchemaTexts } from "../core/schema-names";
+import { planSymbolCommit, type SymbolChange, type SymbolCommitPlan } from "../core/symbols/mapping";
 import type { SymbolsMap } from "../core/types";
 import config from "../../schema/config.schema.json?raw";
 import fills from "../../schema/fills.schema.json?raw";
@@ -56,3 +57,12 @@ export const computeOverrides = (remote: RemoteHistory, staged: StagedAction[]):
 
 export const commitOverrides = (gh: GitHubClient, remote: RemoteHistory, plan: OverrideCommitPlan, staged: StagedAction[]) =>
   commitPlan(gh, validate, remote, plan, (r) => computeOverrides(r, staged));
+
+// ---------------------------------------------------------------------------
+// Symbol mappings (symbols.json)
+
+export const computeSymbols = (remote: RemoteHistory, edits: SymbolChange[]): SymbolCommitPlan =>
+  planSymbolCommit(remote.snap, edits, { generator: GENERATOR }, validate);
+
+export const commitSymbols = (gh: GitHubClient, remote: RemoteHistory, plan: SymbolCommitPlan, edits: SymbolChange[]) =>
+  commitPlan(gh, validate, remote, plan, (r) => computeSymbols(r, edits));
