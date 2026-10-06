@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { accountValues } from "../../core/account/value";
 import { weekStart } from "../../core/calendar";
 import { needsAttention, openPositions, openTotals, rangeStats, recentTrades } from "../../core/dashboard/dashboard";
 import { computeGauges } from "../../core/gauge/gauge";
@@ -57,7 +58,8 @@ export function Dashboard({ data, journal, now }: { data: DataBundle; journal: J
   const today = etDate(now);
 
   const gauges = useMemo(() => computeGauges({ trades, config: data.config, now, quotes }), [trades, data.config, now, quotes]);
-  const rows = useMemo(() => openPositions(trades, quotes, now), [trades, quotes, now]);
+  const accounts = useMemo(() => accountValues(trades, data.config, quotes, now), [trades, data.config, quotes, now]);
+  const rows = useMemo(() => openPositions(trades, quotes, now, accounts), [trades, quotes, now, accounts]);
   const totals = useMemo(() => openTotals(rows), [rows]);
   const recent = useMemo(() => ({ day: recentTrades(trades, "day"), swing: recentTrades(trades, "swing") }), [trades]);
   const stats = useMemo(() => rangeStats(trades, Number(range), now, style === "all" ? null : style), [trades, range, now, style]);
@@ -78,7 +80,7 @@ export function Dashboard({ data, journal, now }: { data: DataBundle; journal: J
         <GaugeCard g={gauges.swing} config={data.config} />
       </div>
       <AttentionBar a={attention} reviews={reviews.attention} journal={journal} quotes={quotes} unreviewedToday={unreviewedToday} />
-      <OpenQuick rows={rows} totals={totals} />
+      <OpenQuick rows={rows} totals={totals} accounts={accounts} />
       <RecentTen day={recent.day} swing={recent.swing} journal={journal} />
 
       <WeekStrip trades={trades} today={today} startsOn={data.config.weekStartsOn} reviewDates={reviews.dates} key={weekStart(today)} />

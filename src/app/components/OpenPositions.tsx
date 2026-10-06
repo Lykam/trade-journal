@@ -1,7 +1,8 @@
 import { useState } from "react";
+import type { AccountValue } from "../../core/account/value";
 import { sortOpenRows, type OpenRow, type OpenSort, type OpenTotals } from "../../core/dashboard/dashboard";
 import type { Trade, TradeEvent } from "../../core/types";
-import { dateOf, mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, etfBadge } from "../format";
+import { dateOf, mmdd, money, pct, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, etfBadge } from "../format";
 
 export const tradeHref = (id: string) => `#/trade/${id}`;
 
@@ -30,8 +31,34 @@ const realizedTitle = (r: OpenRow) => `${realizedNote(r.trims.length, r.buyFees)
 
 const trimText = (e: TradeEvent) => `${mmdd(dateOf(e.at))} −${qty(e.qty)} @${price(e.price)}`;
 
+/** One line per account with a balance (Q68): its value, cash and the share in cash. */
+export function AccountLine({ accounts }: { accounts: Map<string, AccountValue> }) {
+  if (!accounts.size) return null;
+  return (
+    <div className="acct-line">
+      {[...accounts.values()].map((a) => (
+        <span key={a.account} className="headline" title={acctTitle(a)}>
+          {a.account.toUpperCase()} <b>{money(a.value, { sign: false })}</b>
+          <span className="muted"> · CASH {money(a.cash, { sign: false })} ({pct(a.value > 0 ? a.cash / a.value : null, 1)})</span>
+          {a.atCost > 0 && <span className="half"> · {a.atCost} AT COST</span>}
+        </span>
+      ))}
+      <a href="#/settings" className="small">EDIT ›</a>
+    </div>
+  );
+}
+
+function acctTitle(a: AccountValue): string {
+  const base = `Started ${money(a.balance.start.amount, { sign: false })} on ${a.balance.start.date}; cash = start + every buy and sale since.`;
+  const cp = a.checkpoint
+    ? ` Actual ${money(a.checkpoint.value, { sign: false })} entered for ${a.checkpoint.date}, a ${money(a.adjustment)} correction.`
+    : " No actual value entered yet.";
+  return base + cp + (a.atCost ? " Positions without a price count at cost." : "");
+}
+
 /** Dashboard block 2 (SPEC §6.1 item 2). */
-export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotals }) {
+export function OpenQuick({ rows, totals, accounts = new Map() }: { rows: OpenRow[]; totals: OpenTotals; accounts?: Map<string, AccountValue> }) {
+  const acct = accounts.size > 0;
   return (
     <section className="panel" aria-label="Open positions">
       <div className="panel-head">
@@ -50,6 +77,7 @@ export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
         <a href="#/open">ALL OPEN ›</a>
 
       </div>
+      <AccountLine accounts={accounts} />
       {rows.length === 0 ? (
         <div className="empty">No open positions</div>
       ) : (
@@ -58,7 +86,7 @@ export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
             <thead>
               <tr>
                 <th>SYMBOL</th><th className="ph-hide">OPENED</th><th className="ph-hide">TRIMS</th><th className="num ph-hide">SHARES</th><th className="num ph-hide">AVG</th>
-                <th className="num ph-hide">LAST</th><th className="num ph-hide">UNREALIZED</th><th className="num">%</th>
+                <th className="num ph-hide">LAST</th>{acct && <th className="num ph-hide" title="Share of the account's value">% ACCT</th>}<th className="num ph-hide">UNREALIZED</th><th className="num">%</th>
                 <th className="num ph-hide">REALIZED</th><th className="num">TOTAL</th>
               </tr>
             </thead>
@@ -71,6 +99,7 @@ export function OpenQuick({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
                   <td className="num ph-hide">{qty(r.shares)} <span className="dim">/ {qty(r.maxShares)}</span></td>
                   <td className="num ph-hide">{price(r.avgCost)}</td>
                   <td className="num ph-hide"><Last r={r} /></td>
+                  {acct && <td className="num ph-hide">{pct(r.acctShare, 1)}</td>}
                   <td className={`num b ph-hide ${pnlClass(r.unrealized)}`}>{money(r.unrealized)}</td>
                   <td className={`num ${pnlClass(r.unrealized)}`}>{signedPct(r.unrealizedPct)}</td>
                   <td className={`num ph-hide ${pnlClass(r.realized)}`} title={realizedTitle(r)}>{money(r.realized)}</td>
@@ -108,7 +137,7 @@ export function Timeline({ trade, now, times }: { trade: Trade; now?: { shares: 
 const OPEN_COLUMNS: Array<{ key: OpenSort; label: string; num?: boolean; phone?: boolean }> = [
   { key: "symbol", label: "SYMBOL", phone: true }, { key: "style", label: "STYLE" }, { key: "opened", label: "OPENED" },
   { key: "days", label: "DAYS", num: true, phone: true }, { key: "shares", label: "SHARES", num: true }, { key: "avg", label: "AVG COST", num: true },
-  { key: "last", label: "LAST", num: true }, { key: "value", label: "MARKET VALUE", num: true }, { key: "unrealized", label: "UNREALIZED", num: true },
+  { key: "last", label: "LAST", num: true }, { key: "value", label: "MARKET VALUE", num: true }, { key: "acct", label: "% OF ACCT", num: true }, { key: "unrealized", label: "UNREALIZED", num: true },
   { key: "pct", label: "UNREALIZED %", num: true, phone: true }, { key: "realized", label: "REALIZED", num: true }, { key: "total", label: "TOTAL", num: true, phone: true },
 ];
 const ph = (key: OpenSort) => (OPEN_COLUMNS.find((c) => c.key === key)!.phone ? "" : "ph-hide");
@@ -117,7 +146,9 @@ const ph = (key: OpenSort) => (OPEN_COLUMNS.find((c) => c.key === key)!.phone ? 
 const hasHistory = (t: Trade) => t.events.some((e) => e.kind === "add" || e.kind === "trim");
 
 /** Open Positions page table (SPEC §6.1a), sortable on every column. */
-export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotals }) {
+export function OpenTable({ rows, totals, acct = false }: { rows: OpenRow[]; totals: OpenTotals; acct?: boolean }) {
+  // % OF ACCT only once an account has a balance (Q68).
+  const columns = acct ? OPEN_COLUMNS : OPEN_COLUMNS.filter((c) => c.key !== "acct");
   const [sort, setSort] = useState<{ key: OpenSort; dir: 1 | -1 }>({ key: "opened", dir: 1 });
   if (rows.length === 0) return <section className="panel"><div className="empty">No open positions</div></section>;
   const unrealPct = totals.costBasis ? totals.unrealized / totals.costBasis : null;
@@ -129,7 +160,7 @@ export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
       <table className="grid open-table">
         <thead>
           <tr>
-            {OPEN_COLUMNS.map((c) => {
+            {columns.map((c) => {
               const on = sort.key === c.key;
               return (
                 <th key={c.key} className={`${c.num ? "num" : ""} ${ph(c.key)}`} aria-sort={on ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
@@ -152,6 +183,7 @@ export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
               <td className="num ph-hide">{price(r.avgCost)}</td>
               <td className="num ph-hide"><Last r={r} /></td>
               <td className="num text-2 ph-hide">{money(r.marketValue, { sign: false })}</td>
+              {acct && <td className="num ph-hide">{pct(r.acctShare, 1)}</td>}
               <td className={`num b ph-hide ${pnlClass(r.unrealized)}`}>{money(r.unrealized)}</td>
               <td className={`num ${pnlClass(r.unrealized)}`}>{signedPct(r.unrealizedPct)}</td>
               <td className={`num ph-hide ${pnlClass(r.realized)}`} title={realizedTitle(r)}>{money(r.realized)}</td>
@@ -159,7 +191,7 @@ export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
             </tr>
             {hasHistory(r.trade) && (
               <tr className="timeline-row">
-                <td colSpan={12}><Timeline trade={r.trade} now={{ shares: r.shares, last: r.last, stale: r.quote?.isStale }} /></td>
+                <td colSpan={columns.length}><Timeline trade={r.trade} now={{ shares: r.shares, last: r.last, stale: r.quote?.isStale }} /></td>
               </tr>
             )}
           </tbody>
@@ -173,6 +205,7 @@ export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
               TOTAL · {totals.count} POSITION{totals.count === 1 ? "" : "S"}{totals.unpriced ? ` · ${totals.unpriced} UNPRICED (NOT IN TOTALS)` : ""}
             </td>
             <td className="num text-2 ph-hide">{money(totals.marketValue, { sign: false })}</td>
+            {acct && <td className="num ph-hide">{pct(sumShare(rows), 1)}</td>}
             <td className={`num b ph-hide ${pnlClass(totals.unrealized)}`}>{money(totals.unrealized)}</td>
             <td className={`num ${pnlClass(totals.unrealized)}`}>{signedPct(unrealPct)}</td>
             <td className={`num ph-hide ${pnlClass(totals.realized)}`}>{money(totals.realized)}</td>
@@ -184,3 +217,6 @@ export function OpenTable({ rows, totals }: { rows: OpenRow[]; totals: OpenTotal
     </section>
   );
 }
+
+/** The shown rows' combined share of their accounts (rows without a balance add nothing). */
+const sumShare = (rows: OpenRow[]) => (rows.some((r) => r.acctShare !== null) ? rows.reduce((s, r) => s + (r.acctShare ?? 0), 0) : null);

@@ -1,4 +1,5 @@
 // Dashboard and Open Positions data (SPEC §6.1, §6.1a). Pure functions over derived trades.
+import { shareOfAccount, type AccountValue } from "../account/value";
 import { addDays, dayOfWeek, daysBetween, weekStart } from "../calendar";
 import { quoteStatus, type QuoteStatus } from "../gauge/gauge";
 import { cents, etDate, round } from "../normalize/util";
@@ -30,6 +31,8 @@ export interface OpenRow {
   unrealized: number | null;
   unrealizedPct: number | null;
   total: number | null;
+  /** Share of its account's value (market value, or cost when unpriced); null without a balance (Q68). */
+  acctShare: number | null;
 }
 
 export interface OpenTotals {
@@ -48,7 +51,7 @@ export interface OpenTotals {
 }
 
 /** Every open position (any style), oldest first, marked to the quote for the symbol actually held. */
-export function openPositions(trades: Trade[], quotes: Record<string, Quote>, now: string): OpenRow[] {
+export function openPositions(trades: Trade[], quotes: Record<string, Quote>, now: string, accounts: Map<string, AccountValue> = new Map()): OpenRow[] {
   return trades
     .filter((t) => t.status === "open")
     .sort((a, b) => Date.parse(a.openedAt) - Date.parse(b.openedAt))
@@ -58,7 +61,7 @@ export function openPositions(trades: Trade[], quotes: Record<string, Quote>, no
       const base = {
         trade: t, shares: t.openQty, maxShares: t.maxPosition, avgCost: t.avgCost, costBasis,
         daysHeld: daysHeld(t, now), trims: t.events.filter((e) => e.kind === "trim"),
-        realized: t.realizedPnl, buyFees: buyFees(t),
+        realized: t.realizedPnl, buyFees: buyFees(t), acctShare: shareOfAccount(t, accounts),
       };
       if (!q) return { ...base, quote: null, last: null, marketValue: null, unrealized: null, unrealizedPct: null, total: null };
       const m = markToMarket(t, q.price);
@@ -69,10 +72,10 @@ export function openPositions(trades: Trade[], quotes: Record<string, Quote>, no
     });
 }
 
-export type OpenSort = "symbol" | "style" | "opened" | "days" | "shares" | "avg" | "last" | "value" | "unrealized" | "pct" | "realized" | "total";
+export type OpenSort = "symbol" | "style" | "opened" | "days" | "shares" | "avg" | "last" | "value" | "acct" | "unrealized" | "pct" | "realized" | "total";
 const OPEN_SORT_VALUE: Record<OpenSort, (r: OpenRow) => number | string | null> = {
   symbol: (r) => r.trade.symbol, style: (r) => r.trade.style, opened: (r) => r.trade.openedAt, days: (r) => r.daysHeld,
-  shares: (r) => r.shares, avg: (r) => r.avgCost, last: (r) => r.last, value: (r) => r.marketValue, unrealized: (r) => r.unrealized,
+  shares: (r) => r.shares, avg: (r) => r.avgCost, last: (r) => r.last, value: (r) => r.marketValue, acct: (r) => r.acctShare, unrealized: (r) => r.unrealized,
   pct: (r) => r.unrealizedPct, realized: (r) => r.realized, total: (r) => r.total,
 };
 

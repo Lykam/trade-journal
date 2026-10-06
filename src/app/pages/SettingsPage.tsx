@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { gaugeRules } from "../../core/gauge/gauge";
 import type { DataBundle } from "../../core/types";
+import { AccountsPanel } from "../components/AccountBalance";
 import { SymbolsPanel } from "../components/SymbolMap";
 import { DEMO_TOKEN_NOTE } from "../demo-text";
 import { dateTimeOf } from "../format";
@@ -171,6 +172,7 @@ function DemoSettingsPage({ data }: { data: DataBundle }) {
             </dl>
           </div>
         </section>
+        <AccountsPanel data={data} />
         <GaugeRules data={data} />
         <JsonPair data={data} />
       </div>
@@ -245,6 +247,7 @@ function RealSettingsPage({ data }: { data: DataBundle }) {
         </section>
 
         <TokenPanel />
+        <AccountsPanel data={data} />
         <GaugeRules data={data} />
         <JsonPair data={data} />
       </div>

@@ -434,6 +434,8 @@ table.grid tr.sub td { border-top-color: var(--rule-faint); }
 .spaced { letter-spacing: 0.08em; }
 a.sym.big { font-size: 15px; }
 table.open-quick { min-width: 1040px; }
+.acct-line { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.acct-line .headline { white-space: nowrap; }
 table.open-table { min-width: 1180px; }
 table.open-table thead tr { border-bottom: 1px solid var(--border-strong); }
 table.open-table td.sym-cell { padding-top: 10px; }

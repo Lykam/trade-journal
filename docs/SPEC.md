@@ -244,6 +244,14 @@ grouping can ignore it and read `fills/`.
     "minSample": { "day": 5, "swing": 3 },
     "bands": { "halfSizeBelowPts": 0, "quarterSizeBelowPts": 10 },
     "swingIncludesOpenPositions": true
+  },
+  "balances": {                                  // optional; edited in Settings → Account value (Q68)
+    "schwab-main": {
+      "start": { "date": "2026-06-22", "amount": 500 },  // cash that day, before its trades
+      "checkpoints": [                             // actual values from the broker, at a close
+        { "date": "2026-10-06", "value": 503.10, "marks": { "NVQU": 29.5 } }
+      ]
+    }
   }
 }
 ```
@@ -867,12 +875,16 @@ the top, above everything else, in the same order at phone width.
    - **Header totals:** count, **Unrealized**, **Realized** (trims, less buy fees; Q54),
      **Total open P&L**, and an **ALL OPEN ›** link to the Open Positions
      page (§6.1a). The price stamp is in the top bar.
+   - **Account line** (Q68), once an account has a balance: its **value**
+     and **cash** (with cash's share), `N AT COST` when a position has no
+     price, and EDIT › to Settings.
    - **One row per position:**
      - Symbol (with the `2x→UNDERLYING` badge for ETFs, `−2x→` for inverse)
        and style.
      - **Opened** date (plus days held) and **Trims** (date, −qty, @price for
        each partial sell).
      - Shares now / max held, avg cost, last price.
+     - **% ACCT:** the position's share of its account's value (Q68).
      - **Unrealized $** and %, **Realized $**, and **Total $**.
    - An empty state reads "No open positions" (one line, no table).
 3. **Recent 10, Day | Swing:** two columns side by side, stacked at phone
@@ -930,6 +942,8 @@ dashboard quick view has, plus:
   values sort last.
 - **Last price:** a stale quote shows its own stamp on the row
   (`9.80 * 10-01 14:00`).
+- **Account line** and a sortable **% OF ACCT** column (with a total) once
+  an account has a balance (Q68).
 - **Per position,** extra columns: **Market value** and **Unrealized %**,
   plus a **timeline** of every event, shown only when the position has adds
   or trims (and not at phone width):
@@ -1176,6 +1190,12 @@ top bar.
 - **Gauge rules** in plain words, from `config.json` ("Average = your win %
   over the last 90 days, this week excluded. Half size below your average;
   quarter size 10+ points below it…", Q64).
+- **Account value** (Q68): per account, the starting balance, the value and
+  cash now, and the latest actual value with its correction. SET START /
+  EDIT START (date and amount), ENTER ACTUAL VALUE (a close date, the
+  broker's total, and the price of each symbol held at that close,
+  pre-filled from the latest quotes for today), and a list of actual values
+  with REMOVE. Each commits `config.json` through the usual preview (Q40).
 - A read-only view of `config.json` with a link to edit it on GitHub, and a
   **Symbol mappings** table for `symbols.json`, editable in the app (§3.4, Q66).
 
@@ -1270,6 +1290,7 @@ trade-journal/
     core/trades/       grouping.ts, stats.ts
     core/gauge/        gauge.ts
     core/dashboard/    dashboard.ts (open positions, recent 10, week strip, range widgets)
+    core/account/      value.ts (cash, account value, % of account, checkpoints), commit.ts (config.json balances)
     core/calendar.ts   ET dates, weeks, trading sessions
     core/quotes.ts     quotes.json merge rules
     core/crypto.ts     encrypted file format + WebCrypto decrypt (shared with build/encrypt.ts)
@@ -1522,7 +1543,7 @@ the commit leaves the private repo.
 | Q65 | Leak guard vs. HTML names | `check-dist` again skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`), now **parse5**, the HTML parser behind `rehype-raw`, which lists every HTML tag and entity name in capitals. A newly traded ticker that is also an HTML tag name failed a deploy on 2026-10-05 as a false positive. Like the app source, library code is public and can hold no data; the guard still checks every other symbol, and `.enc` files are unaffected (Q39, Q46). (2026-10-05) |
 | Q66 | Symbol mappings in the app | Owner request 2026-10-05: two ETFs whose broker names didn't look leveraged were never offered at import, so `symbols.json` is now editable from Trade detail and Settings. One commit writes `symbols.json` and a regenerated `derived/trades.json` (`src/core/symbols/mapping.ts`), through the same read-fresh / preview / CONFIRM / retry flow as override edits (Q40), with the changed entries as the fingerprint. Mapping stays an explicit choice (Q8): nothing is mapped without CONFIRM. The demo shows the form with COMMIT disabled, and its GitHub code is not in the demo bundle (Q50). (2026-10-05) |
 | Q67 | Trims on the calendar | Owner request 2026-10-06: a trim on a still-open swing should count on the day it was taken. The calendar (month, week totals, year view) and the dashboard week strip now sum P&L **by booked date**: each trim and the close on its own ET day (`bookedByDay` in `core/trades/stats`). Buy fees go with the first sale after them; the close books whatever is left, so a closed trade's days add up to its gross or net P&L exactly. Open trades count their trims; excluded and unmatched trades book nothing. A day's trade and idea counts are the trades and ideas that booked P&L that day. Clicking a day or week opens Trades with `booked=1`, listing trades with a trim or close in the range, so a day and its list still agree; the P&L column there stays each trade's whole result. Q26 still holds for the date filter, the Trades date column and Reports, which score closed trades on their close date. (2026-10-06) || Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
-
+| Q68 | Account value | Owner request 2026-10-06: see each holding's share of the swing account. `config.json` gets optional `balances`: per account a **start** (date and cash amount; trades opened before it are left out) and **checkpoints** (an actual value from the broker at a close, with the price of each symbol held then). **Cash** = start + every buy and sale since, from the events' prices and the trades' fees, so it is exact to the cent; **value** = cash + open positions at the last quote, or at cost without one (`N AT COST`). Excluded trades still move cash. The latest checkpoint up to today adds a **correction**: its value minus what the trades give for that close at its stored prices. It is recomputed from today's trades, so fills imported after it was entered don't count twice, and it carries forward until the next one; it covers what fills miss (interest, fees, transfers; the owner says this account has none). Dashboard and Open Positions show an account line and **% ACCT** (market value, or cost when unpriced, ÷ account value). Settings → Account value edits it; a commit writes `config.json` and trade-history's `schema/config.schema.json`, never trades. The demo's swing account gets a round starting balance. Code: `core/account`. (2026-10-06) |
 ### Still open
 
 - UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
@@ -1560,9 +1581,9 @@ the commit leaves the private repo.
 - Auto-suggest "worth reviewing" trades.
 - **From the UX review (#24, 2026-10-04),** things other journals have, each
   a scope decision for later (owner: none in this round): initial risk / stop
-  and R-multiples (above, the trader's top pick); an **account balance**, so
-  % views and drawdown are measured against the account rather than peak
-  profit; execution markers on an intraday chart (the TradingView item
+  and R-multiples (above, the trader's top pick); an **account balance**
+  (done for the value and % of account, Q68; drawdown and % views against it
+  are still open); execution markers on an intraday chart (the TradingView item
   above); MFE / MAE (needs intraday prices); an **entry time column** on
   Trades for day trades; a **daily note / pre-market plan**, perhaps in
   Playbook like reviews; a **"mistakes cost" line** (e.g. a tag's P&L this
