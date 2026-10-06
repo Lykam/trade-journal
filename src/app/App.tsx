@@ -45,9 +45,11 @@ function DataStamps({ data, now }: { data: DataBundle; now: string }) {
       {BROKERS.map((b) => {
         const at = data.imports?.[b];
         if (!at) return null;
-        const behind = importBehind(at, now);
+        // Webull day trades are mostly premarket: any import that day counts (Q71).
+        const behind = importBehind(at, now, { anyTimeThatDay: b === "webull" });
+        const why = b === "webull" ? ": no import on the last market day" : ": older than the last market close";
         return (
-          <span key={b} className={behind ? "accent" : "muted"} title={`Last ${b} import ${stamp(at)} ET${behind ? ": older than the last market close" : ""}`}>
+          <span key={b} className={behind ? "accent" : "muted"} title={`Last ${b} import ${stamp(at)} ET${behind ? why : ""}`}>
             {b.toUpperCase()} {etDate(at).slice(5)}{behind ? " !" : ""}
           </span>
         );
