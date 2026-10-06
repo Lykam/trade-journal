@@ -276,7 +276,7 @@ function attentionRows({ a, reviews, journal, quotes, unreviewedToday }: Attenti
     rows.push(<div key="ho"><span className="accent">i</span> {plural(a.heldOvernight.length, "day trade")} held overnight: keep as DAY? <a href="#/trades?flag=overnight">REVIEW ›</a></div>);
   }
   if (unreviewedToday) {
-    rows.push(<div key="ur"><span className="accent">i</span> {plural(unreviewedToday, "unreviewed trade")} today <a href="#/trades?range=today&review=no">REVIEW ›</a></div>);
+    rows.push(<div key="ur"><span className="accent">i</span> {plural(unreviewedToday, "unreviewed trade")} today <a href="#/trades?style=swing&range=today&review=no">REVIEW ›</a></div>);
   }
   for (const r of reviews.openButClosed) {
     const idea = journal.ideaById.get(journal.reviews.ideaOf.get(r.id) ?? "");
