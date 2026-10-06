@@ -27,7 +27,8 @@ export function closed(o: Closed): Trade {
     sameDay: openedAt.slice(0, 10) === o.closedAt.slice(0, 10), openedAt, closedAt: o.closedAt, status: "closed",
     maxPosition: 1, openQty: 0, unmatchedQty: 0, avgEntry: 10, avgExit: 10 + o.net, grossPnl: o.net, fees: 0, netPnl: o.net,
     result: o.net > 0 ? "win" : o.net < 0 ? "loss" : "breakeven", holdMinutes: o.holdMinutes ?? null, fillIds: [id],
-    avgCost: 10, realizedPnl: o.net, events: [], tags: [], excluded: o.excluded ?? false,
+    avgCost: 10, realizedPnl: o.net, tags: [], excluded: o.excluded ?? false,
+    events: [{ kind: "open", at: openedAt, qty: 1, price: 10 }, { kind: "close", at: o.closedAt, qty: 1, price: 10 + o.net, realized: o.net }],
   };
 }
 

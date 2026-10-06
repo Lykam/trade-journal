@@ -2,7 +2,7 @@
 import { addDays, dayOfWeek, daysBetween, weekStart } from "../calendar";
 import { quoteStatus, type QuoteStatus } from "../gauge/gauge";
 import { cents, etDate, round } from "../normalize/util";
-import { byCloseDesc, heldOvernightDayTrades, isScored, markToMarket, summarize, type Summary } from "../trades/stats";
+import { bookedByDay, byCloseDesc, heldOvernightDayTrades, isScored, markToMarket, summarize, type Summary } from "../trades/stats";
 import type { Quote, Style, Trade, TradeEvent } from "../types";
 
 // ---------------------------------------------------------------- open positions
@@ -155,8 +155,16 @@ export function weekStrip(trades: Trade[], date: string, startsOn: "monday" | "s
   const first = weekStart(date, startsOn);
   return Array.from({ length: 7 }, (_, i) => {
     const d = addDays(first, i);
-    const day = scoredIn(trades, d, d);
-    return { date: d, net: cents(day.reduce((s, t) => s + t.netPnl, 0)), trades: day.length };
+    // P&L booked that day, trims included, as the calendar counts it (Q67).
+    let net = 0;
+    let n = 0;
+    for (const t of trades) {
+      const amount = bookedByDay(t, "net").get(d);
+      if (amount === undefined) continue;
+      net += amount;
+      n++;
+    }
+    return { date: d, net: cents(net), trades: n };
   });
 }
 
