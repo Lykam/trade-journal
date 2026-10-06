@@ -4,9 +4,12 @@ import { describe, expect, it } from "vitest";
 import { weekStrip } from "../src/core/dashboard/dashboard";
 import { dailyTotals, monthGrid } from "../src/core/journal/calendar-view";
 import { emptyFilter, parseView, tradeMatcher, viewToParams, activeFilterLabels, defaultView } from "../src/core/journal/filter";
+import { buildJournal } from "../src/core/journal/journal";
+import { summarizeRows, viewRows } from "../src/core/journal/rows";
 import { bookedByDay } from "../src/core/trades/stats";
 import type { Trade } from "../src/core/types";
-import { closeLater, closed, open } from "./factory";
+import { closeLater, closed, ideasOf, open } from "./factory";
+import { config } from "./helpers";
 
 const MON = "2026-10-05T00:00:00-04:00";
 const TUE = "2026-10-06T00:00:00-04:00";
@@ -85,5 +88,28 @@ describe("booked date filter", () => {
     expect(activeFilterLabels(v.filter, "2026-10-06")).toEqual(["BOOKED 2026-10-06"]);
     // Without dates the switch means nothing and is left out.
     expect(viewToParams({ ...defaultView(), filter: { ...emptyFilter(), booked: true } }).toString()).toBe("");
+  });
+});
+
+describe("Trades page with BOOKED", () => {
+  const journal = () => {
+    const trades = [swing(), closed({ symbol: "ZZTA", closedAt: TUE, net: -1 })];
+    return buildJournal({ derived: { generated: true, generator: "test", trades, ideas: ideasOf(trades) }, symbols: {}, config, playbook: { reviews: [], images: [] } }, "2026-10-06");
+  };
+
+  it("values each row and the total at what was booked in the range, as the calendar does", () => {
+    const v = parseView(new URLSearchParams("date=2026-10-06&booked=1"));
+    const rows = viewRows(journal(), v);
+    expect(rows.map((r) => [r.symbol, r.booked?.net])).toEqual([["ZZTA", -1], ["NVQU", 4.46]]);
+    expect(summarizeRows(rows, "net")).toMatchObject({ pnl: 3.46, booked: true, open: 1 });
+    // Sorting on P&L uses the booked amount, so the open trim sorts with the rest.
+    const byPnl = viewRows(journal(), { ...v, sort: { key: "pnl", dir: "desc" } });
+    expect(byPnl.map((r) => r.symbol)).toEqual(["NVQU", "ZZTA"]);
+  });
+
+  it("keeps whole-trade results without BOOKED", () => {
+    const rows = viewRows(journal(), parseView(new URLSearchParams("date=2026-10-06")));
+    expect(rows.map((r) => r.booked)).toEqual([null]);
+    expect(summarizeRows(rows, "net")).toMatchObject({ pnl: -1, booked: false });
   });
 });
