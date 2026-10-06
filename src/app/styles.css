@@ -345,6 +345,10 @@ a.ycell[href]:hover { outline: 1px solid var(--accent); }
 .settings .body p { margin: 0; }
 .settings .check { padding: 4px 0; white-space: normal; }
 .settings .check:hover { background: none; }
+.settings .panel.wide { grid-column: 1 / -1; }
+.settings .symmap .row { column-gap: 20px; }
+.settings .symmap .field { min-width: max-content; }
+.settings .symmap .field .label { white-space: nowrap; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; overflow-wrap: anywhere; }
@@ -434,6 +438,8 @@ table.grid tr.sub td { border-top-color: var(--rule-faint); }
 .spaced { letter-spacing: 0.08em; }
 a.sym.big { font-size: 15px; }
 table.open-quick { min-width: 1040px; }
+.acct-line { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.acct-line .nw { white-space: nowrap; }
 table.open-table { min-width: 1180px; }
 table.open-table thead tr { border-bottom: 1px solid var(--border-strong); }
 table.open-table td.sym-cell { padding-top: 10px; }

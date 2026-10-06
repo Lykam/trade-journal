@@ -3,9 +3,9 @@
 // across DST switches.
 import { addDays, dayOfWeek, weekStart } from "../calendar";
 import { cents } from "../normalize/util";
-import { isScored } from "../trades/stats";
+import { bookedByDay } from "../trades/stats";
 import type { Trade } from "../types";
-import { nextMonth, tradeDate, type PnlMode } from "./filter";
+import { nextMonth, type PnlMode } from "./filter";
 
 export interface DayTotal {
   pnl: number;
@@ -26,24 +26,30 @@ export interface WeekRow extends DayTotal {
 
 const EMPTY: DayTotal = { pnl: 0, trades: 0, ideas: 0 };
 
-/** Realized P&L, trade count and idea count per ET close date, from scored (closed, matched, not excluded) trades. */
+/**
+ * P&L booked per ET date (Q67): each trim and close counts on the day it was
+ * taken, so a trim on a still-open swing shows on its own day. A day's trade and
+ * idea counts are the trades and ideas that booked P&L that day.
+ */
 export function dailyTotals(trades: Trade[], pnl: PnlMode): Map<string, DayTotal> {
   const acc = new Map<string, { pnl: number; trades: number; ideas: Set<string> }>();
   for (const t of trades) {
-    if (!isScored(t)) continue;
-    const d = tradeDate(t);
-    const a = acc.get(d) ?? { pnl: 0, trades: 0, ideas: new Set<string>() };
-    a.pnl += pnl === "gross" ? t.grossPnl : t.netPnl;
-    a.trades++;
-    a.ideas.add(t.ideaId);
-    acc.set(d, a);
+    for (const [d, amount] of bookedByDay(t, pnl)) {
+      const a = acc.get(d) ?? { pnl: 0, trades: 0, ideas: new Set<string>() };
+      a.pnl += amount;
+      a.trades++;
+      a.ideas.add(t.ideaId);
+      acc.set(d, a);
+    }
   }
   return new Map([...acc].map(([d, a]) => [d, { pnl: cents(a.pnl), trades: a.trades, ideas: a.ideas.size }]));
 }
 
-/** Ideas are counted once per week even when their trades close on different days. */
+/** Ideas are counted once per week even when their trades book on different days. */
 function weekIdeas(trades: Trade[], from: string, to: string): number {
-  return new Set(trades.filter((t) => isScored(t) && tradeDate(t) >= from && tradeDate(t) <= to).map((t) => t.ideaId)).size;
+  const ideas = new Set<string>();
+  for (const t of trades) if ([...bookedByDay(t, "net").keys()].some((d) => d >= from && d <= to)) ideas.add(t.ideaId);
+  return ideas.size;
 }
 
 /** Weeks covering `month` ("YYYY-MM"), each with seven day cells and its total. */

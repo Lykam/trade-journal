@@ -2,6 +2,7 @@
 // Pure: parsing, serializing and matching take every input as a parameter.
 import { addDays, weekStart } from "../calendar";
 import { etDate } from "../normalize/util";
+import { bookedByDay } from "../trades/stats";
 import type { Broker, Style, Trade, TradeResult } from "../types";
 
 export type PnlMode = "net" | "gross";
@@ -36,6 +37,8 @@ export interface TradeFilter {
   preset: Preset | null;
   from: string | null;
   to: string | null;
+  /** With a date range: trades that booked P&L in it (a trim or the close), not trades dated in it (Q67). */
+  booked: boolean;
   flag: Flag | null;
 }
 
@@ -52,7 +55,7 @@ export interface ViewState {
 
 export const emptyFilter = (): TradeFilter => ({
   symbols: [], tags: [], tagMode: "any", style: null, instrument: null, broker: null, duration: null, results: [],
-  review: null, preset: null, from: null, to: null, flag: null,
+  review: null, preset: null, from: null, to: null, booked: false, flag: null,
 });
 
 export const defaultView = (): ViewState => ({ filter: emptyFilter(), pnl: "net", count: "trade", sort: { key: "date", dir: "desc" }, page: 1 });
@@ -84,6 +87,7 @@ export function parseView(p: URLSearchParams): ViewState {
       preset: single ? null : oneOf(p.get("range"), PRESETS),
       from: single ?? date(p.get("from")),
       to: single ?? date(p.get("to")),
+      booked: p.get("booked") === "1",
       flag: oneOf(p.get("flag"), ["overnight", "unmatched", "open", "excluded"] as const),
     },
     pnl: p.get("pnl") === "gross" ? "gross" : d.pnl,
@@ -112,6 +116,7 @@ export function viewToParams(v: ViewState, opts: { page?: boolean; sort?: boolea
     if (f.from) p.set("from", f.from);
     if (f.to) p.set("to", f.to);
   }
+  if (f.booked && (f.preset || f.from || f.to)) p.set("booked", "1");
   if (f.flag) p.set("flag", f.flag);
   if (v.pnl !== "net") p.set("pnl", v.pnl);
   if (v.count !== "trade") p.set("count", v.count);
@@ -152,8 +157,9 @@ export function nextMonth(month: string): string {
 }
 /**
  * The ET date a trade belongs to: its close date, or its open date while still
- * open. The calendar, the week strip and the date filter all use this, so a day
- * card and the trades it links to always agree (Q26).
+ * open (Q26). The date filter and the Trades date column use it; the calendar
+ * and the week strip count P&L on the day it was booked instead, and link with
+ * `booked` set so a day and its trade list still agree (Q67).
  */
 export const tradeDate = (t: Trade) => etDate(t.closedAt ?? t.openedAt);
 
@@ -185,8 +191,8 @@ export function tradeMatcher(f: TradeFilter, ctx: MatchContext): (t: Trade) => b
     if (f.results.length && (t.result === null || !f.results.includes(t.result))) return false;
     if (f.review && ctx.reviewed(t) !== (f.review === "yes")) return false;
     if (from || to) {
-      const d = tradeDate(t);
-      if ((from && d < from) || (to && d > to)) return false;
+      const inRange = (d: string) => (!from || d >= from) && (!to || d <= to);
+      if (f.booked ? ![...bookedByDay(t, "net").keys()].some(inRange) : !inRange(tradeDate(t))) return false;
     }
     if (tags.length) {
       const have = new Set(ctx.tagsOf(t).map((x) => x.toLowerCase()));
@@ -222,6 +228,7 @@ export function activeFilterLabels(f: TradeFilter, today: string, startsOn: "mon
       const r = dateRange(f, today, startsOn);
       out.push(r.from === r.to ? r.from! : `${r.from ?? "…"} – ${r.to ?? "…"}`);
     }
+    if (f.booked && (f.preset || f.from || f.to)) out[out.length - 1] = `BOOKED ${out[out.length - 1]}`;
   }
   if (f.flag) out.push(f.flag.toUpperCase());
   return out;

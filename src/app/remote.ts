@@ -1,12 +1,13 @@
 // Reading and committing trade-history from the browser. Loaded on demand (it
 // brings the schemas and their precompiled validators), by the Import page and
 // the Commit buttons.
+import { planBalanceCommit, type BalanceCommitPlan } from "../core/account/commit";
 import { commitPlan, readHistory, type GitHubClient, type RemoteHistory } from "../core/github/client";
 import { importFingerprint, importMessage, importWrites, planImport, type ImportInput, type ImportPlan } from "../core/import/plan";
 import { planOverrideCommit, type OverrideCommitPlan, type StagedAction } from "../core/journal/overrides";
 import { validatorFrom, type SchemaTexts } from "../core/schema-names";
 import { planSymbolCommit, type SymbolChange, type SymbolCommitPlan } from "../core/symbols/mapping";
-import type { SymbolsMap } from "../core/types";
+import type { AccountBalance, SymbolsMap } from "../core/types";
 import config from "../../schema/config.schema.json?raw";
 import fills from "../../schema/fills.schema.json?raw";
 import overrides from "../../schema/overrides.schema.json?raw";
@@ -66,3 +67,12 @@ export const computeSymbols = (remote: RemoteHistory, edits: SymbolChange[]): Sy
 
 export const commitSymbols = (gh: GitHubClient, remote: RemoteHistory, plan: SymbolCommitPlan, edits: SymbolChange[]) =>
   commitPlan(gh, validate, remote, plan, (r) => computeSymbols(r, edits));
+
+// ---------------------------------------------------------------------------
+// Account balances (config.json `balances`, Q68)
+
+export const computeBalance = (remote: RemoteHistory, account: string, next: AccountBalance | null): BalanceCommitPlan =>
+  planBalanceCommit(remote.snap, account, next, { schemas }, validate);
+
+export const commitBalance = (gh: GitHubClient, remote: RemoteHistory, plan: BalanceCommitPlan, account: string, next: AccountBalance | null) =>
+  commitPlan(gh, validate, remote, plan, (r) => computeBalance(r, account, next));

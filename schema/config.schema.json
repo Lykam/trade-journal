@@ -33,6 +33,35 @@
         },
         "swingIncludesOpenPositions": { "type": "boolean" }
       }
+    },
+    "balances": {
+      "type": "object",
+      "description": "Account label → starting balance and actual values entered from the broker (SPEC Q68).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["start"],
+        "properties": {
+          "start": {
+            "type": "object", "additionalProperties": false, "required": ["date", "amount"],
+            "properties": {
+              "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+              "amount": { "type": "number", "minimum": 0 }
+            }
+          },
+          "checkpoints": {
+            "type": "array",
+            "items": {
+              "type": "object", "additionalProperties": false, "required": ["date", "value", "marks"],
+              "properties": {
+                "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+                "value": { "type": "number", "minimum": 0 },
+                "marks": { "type": "object", "additionalProperties": { "type": "number", "exclusiveMinimum": 0 } }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

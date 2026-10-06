@@ -28,8 +28,8 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
   const unit = view.count === "idea" ? "ideas" : "trades";
   const n = (d: DayTotal) => (view.count === "idea" ? d.ideas : d.trades);
   const self = (extra: Record<string, string>) => viewHref("#/cal", view, extra);
-  const dayHref = (date: string) => viewHref("#/trades", { ...view, filter: { ...view.filter, preset: null, from: date, to: date } });
-  const rangeHref = (from: string, to: string) => viewHref("#/trades", { ...view, filter: { ...view.filter, preset: null, from, to } });
+  const dayHref = (date: string) => viewHref("#/trades", { ...view, filter: { ...view.filter, preset: null, from: date, to: date, booked: true } });
+  const rangeHref = (from: string, to: string) => viewHref("#/trades", { ...view, filter: { ...view.filter, preset: null, from, to, booked: true } });
 
   const head = (
     <header className="page-head">
@@ -166,7 +166,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
 
         </div>
       </section>
-      <div className="dim small">Closed-trade P&amp;L by close date (ET). Darker = bigger day. 📄 = review.</div>
+      <div className="dim small">P&amp;L on the day it was booked (ET): trims on their own day, the rest on the close. Darker = bigger day. 📄 = review.</div>
     </main>
   );
 }
