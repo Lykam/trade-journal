@@ -26,7 +26,7 @@ export function AccountsPanel({ data }: { data: DataBundle }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const balances = data.config.balances ?? {};
   return (
-    <section className="panel" aria-label="Account value">
+    <section className="panel wide" aria-label="Account value">
       <div className="panel-head"><h2>Account value</h2></div>
       <div className="scroll-x">
         <table className="grid dense">

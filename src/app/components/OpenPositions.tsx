@@ -38,9 +38,9 @@ export function AccountLine({ accounts }: { accounts: Map<string, AccountValue> 
     <div className="acct-line">
       {[...accounts.values()].map((a) => (
         <span key={a.account} className="headline" title={acctTitle(a)}>
-          {a.account.toUpperCase()} <b>{money(a.value, { sign: false })}</b>
-          <span className="muted"> · CASH {money(a.cash, { sign: false })} ({pct(a.value > 0 ? a.cash / a.value : null, 1)})</span>
-          {a.atCost > 0 && <span className="half"> · {a.atCost} AT COST</span>}
+          <span className="nw">{a.account.toUpperCase()} <b>{money(a.value, { sign: false })}</b></span>
+          {" "}<span className="muted nw">· CASH {money(a.cash, { sign: false })} ({pct(a.value > 0 ? a.cash / a.value : null, 1)})</span>
+          {a.atCost > 0 && <>{" "}<span className="half nw">· {a.atCost} AT COST</span></>}
         </span>
       ))}
       <a href="#/settings" className="small">EDIT ›</a>
