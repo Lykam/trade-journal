@@ -63,7 +63,7 @@ export function Dashboard({ data, journal, now }: { data: DataBundle; journal: J
   const totals = useMemo(() => openTotals(rows), [rows]);
   const recent = useMemo(() => ({ day: recentTrades(trades, "day"), swing: recentTrades(trades, "swing") }), [trades]);
   const stats = useMemo(() => rangeStats(trades, Number(range), now, style === "all" ? null : style), [trades, range, now, style]);
-  const unreviewedToday = useMemo(() => filterTrades(journal, { ...emptyFilter(), preset: "today", review: "no" }).length, [journal]);
+  const unreviewedToday = useMemo(() => filterTrades(journal, { ...emptyFilter(), preset: "today", review: "no", style: "swing" }).length, [journal]);
   const attention = useMemo(() => needsAttention(trades, rows, now), [trades, rows, now]);
   const reviews = useMemo(() => ({ attention: reviewAttention(journal), dates: reviewDates(journal) }), [journal]);
   const wk = gauges.day.week;
