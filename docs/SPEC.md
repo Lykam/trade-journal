@@ -809,7 +809,10 @@ candlestick charts in v1 (see §11).
     REPORTS · JOURNAL · SETTINGS, with IMPORT and LOCK on the right. Beside
     them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
     SCHWAB 10-02`, the last import per broker turning amber with `!` when it
-    is older than the latest closed session (Q55). At phone width it is one
+    is older than the latest closed session (Q55). Webull counts an import at
+    any time on the session's date, since its day trades are mostly premarket:
+    it turns amber only once a session has closed with no Webull import that
+    day (Q71). At phone width it is one
     line that scrolls sideways, IMPORT included, with the active tab kept in
     view (Q57).
   - All colors are CSS variables, so a light theme or different palette can be
@@ -1550,7 +1553,7 @@ the commit leaves the private repo.
 | Q68 | Account value | Owner request 2026-10-06: see each holding's share of the swing account. `config.json` gets optional `balances`: per account a **start** (date and cash amount; trades opened before it are left out) and **checkpoints** (an actual value from the broker at a close, with the price of each symbol held then). **Cash** = start + every buy and sale since, from the events' prices and the trades' fees, so it is exact to the cent; **value** = cash + open positions at the last quote, or at cost without one (`N AT COST`). Excluded trades still move cash. The latest checkpoint up to today adds a **correction**: its value minus what the trades give for that close at its stored prices. It is recomputed from today's trades, so fills imported after it was entered don't count twice, and it carries forward until the next one; it covers what fills miss (interest, fees, transfers; the owner says this account has none). Dashboard and Open Positions show an account line and **% ACCT** (market value, or cost when unpriced, ÷ account value). Settings → Account value edits it; a commit writes `config.json` and trade-history's `schema/config.schema.json`, never trades. The demo's swing account gets a round starting balance. Code: `core/account`. (2026-10-06) |
 | Q69 | Weekdays-only calendar | Owner request 2026-10-06: Saturday and Sunday columns are noise, since nothing is traded then. The month grid and year heatmap show **Mon–Fri** (plus the WEEK column); week totals still cover the whole week. Fallback: if any weekend day in view has trades (a mis-dated fill, say), the full seven-day layout returns for that month or year, so no P&L is ever hidden. The dashboard week strip already hides empty weekends (#15). (2026-10-06) |### Still open
 | Q70 | Reviews: swing required, day optional | Owner decision 2026-10-06: every swing trade gets a review; day-trade reviews are optional. Needs attention's "unreviewed trades today" counts **swing trades only**, and its REVIEW › link opens `style=swing&range=today&review=no`, so the line (and the whole block, when nothing else is listed) goes away once the swing trades are reviewed. Nothing on screen says day reviews are optional. (2026-10-06) |
-- UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
+| Q71 | Webull import alert | Owner request 2026-10-06: day trades are mostly premarket, so a morning Webull import already holds the day, yet the top bar flagged `WEBULL 10-06 !` after the close. Webull now counts an import at any time on the latest session's date; it is flagged only once that session has closed with no Webull import that day. Schwab keeps Q55 (an import after that session's 16:00 close). (2026-10-06) |- UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy

@@ -45,7 +45,13 @@ export function lastSessionDate(nowIso: string): string {
   return d;
 }
 
-/** An import is behind when it happened before the latest closed session ended (that session's fills can't be in it). */
-export function importBehind(importedAt: string, nowIso: string): boolean {
-  return etDate(importedAt) < lastSessionDate(nowIso) || (etDate(importedAt) === lastSessionDate(nowIso) && etTime(importedAt) < "16:00");
+/**
+ * An import is behind when it happened before the latest closed session ended (that session's fills can't be in it).
+ * `anyTimeThatDay` (Webull, Q71): day trades are mostly premarket, so an import at any time on the session's
+ * date counts; it is behind only once that session has closed with no import that day.
+ */
+export function importBehind(importedAt: string, nowIso: string, opts: { anyTimeThatDay?: boolean } = {}): boolean {
+  const session = lastSessionDate(nowIso);
+  if (opts.anyTimeThatDay) return etDate(importedAt) < session;
+  return etDate(importedAt) < session || (etDate(importedAt) === session && etTime(importedAt) < "16:00");
 }
