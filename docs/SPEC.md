@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.17)
+# Trade Journal — Spec (v0.18)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -871,7 +871,8 @@ the top, above everything else, in the same order at phone width.
    (with their stamp), day trades held overnight, today's unreviewed **swing** trades
    (`2 unreviewed trades today REVIEW ›`, the Trades view
    `style=swing&range=today&review=no`; day-trade reviews are optional, Q70), and the review checks: OPEN swing reviews whose
-   idea has closed (`NVQX idea from 08-25 closed 09-23: write the exit`),
+   idea has closed (`NVQX idea from 08-25 closed 09-23: write the exit`,
+   with a **Copy command** button for the review launch command, Q72),
    reviews that match no idea, and ideas with more than one review. Unmapped
    ETFs need the broker's name column, which fills don't store, so they
    surface in the import preview.
@@ -1045,7 +1046,8 @@ other than date they read **‹ Prev / Next ›**.
   - If there is no review, the panel shows a short **quick note**, editable
     and saved to `overrides.json` (one or two lines, like Tradervue's notes
     field). The edit is staged, previewed, then committed (Q32, §4.5A). It also has a **Start review** button that copies
-    `/playbook-review <TICKER> <DATE>` to the clipboard to paste into Claude.
+    `cd ~/GitProjects/Playbook; claude "/playbook-review <TICKER> <IDEA DATE>"`
+    to the clipboard to paste into a terminal (Q72).
     This replaces Tradervue's "Insert template".
 - **Keys:** `j` / `k` step to the next / previous trade in the list (not
   while typing). A 📄 beside the header links to the review.
@@ -1171,7 +1173,8 @@ other than date they read **‹ Prev / Next ›**.
   shows the linked idea's trades and P&L (`DAY · 10-01 → 10-01 · CLOSED`, how
   it was linked on hover), with links to each trade.
 - Read-only. Reviews are written in Playbook with the `playbook-review`
-  skill.
+  skill. An OPEN review whose idea has closed shows an **Exit missing** panel
+  with a **Finish review** button that copies the launch command (Q72).
 
 ### 6.8 Import
 
@@ -1554,6 +1557,7 @@ the commit leaves the private repo.
 | Q69 | Weekdays-only calendar | Owner request 2026-10-06: Saturday and Sunday columns are noise, since nothing is traded then. The month grid and year heatmap show **Mon–Fri** (plus the WEEK column); week totals still cover the whole week. Fallback: if any weekend day in view has trades (a mis-dated fill, say), the full seven-day layout returns for that month or year, so no P&L is ever hidden. The dashboard week strip already hides empty weekends (#15). (2026-10-06) |### Still open
 | Q70 | Reviews: swing required, day optional | Owner decision 2026-10-06: every swing trade gets a review; day-trade reviews are optional. Needs attention's "unreviewed trades today" counts **swing trades only**, and its REVIEW › link opens `style=swing&range=today&review=no`, so the line (and the whole block, when nothing else is listed) goes away once the swing trades are reviewed. Nothing on screen says day reviews are optional. (2026-10-06) |
 | Q71 | Webull import alert | Owner request 2026-10-06: day trades are mostly premarket, so a morning Webull import already holds the day, yet the top bar flagged `WEBULL 10-06 !` after the close. Webull now counts an import at any time on the latest session's date; it is flagged only once that session has closed with no Webull import that day. Schwab keeps Q55 (an import after that session's 16:00 close). (2026-10-06) |- UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
+| Q72 | Review launch command | Owner report 2026-10-10: `/playbook-review NVQX` from Needs attention failed with "Unknown command", because the skill only exists in a Claude Code session started inside `Playbook/`. Every place that offers the command now copies `cd ~/GitProjects/Playbook; claude "/playbook-review <TICKER> <IDEA DATE>"` (the checkout layout of §2): Needs attention (**Copy command**), the review page (**Finish review**, shown when the exit is missing) and the trade's **Start review**. The date is the idea date, so a closed swing idea is still found. In Playbook the same day, the skill gained a How It Resolved exit section (after-the-fact daily and intraday charts) and fills the P&L line from trade-history. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy

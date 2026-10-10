@@ -10,6 +10,7 @@ import type { Trade } from "../../core/types";
 import { FilterBar, viewHref } from "../components/FilterBar";
 import { LazyReview } from "../components/LazyReview";
 import { Pnl } from "../components/Pnl";
+import { CopyCommand, reviewCommand } from "../components/ReviewCommand";
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
 
 /** ET date of the idea's last close, or null while any of it is open. */
@@ -147,10 +148,17 @@ export function ReviewPage({ journal: j, id, view }: { journal: Journal; id: str
         )}
       </section>
 
+      {idea && exitMissing(j, r) && (
+        <section className="panel" aria-label="Finish review">
+          <div className="panel-head"><h2 className="half">Exit missing</h2><span className="dim small">THE IDEA HAS CLOSED; THE REVIEW IS STILL OPEN</span></div>
+          <div className="notes-body"><CopyCommand label="FINISH REVIEW" command={reviewCommand(idea.underlying, idea.date)} /></div>
+        </section>
+      )}
+
       <article className="panel md-wrap">
         <LazyReview path={r.path} markdown={r.markdown} />
       </article>
-      <div className="dim small">Read-only. Reviews are written in Playbook with <code>/playbook-review</code>.</div>
+      <div className="dim small">Read-only. Reviews are written in Playbook with <code>/playbook-review</code> (run in a terminal: <code>{reviewCommand(r.ticker ?? "TICKER", r.date ?? "DATE")}</code>).</div>
     </main>
   );
 }
