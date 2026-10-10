@@ -22,6 +22,10 @@ export interface DayCell extends DayTotal {
 export interface WeekRow extends DayTotal {
   start: string;
   days: DayCell[];
+  /** The week's days inside the month only, which the WEEK column shows (Q75). */
+  month: DayTotal;
+  /** Whether the week has trades on days outside the month, so the full week differs. */
+  spills: boolean;
 }
 
 const EMPTY: DayTotal = { pnl: 0, trades: 0, ideas: 0 };
@@ -67,12 +71,20 @@ export function monthGrid(
       const date = addDays(start, i);
       return { date, inMonth: date.slice(0, 7) === month, review: opts.reviewDates?.has(date) ?? false, ...(totals.get(date) ?? EMPTY) };
     });
-    // The weekly column covers the whole week, including days that spill into the next or previous month.
+    // The week's totals cover all seven days; `month` keeps only the days inside the month (Q75).
+    const own = days.filter((d) => d.inMonth);
+    const end = addDays(start, 6);
     weeks.push({
       start, days,
       pnl: cents(days.reduce((s, d) => s + d.pnl, 0)),
       trades: days.reduce((s, d) => s + d.trades, 0),
-      ideas: weekIdeas(trades, start, addDays(start, 6)),
+      ideas: weekIdeas(trades, start, end),
+      month: {
+        pnl: cents(own.reduce((s, d) => s + d.pnl, 0)),
+        trades: own.reduce((s, d) => s + d.trades, 0),
+        ideas: weekIdeas(trades, start < first ? first : start, end > last ? last : end),
+      },
+      spills: days.some((d) => !d.inMonth && d.trades > 0),
     });
   }
   const inMonth = weeks.flatMap((w) => w.days).filter((d) => d.inMonth);
