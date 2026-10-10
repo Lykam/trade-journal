@@ -262,9 +262,10 @@ export function computeGauge(style: Style, input: GaugeInput): Gauge {
   if (counts.prior) parts.push(`${counts.prior} prior`);
 
   // Baseline: closed trades in the baselineDays up to today (or, with
-  // excludeCurrentWeekFromBaseline, before this week; Q73).
+  // excludeCurrentWeekFromBaseline, before this week; Q73). baselineDays null = all time (Q74).
   const baseTo = g.excludeCurrentWeekFromBaseline ? addDays(start, -1) : today;
-  const baseFrom = addDays(baseTo, -(g.baselineDays - 1));
+  const firstClose = closed.reduce((m, t) => (closedOn(t) < m ? closedOn(t) : m), baseTo);
+  const baseFrom = g.baselineDays === null ? firstClose : addDays(baseTo, -(g.baselineDays - 1));
   const base = winRateOf(closed.filter((t) => closedOn(t) >= baseFrom && closedOn(t) <= baseTo));
   const baseline: Baseline = {
     from: baseFrom, to: baseTo, ...base, lowConfidence: base.wins + base.losses < LOW_CONFIDENCE_BELOW,
@@ -318,12 +319,17 @@ export function winsToFull(g: Gauge, config: Config): { wins: number; w: number;
   return null;
 }
 
+/** The average's span for labels: "90-day" or "all-time" (Q74). */
+export const baselineSpan = (config: Config): string =>
+  config.gauge.baselineDays === null ? "all-time" : `${config.gauge.baselineDays}-day`;
+
 /** The gauge rules in plain words, from config (Settings, #23). */
 export function gaugeRules(config: Config): string[] {
   const g = config.gauge;
   const below = (pts: number) => (pts === 0 ? "below your average" : `${pts}+ points below it`);
+  const span = g.baselineDays === null ? "all your closed trades of that style" : `the last ${g.baselineDays} days`;
   return [
-    `Average = your win % over the last ${g.baselineDays} days${g.excludeCurrentWeekFromBaseline ? ", this week excluded" : ""}.`,
+    `Average = your win % over ${span}${g.excludeCurrentWeekFromBaseline ? ", this week excluded" : ""}.`,
     `Half size ${below(g.bands.halfSizeBelowPts)}; quarter size ${below(g.bands.quarterSizeBelowPts)}.`,
     `Needs ${g.minSample.day} day / ${g.minSample.swing} swing trades this week; earlier trades fill in until then.`,
     ...(g.swingIncludesOpenPositions ? ["Swing counts open positions at the last price."] : []),

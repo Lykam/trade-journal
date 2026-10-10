@@ -21,7 +21,7 @@
       "additionalProperties": false,
       "required": ["baselineDays", "excludeCurrentWeekFromBaseline", "minSample", "bands", "swingIncludesOpenPositions"],
       "properties": {
-        "baselineDays": { "type": "integer", "minimum": 1 },
+        "baselineDays": { "type": ["integer", "null"], "minimum": 1 },
         "excludeCurrentWeekFromBaseline": { "type": "boolean" },
         "minSample": {
           "type": "object", "additionalProperties": false, "required": ["day", "swing"],

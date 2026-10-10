@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sessionsBetween, weekStart } from "../src/core/calendar";
-import { computeGauge, isOpenAt, positionAt, quoteStatus, sizeState } from "../src/core/gauge/gauge";
+import { baselineSpan, computeGauge, gaugeRules, isOpenAt, positionAt, quoteStatus, sizeState } from "../src/core/gauge/gauge";
 import type { Quote, Trade } from "../src/core/types";
 import { batch, closed, closeLater, open } from "./factory";
 import { config } from "./helpers";
@@ -270,6 +270,17 @@ describe("week boundaries (ET)", () => {
     const lastSunday = closed({ closedAt: "2026-09-27T10:00:00-04:00", net: -1 });
     const g = computeGauge("day", { trades: [edgeIn, edgeOut, lastSunday, ...batch("day", "2026-09-29", 5, 0)], config, now: NOW });
     expect(g.baseline).toMatchObject({ from: "2026-06-30", to: "2026-09-27", wins: 1, losses: 1 });
+  });
+
+  it("baseline null days = every closed trade of the style, through today (Q74)", () => {
+    const allTime = { ...config, gauge: { ...config.gauge, baselineDays: null, excludeCurrentWeekFromBaseline: false } };
+    const old = closed({ closedAt: "2025-01-15T10:00:00-05:00", net: 1 });
+    const swing = closed({ style: "swing", closedAt: "2026-09-01T10:00:00-04:00", net: 1 });
+    const g = computeGauge("day", { trades: [old, swing, ...batch("day", "2026-09-29", 2, 3)], config: allTime, now: NOW });
+    expect(g.baseline).toMatchObject({ from: "2025-01-15", to: "2026-09-30", wins: 3, losses: 3 });
+    expect(gaugeRules(allTime)[0]).toBe("Average = your win % over all your closed trades of that style.");
+    expect(baselineSpan(allTime)).toBe("all-time");
+    expect(baselineSpan(config)).toBe("90-day");
   });
 });
 

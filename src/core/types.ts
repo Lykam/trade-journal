@@ -35,7 +35,8 @@ export interface Config {
   webullAccount: string;
   styleByAccount: Record<string, Style>;
   gauge: {
-    baselineDays: number;
+    /** Days of closed trades in the gauge average; null = all time (Q74). */
+    baselineDays: number | null;
     excludeCurrentWeekFromBaseline: boolean;
     minSample: { day: number; swing: number };
     bands: { halfSizeBelowPts: number; quarterSizeBelowPts: number };
