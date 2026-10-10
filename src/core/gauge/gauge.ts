@@ -261,7 +261,8 @@ export function computeGauge(style: Style, input: GaugeInput): Gauge {
       : [`${counts.week} this week`];
   if (counts.prior) parts.push(`${counts.prior} prior`);
 
-  // Baseline: closed trades in the baselineDays before this week (or up to today).
+  // Baseline: closed trades in the baselineDays up to today (or, with
+  // excludeCurrentWeekFromBaseline, before this week; Q73).
   const baseTo = g.excludeCurrentWeekFromBaseline ? addDays(start, -1) : today;
   const baseFrom = addDays(baseTo, -(g.baselineDays - 1));
   const base = winRateOf(closed.filter((t) => closedOn(t) >= baseFrom && closedOn(t) <= baseTo));

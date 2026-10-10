@@ -240,7 +240,7 @@ grouping can ignore it and read `fills/`.
   "styleByAccount": { "schwab-main": "swing", "webull": "day" },  // intent default; override per trade
   "gauge": {
     "baselineDays": 90,
-    "excludeCurrentWeekFromBaseline": true,
+    "excludeCurrentWeekFromBaseline": false,  // true = the 90 days before this week (Q73)
     "minSample": { "day": 5, "swing": 3 },
     "bands": { "halfSizeBelowPts": 0, "quarterSizeBelowPts": 10 },
     "swingIncludesOpenPositions": true
@@ -677,8 +677,11 @@ MZRT +$10 (W). The window is 3W / 2L = 60%.
 
 ### 5.3 Baseline and sizing state
 
-- **Baseline:** win rate of that style's **closed** trades in the 90 days
-  *before* the current week. Open positions never enter the baseline. If the
+- **Baseline:** win rate of that style's **closed** trades in the rolling 90
+  days through today, this week's included, so it moves with every closed
+  trade (Q73). `excludeCurrentWeekFromBaseline: true` restores the earlier
+  rule (the 90 days before the current week, fixed for the week). Open
+  positions never enter the baseline. If the
   baseline has fewer than 20 trades, a "low-confidence baseline" note is
   shown.
 - Let `Δ = windowWinRate − baselineWinRate` (percentage points):
@@ -1198,7 +1201,7 @@ top bar.
   pre-filled (`?name=…&target_name=Lykam&expires_in=90&contents=write`);
   repository access can't be pre-filled and is picked by hand.
 - **Gauge rules** in plain words, from `config.json` ("Average = your win %
-  over the last 90 days, this week excluded. Half size below your average;
+  over the last 90 days. Half size below your average;
   quarter size 10+ points below it…", Q64).
 - **Account value** (Q68): per account, the starting balance, the value and
   cash now, and the latest actual value with its correction. SET START /
@@ -1558,6 +1561,7 @@ the commit leaves the private repo.
 | Q70 | Reviews: swing required, day optional | Owner decision 2026-10-06: every swing trade gets a review; day-trade reviews are optional. Needs attention's "unreviewed trades today" counts **swing trades only**, and its REVIEW › link opens `style=swing&range=today&review=no`, so the line (and the whole block, when nothing else is listed) goes away once the swing trades are reviewed. Nothing on screen says day reviews are optional. (2026-10-06) |
 | Q71 | Webull import alert | Owner request 2026-10-06: day trades are mostly premarket, so a morning Webull import already holds the day, yet the top bar flagged `WEBULL 10-06 !` after the close. Webull now counts an import at any time on the latest session's date; it is flagged only once that session has closed with no Webull import that day. Schwab keeps Q55 (an import after that session's 16:00 close). (2026-10-06) |- UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
 | Q72 | Review launch command | Owner report 2026-10-10: `/playbook-review NVQX` from Needs attention failed with "Unknown command", because the skill only exists in a Claude Code session started inside `Playbook/`. Every place that offers the command now copies `cd ~/GitProjects/Playbook; claude "/playbook-review <TICKER> <IDEA DATE>"` (the checkout layout of §2): Needs attention (**Copy command**), the review page (**Finish review**, shown when the exit is missing) and the trade's **Start review**. The date is the idea date, so a closed swing idea is still found. In Playbook the same day, the skill gained a How It Resolved exit section (after-the-fact daily and intraday charts) and fills the P&L line from trade-history. |
+| Q73 | Rolling baseline | Owner decision 2026-10-10: the gauge baseline was the 90 days before this week (Q13), so it sat still from Monday to Sunday. It is now the rolling 90 days through today, this week's closed trades included (`excludeCurrentWeekFromBaseline: false` in trade-history's config.json; no code change, the option already existed). Chosen over a rolling window that leaves this week out; the trade-off accepted is that this week's trades count in both the gauge and its average, which softens the gauge in a bad week, most for swing. Supersedes Q13's baseline sentence. The demo keeps `true`, since its current week is scripted against that baseline. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
