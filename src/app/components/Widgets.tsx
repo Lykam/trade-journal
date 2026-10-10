@@ -7,6 +7,7 @@ import { useState } from "react";
 import type { Quote, Trade } from "../../core/types";
 import { dateOf, days, DOW, minutes, mmdd, money, pct, pnlClass, stamp, etfBadge } from "../format";
 import { tradeHref } from "./OpenPositions";
+import { CopyCommand, reviewCommand } from "./ReviewCommand";
 
 export function Widget({ title, children, wide }: { title: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -285,7 +286,7 @@ function attentionRows({ a, reviews, journal, quotes, unreviewedToday }: Attenti
     rows.push(
       <div key={`ro${r.id}`}>
         <span className="half">!</span> <a className="sym" href={reviewHref(r.id)}>{r.ticker}</a> idea from {r.date ? mmdd(r.date) : "?"}{closedOn}: write
-        the exit (<code>/playbook-review {r.ticker}</code>)
+        the exit <CopyCommand compact label="COPY COMMAND" command={reviewCommand(r.ticker ?? "", idea?.date ?? r.date ?? "")} />
       </div>,
     );
   }

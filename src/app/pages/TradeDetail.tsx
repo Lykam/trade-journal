@@ -18,7 +18,8 @@ import { Lightbox, type LightboxImage } from "../components/Lightbox";
 import { Timeline } from "../components/OpenPositions";
 import { Pnl } from "../components/Pnl";
 import { LazyReview } from "../components/LazyReview";
-import { copyText, useImageSrcs } from "../data";
+import { useImageSrcs } from "../data";
+import { CopyCommand, reviewCommand } from "../components/ReviewCommand";
 import { mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, whenOf } from "../format";
 import { AUTO_TAGS } from "../../core/journal/tags";
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
@@ -278,8 +279,7 @@ function IdeaPanel({ journal: j, t, view }: { journal: Journal; t: Trade; view: 
 function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journal; t: Trade }) {
   const reviews = reviewsOf(j, t);
   const idea = j.ideaById.get(t.ideaId);
-  const command = `/playbook-review ${idea?.underlying ?? t.underlying} ${idea?.date ?? etDate(t.openedAt)}`;
-  const [copied, setCopied] = useState<"" | "ok" | "fail">("");
+  const command = reviewCommand(idea?.underlying ?? t.underlying, idea?.date ?? etDate(t.openedAt));
   const staging = useStagedOverrides(data);
   const { staged, apply, locked } = staging;
   const [note, setNote] = useState(t.note ?? "");
@@ -310,12 +310,7 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
           {staged && <span className="dim small">previewed below; commit to save</span>}
         </div>
         <StagedPreview data={data} staging={staging} onDiscard={() => setNote(t.note ?? "")} />
-        <div className="start-review">
-          <button type="button" className="btn primary" onClick={async () => setCopied((await copyText(command)) ? "ok" : "fail")}>START REVIEW</button>
-          <code>{command}</code>
-          {copied === "ok" && <span className="gain small">COPIED, paste it into Claude in Playbook</span>}
-          {copied === "fail" && <span className="half small">Clipboard blocked; copy the command above</span>}
-        </div>
+        <CopyCommand label="START REVIEW" command={command} />
       </div>
     </section>
   );
