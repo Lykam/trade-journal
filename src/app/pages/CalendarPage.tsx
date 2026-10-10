@@ -14,6 +14,25 @@ const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 /** Saturday or Sunday. Weekend columns only show when a weekend day in view has trades (Q69). */
 const isWeekend = (date: string) => dayOfWeek(date) % 6 === 0;
 
+type Split = { day: DayTotal; swing: DayTotal };
+
+/** Day and swing P&L side by side under a cell's total (Q76); styles with nothing booked are left out. */
+function StyleSplit({ s, n, header = false }: { s: Split; n: (d: DayTotal) => number; header?: boolean }) {
+  const parts = (["day", "swing"] as const).filter((k) => s[k].trades > 0);
+  if (!parts.length) return null;
+  return (
+    <span className={header ? "cal-split head" : "cal-split full"}>
+      {parts.map((k) => (
+        <span key={k}>
+          <span className="muted">{header ? k.toUpperCase() : k === "day" ? "D" : "S"}</span>{" "}
+          <span className={pnlClass(s[k].pnl)}>{money(s[k].pnl)}</span>
+          <span className="dim"> · {n(s[k])}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function bg(pnl: number, maxAbs: number): React.CSSProperties | undefined {
   const a = tint(pnl, maxAbs);
   if (!a) return undefined;
@@ -113,6 +132,13 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
   }
 
   const { weeks, total } = monthGrid(trades, month, { pnl: view.pnl, startsOn, reviewDates: reviews });
+  // The same grid per style, for the day / swing split in each cell (Q76).
+  const dayGrid = monthGrid(trades.filter((t) => t.style === "day"), month, { pnl: view.pnl, startsOn });
+  const swingGrid = monthGrid(trades.filter((t) => t.style === "swing"), month, { pnl: view.pnl, startsOn });
+  const splitByDate = new Map<string, Split>(dayGrid.weeks.flatMap((w, wi) => w.days.map((d, di) => [d.date, { day: d, swing: swingGrid.weeks[wi]!.days[di]! }])));
+  const weekSplit = (wi: number): Split => ({ day: dayGrid.weeks[wi]!.month, swing: swingGrid.weeks[wi]!.month });
+  // Only worth showing when both styles traded this month.
+  const split = dayGrid.total.trades > 0 && swingGrid.total.trades > 0;
   const maxAbs = Math.max(0, ...weeks.flatMap((w) => w.days.filter((d) => d.inMonth).map((d) => Math.abs(d.pnl))));
   const weekMax = Math.max(0, ...weeks.map((w) => Math.abs(w.month.pnl)));
   // Weekends are hidden unless a weekend day in view has trades, so nothing is ever left out (Q69).
@@ -127,6 +153,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
         <div className="panel-head">
           <h2>{monthLabel(month)} · <span className={pnlClass(total.pnl)}>{money(total.pnl)}</span></h2>
           <span className="muted small">{n(total)} {unit.toUpperCase()}</span>
+          {split && <StyleSplit s={{ day: dayGrid.total, swing: swingGrid.total }} n={n} header />}
         </div>
         <div className={fiveDay ? "cal weekdays" : `cal starts-${startsOn}`} role="grid">
 
@@ -134,7 +161,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
             {dows.map((d) => <div key={d} role="columnheader">{d}</div>)}
             <div role="columnheader">WEEK</div>
           </div>
-          {weeks.map((w) => {
+          {weeks.map((w, wi) => {
             // The WEEK column counts this month's days only; a week that also traded in the next or
             // previous month shows its full total underneath (Q75).
             const first = w.days.find((d) => d.inMonth)!.date;
@@ -153,6 +180,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                             <span className="compact">{compactMoney(d.pnl)}</span>
                           </span>
                           <span className="cal-n muted">{n(d)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(d) === 1 ? "" : "S"}</span></span>
+                          {split && d.inMonth && <StyleSplit s={splitByDate.get(d.date)!} n={n} />}
                         </>
                       )}
                     </>
@@ -174,6 +202,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                     <span className="cal-n muted">{n(m)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(m) === 1 ? "" : "S"}</span></span>
                   </>
                 )}
+                {split && m.trades > 0 && <StyleSplit s={weekSplit(wi)} n={n} />}
                 {w.spills && (
                   <span className="cal-full dim" title="The whole week, including days in the other month">
                     <span className="full">FULL WK </span>

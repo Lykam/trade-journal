@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.19)
+# Trade Journal — Spec (v0.20)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -982,7 +982,12 @@ dashboard quick view has, plus:
   exists. A weekly total column sits on the right. It counts only that
   month's days of the week (Q75); when the week also has trades in the next
   or previous month, the whole week's total shows underneath
-  (`FULL WK +12.40 · 7`). At phone width
+  (`FULL WK +12.40 · 7`).
+- **Day / swing split** (Q76): when both styles traded in the month, the
+  month header adds `DAY −42.85 · 15  SWING +154.67 · 3`, and each day and
+  week cell adds a small line under its total (`D −11.60 · 1  S +39.98 · 1`,
+  styles with nothing booked left out). Desktop only in the cells; phones
+  keep the header line. At phone width
   amounts are whole dollars (`+16`, `−43`).
 - **Weekdays only** (Q69): the month grid and the year heatmap show Mon–Fri.
   If a weekend day in view has trades, that month (or year) shows all seven
@@ -1566,6 +1571,7 @@ the commit leaves the private repo.
 | Q73 | Rolling baseline | Owner decision 2026-10-10: the gauge baseline was the 90 days before this week (Q13), so it sat still from Monday to Sunday. It is now the rolling 90 days through today, this week's closed trades included (`excludeCurrentWeekFromBaseline: false` in trade-history's config.json; no code change, the option already existed). Chosen over a rolling window that leaves this week out; the trade-off accepted is that this week's trades count in both the gauge and its average, which softens the gauge in a bad week, most for swing. Supersedes Q13's baseline sentence. The demo keeps `true`, since its current week is scripted against that baseline. |
 | Q74 | All-time baseline | Owner decision 2026-10-10, same day as Q73: for a steadier average, the gauge baseline is each style's **all-time** closed W/L record (day and swing apart), through today. `baselineDays` takes `null` for all time; the labels read `ALL-TIME AVG` and the low-confidence note says `trades all time`. On 2026-10-10 that moved day from 36% to 40% and swing from 33% to 35%. |
 | Q75 | Calendar week column | Owner request 2026-10-10: a week that started in the previous month added those days into the month's WEEK column. The column now counts only the month's own days (P&L, trades, ideas, link to those dates). A week that also traded outside the month shows its whole total underneath (`FULL WK +x · n`), replacing the dimmed `WK · INCL. SEP` cell of #16. |
+| Q76 | Calendar day / swing split | Owner request 2026-10-10: see swing vs day results at a glance on the calendar. The month header shows each style's P&L and count, and day and week cells add a `D … · n  S … · n` line (booked P&L by day, Q67; the count follows COUNT BY). Shown only when both styles traded that month, so a style filter or a one-style month hides it. Cells drop the line at phone width; the header keeps it. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
