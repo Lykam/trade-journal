@@ -114,7 +114,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
 
   const { weeks, total } = monthGrid(trades, month, { pnl: view.pnl, startsOn, reviewDates: reviews });
   const maxAbs = Math.max(0, ...weeks.flatMap((w) => w.days.filter((d) => d.inMonth).map((d) => Math.abs(d.pnl))));
-  const weekMax = Math.max(0, ...weeks.map((w) => Math.abs(w.pnl)));
+  const weekMax = Math.max(0, ...weeks.map((w) => Math.abs(w.month.pnl)));
   // Weekends are hidden unless a weekend day in view has trades, so nothing is ever left out (Q69).
   const fiveDay = !weeks.some((w) => w.days.some((d) => d.trades > 0 && isWeekend(d.date)));
   const shown = (date: string) => !fiveDay || !isWeekend(date);
@@ -135,9 +135,11 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
             <div role="columnheader">WEEK</div>
           </div>
           {weeks.map((w) => {
-            // A week that reaches into the next or previous month: its total includes those days, so it is dimmed and says so (#16).
-            const other = w.days.filter((d) => !d.inMonth && d.trades > 0).map((d) => MONTH_NAMES[Number(d.date.slice(5, 7)) - 1]!.toUpperCase());
-            const incl = [...new Set(other)].join("/");
+            // The WEEK column counts this month's days only; a week that also traded in the next or
+            // previous month shows its full total underneath (Q75).
+            const first = w.days.find((d) => d.inMonth)!.date;
+            const last = w.days.filter((d) => d.inMonth).at(-1)!.date;
+            const m = w.month;
             return (
               <div key={w.start} className="cal-row" role="row">
                 {w.days.filter((d) => shown(d.date)).map((d) => {
@@ -163,14 +165,21 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                   <div key={d.date} role="gridcell" className={cls}>{body}</div>
                 );
               })}
-              <a role="gridcell" className={`cal-cell week ${incl ? "spans" : ""}`} href={w.trades ? rangeHref(w.start, addDays(w.start, 6)) : undefined} style={incl ? undefined : bg(w.pnl, weekMax)}
-                aria-label={`Week of ${w.start}: ${money(w.pnl)}${incl ? `, including ${incl} days` : ""}`} title={incl ? `Includes ${incl} days` : undefined}>
-                <span className="cal-date muted">WK{incl && <span className="full"> · INCL. {incl}</span>}</span>
-                {w.trades > 0 && (
+              <a role="gridcell" className="cal-cell week" href={m.trades ? rangeHref(first, last) : w.trades ? rangeHref(w.start, addDays(w.start, 6)) : undefined} style={bg(m.pnl, weekMax)}
+                aria-label={`Week of ${w.start}, this month: ${money(m.pnl)}${w.spills ? `; full week ${money(w.pnl)}, ${n(w)} ${unit}` : ""}`}>
+                <span className="cal-date muted">WK</span>
+                {m.trades > 0 && (
                   <>
-                    <span className={`cal-pnl ${pnlClass(w.pnl)}`}><span className="full">{money(w.pnl)}</span><span className="compact">{compactMoney(w.pnl)}</span></span>
-                    <span className="cal-n muted">{n(w)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(w) === 1 ? "" : "S"}</span></span>
+                    <span className={`cal-pnl ${pnlClass(m.pnl)}`}><span className="full">{money(m.pnl)}</span><span className="compact">{compactMoney(m.pnl)}</span></span>
+                    <span className="cal-n muted">{n(m)}<span className="full"> {unit.slice(0, -1).toUpperCase()}{n(m) === 1 ? "" : "S"}</span></span>
                   </>
+                )}
+                {w.spills && (
+                  <span className="cal-full dim" title="The whole week, including days in the other month">
+                    <span className="full">FULL WK </span>
+                    <span className={pnlClass(w.pnl)}><span className="full">{money(w.pnl)}</span><span className="compact">{compactMoney(w.pnl)}</span></span>
+                    <span className="full"> · {n(w)}</span>
+                  </span>
                 )}
               </a>
             </div>

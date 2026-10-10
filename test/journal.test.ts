@@ -297,6 +297,12 @@ describe("calendar", () => {
     expect(days.get("2025-11-03")).toEqual({ pnl: 4, trades: 1, ideas: 1 });
     const w = monthGrid(ts, "2025-11", { pnl: "net" }).weeks.find((x) => x.start === "2025-10-27")!;
     expect(w).toMatchObject({ pnl: 3, trades: 2 }); // Nov 2 is the Sunday of that Mon–Sun week
+    // Nov 2 is the only November day in that week: the WEEK column shows just it (Q75).
+    expect(w.month).toEqual({ pnl: 3, trades: 2, ideas: 2 });
+    expect(w.spills).toBe(false);
+    const oct = monthGrid(ts, "2025-10", { pnl: "net" }).weeks.find((x) => x.start === "2025-10-27")!;
+    expect(oct.month).toEqual({ pnl: 0, trades: 0, ideas: 0 });
+    expect(oct).toMatchObject({ pnl: 3, trades: 2, spills: true });
   });
 
   it("uses gross or net P&L, counts ideas once per day and week, and skips unscored trades", () => {

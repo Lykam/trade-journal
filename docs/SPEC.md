@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.18)
+# Trade Journal — Spec (v0.19)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -18,7 +18,7 @@ hosts the site on GitHub Pages, with all data encrypted.
    (or a CLI) import it from `~/Downloads`. Both paths must produce identical
    results.
 3. **Weekly temperature gauges**, one for day trades and one for swing trades.
-   Each compares this week's win rate with your rolling 90-day win rate and
+   Each compares this week's win rate with your all-time win rate for that style and
    tells you whether to trade at **full, ½, or ¼ size**. The swing gauge also
    counts open positions at their current price.
 4. **A journal like Tradervue:** a trade list, trade detail, P&L calendar,
@@ -239,7 +239,7 @@ grouping can ignore it and read `fills/`.
   "webullAccount": "webull",
   "styleByAccount": { "schwab-main": "swing", "webull": "day" },  // intent default; override per trade
   "gauge": {
-    "baselineDays": 90,
+    "baselineDays": null,  // null = all time (Q74); a number = that many days
     "excludeCurrentWeekFromBaseline": false,  // true = the 90 days before this week (Q73)
     "minSample": { "day": 5, "swing": 3 },
     "bands": { "halfSizeBelowPts": 0, "quarterSizeBelowPts": 10 },
@@ -677,13 +677,13 @@ MZRT +$10 (W). The window is 3W / 2L = 60%.
 
 ### 5.3 Baseline and sizing state
 
-- **Baseline:** win rate of that style's **closed** trades in the rolling 90
-  days through today, this week's included, so it moves with every closed
-  trade (Q73). `excludeCurrentWeekFromBaseline: true` restores the earlier
-  rule (the 90 days before the current week, fixed for the week). Open
-  positions never enter the baseline. If the
-  baseline has fewer than 20 trades, a "low-confidence baseline" note is
-  shown.
+- **Baseline:** win rate of **all** that style's **closed** trades through
+  today, this week's included (Q74: `baselineDays: null`). A number instead
+  limits it to that many days back (Q73 used a rolling 90), and
+  `excludeCurrentWeekFromBaseline: true` ends it before the current week
+  instead of today (the original rule, Q13). Open positions never enter the
+  baseline. If the baseline has fewer than 20 trades, a "low-confidence
+  baseline" note is shown.
 - Let `Δ = windowWinRate − baselineWinRate` (percentage points):
 
 | State | Condition | Example, baseline 60% | Message |
@@ -979,8 +979,10 @@ dashboard quick view has, plus:
   background tint): each trim on the day it was taken and the rest of a
   trade on its close, so a trade's days add up to its P&L (Q67). It also
   shows the number of trades that booked P&L that day, and 📄 if a review
-  exists. A weekly total column sits on the right; a week that reaches into another month is dimmed and says
-  so (`WK · INCL. SEP`), since its total includes those days. At phone width
+  exists. A weekly total column sits on the right. It counts only that
+  month's days of the week (Q75); when the week also has trades in the next
+  or previous month, the whole week's total shows underneath
+  (`FULL WK +12.40 · 7`). At phone width
   amounts are whole dollars (`+16`, `−43`).
 - **Weekdays only** (Q69): the month grid and the year heatmap show Mon–Fri.
   If a weekend day in view has trades, that month (or year) shows all seven
@@ -1201,7 +1203,7 @@ top bar.
   pre-filled (`?name=…&target_name=Lykam&expires_in=90&contents=write`);
   repository access can't be pre-filled and is picked by hand.
 - **Gauge rules** in plain words, from `config.json` ("Average = your win %
-  over the last 90 days. Half size below your average;
+  over all your closed trades of that style. Half size below your average;
   quarter size 10+ points below it…", Q64).
 - **Account value** (Q68): per account, the starting balance, the value and
   cash now, and the latest actual value with its correction. SET START /
@@ -1562,6 +1564,8 @@ the commit leaves the private repo.
 | Q71 | Webull import alert | Owner request 2026-10-06: day trades are mostly premarket, so a morning Webull import already holds the day, yet the top bar flagged `WEBULL 10-06 !` after the close. Webull now counts an import at any time on the latest session's date; it is flagged only once that session has closed with no Webull import that day. Schwab keeps Q55 (an import after that session's 16:00 close). (2026-10-06) |- UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
 | Q72 | Review launch command | Owner report 2026-10-10: `/playbook-review NVQX` from Needs attention failed with "Unknown command", because the skill only exists in a Claude Code session started inside `Playbook/`. Every place that offers the command now copies `cd ~/GitProjects/Playbook; claude "/playbook-review <TICKER> <IDEA DATE>"` (the checkout layout of §2): Needs attention (**Copy command**), the review page (**Finish review**, shown when the exit is missing) and the trade's **Start review**. The date is the idea date, so a closed swing idea is still found. In Playbook the same day, the skill gained a How It Resolved exit section (after-the-fact daily and intraday charts) and fills the P&L line from trade-history. |
 | Q73 | Rolling baseline | Owner decision 2026-10-10: the gauge baseline was the 90 days before this week (Q13), so it sat still from Monday to Sunday. It is now the rolling 90 days through today, this week's closed trades included (`excludeCurrentWeekFromBaseline: false` in trade-history's config.json; no code change, the option already existed). Chosen over a rolling window that leaves this week out; the trade-off accepted is that this week's trades count in both the gauge and its average, which softens the gauge in a bad week, most for swing. Supersedes Q13's baseline sentence. The demo keeps `true`, since its current week is scripted against that baseline. |
+| Q74 | All-time baseline | Owner decision 2026-10-10, same day as Q73: for a steadier average, the gauge baseline is each style's **all-time** closed W/L record (day and swing apart), through today. `baselineDays` takes `null` for all time; the labels read `ALL-TIME AVG` and the low-confidence note says `trades all time`. On 2026-10-10 that moved day from 36% to 40% and swing from 33% to 35%. |
+| Q75 | Calendar week column | Owner request 2026-10-10: a week that started in the previous month added those days into the month's WEEK column. The column now counts only the month's own days (P&L, trades, ideas, link to those dates). A week that also traded outside the month shows its whole total underneath (`FULL WK +x · n`), replacing the dimmed `WK · INCL. SEP` cell of #16. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
