@@ -540,3 +540,4 @@ rect.bar-on { stroke: var(--accent); stroke-width: 1; vector-effect: non-scaling
 /* Settings (#23): the two JSON panels share a row across the page. */
 .json-pair { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
 .nav a.btn.active { background: var(--accent); color: var(--on-accent); }
+table.grid td.error-text { white-space: normal; min-width: 220px; width: 55%; color: var(--text-2); }

@@ -10,6 +10,8 @@
 //   **Idea ID:** wb-…            (optional, SPEC §4.6)
 //   ## Category
 //   free text …
+//   ## The Error
+//   one line, losing trades only (Q77)
 //
 // Template placeholders ("{{…}}") and blank values parse as null.
 import type { Style } from "../types";
@@ -24,6 +26,8 @@ export interface ReviewHeader {
   ideaId: string | null;
   /** Short label from the "## Category" section, used as an automatic tag (SPEC §6.6). */
   category: string | null;
+  /** The "## The Error" section as one line: what caused the loss (Q77). */
+  error: string | null;
 }
 
 export interface ReviewName {
@@ -64,6 +68,12 @@ export function categoryLabel(body: string): string | null {
   return first.charAt(0).toUpperCase() + first.slice(1);
 }
 
+/** "## The Error" as one line; null when empty, a placeholder or "Not applicable…". */
+export function errorText(body: string): string | null {
+  const v = stripComments(body).replace(/\s+/g, " ").trim();
+  return v === "" || /\{\{.*\}\}/.test(v) || /^not applicable/i.test(v) ? null : v;
+}
+
 /** The body of a "## Heading" section, up to the next "## ". */
 export function sectionBody(markdown: string, heading: string): string | null {
   const lines = markdown.split(/\r?\n/);
@@ -85,6 +95,7 @@ export function parseReviewHeader(markdown: string): ReviewHeader {
   const type = clean(fields.get("trade type"))?.toUpperCase() ?? "";
   const status = clean(fields.get("status"))?.toUpperCase() ?? "";
   const category = sectionBody(markdown, "Category");
+  const error = sectionBody(markdown, "The Error");
   return {
     date: date && DATE_RE.test(date) ? date : null,
     ticker: ticker ? ticker.split(/\s/)[0]!.toUpperCase() : null,
@@ -93,5 +104,6 @@ export function parseReviewHeader(markdown: string): ReviewHeader {
     status: status.startsWith("OPEN") ? "open" : status.startsWith("CLOSED") ? "closed" : null,
     ideaId: clean(fields.get("idea id"))?.split(/\s/)[0] ?? null,
     category: category === null ? null : categoryLabel(category),
+    error: error === null ? null : errorText(error),
   };
 }

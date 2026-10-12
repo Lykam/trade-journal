@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.20)
+# Trade Journal — Spec (v0.21)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -809,7 +809,7 @@ candlestick charts in v1 (see §11).
   - **Green `#22c55e` gains / red `#ef4444` losses.** Yellow `#facc15` is used
     only for the "½ size" state.
   - **Top navigation bar** instead of a sidebar: DASH · OPEN · CAL · TRADES ·
-    REPORTS · JOURNAL · SETTINGS, with IMPORT and LOCK on the right. Beside
+    REPORTS · JOURNAL · ERRORS · SETTINGS, with IMPORT and LOCK on the right. Beside
     them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
     SCHWAB 10-02`, the last import per broker turning amber with `!` when it
     is older than the latest closed session (Q55). Webull counts an import at
@@ -1185,6 +1185,25 @@ other than date they read **‹ Prev / Next ›**.
 - Read-only. Reviews are written in Playbook with the `playbook-review`
   skill. An OPEN review whose idea has closed shows an **Exit missing** panel
   with a **Finish review** button that copies the launch command (Q72).
+
+### 6.7a Errors (Q77)
+
+Darvas's table of errors: after each loss, write down the error that caused
+it, then read the list for the mistakes that repeat.
+
+- In Playbook, a closed review whose idea lost money has a `## The Error`
+  section (after How It Resolved): the skill asks "What was the error?" and
+  writes the short answer as given. A winning or breakeven trade writes "Not
+  applicable — the trade made money." without asking.
+- The **ERRORS** page lists every **closed idea with a net loss that has a
+  review**, newest idea first: date, ticker, type, net P&L and the error. The
+  title shows the count and total loss. A review with no error yet shows
+  **NOT WRITTEN**. Each row opens the review. No filter bar.
+- The error is read from the section as one line (comments stripped); empty,
+  placeholder or "Not applicable…" counts as not written. With several
+  reviews on one idea, the latest that names an error is used.
+- Unreviewed losses are not listed: swing reviews are required (Q70), day
+  reviews optional.
 
 ### 6.8 Import
 
@@ -1572,6 +1591,7 @@ the commit leaves the private repo.
 | Q74 | All-time baseline | Owner decision 2026-10-10, same day as Q73: for a steadier average, the gauge baseline is each style's **all-time** closed W/L record (day and swing apart), through today. `baselineDays` takes `null` for all time; the labels read `ALL-TIME AVG` and the low-confidence note says `trades all time`. On 2026-10-10 that moved day from 36% to 40% and swing from 33% to 35%. |
 | Q75 | Calendar week column | Owner request 2026-10-10: a week that started in the previous month added those days into the month's WEEK column. The column now counts only the month's own days (P&L, trades, ideas, link to those dates). A week that also traded outside the month shows its whole total underneath (`FULL WK +x · n`), replacing the dimmed `WK · INCL. SEP` cell of #16. |
 | Q76 | Calendar day / swing split | Owner request 2026-10-10: see swing vs day results at a glance on the calendar. The month header shows each style's P&L and count, and day and week cells add a `D … · n  S … · n` line (booked P&L by day, Q67; the count follows COUNT BY). Shown only when both styles traded that month, so a style filter or a one-style month hides it. Cells drop the line at phone width; the header keeps it. |
+| Q77 | Error table | Owner request 2026-10-12, after Nicolas Darvas's table of errors (*How I Made $2,000,000 in the Stock Market*): every reviewed loss records its error and a page lists them to learn from. Kept simple: one free-text line per loss, no fixed error categories, no P&L-by-error report. Playbook's template and skill gain a `## The Error` section asked only when the idea lost money ("What was the error?"; Darvas's exact wording was not found, so this is a paraphrase of his practice). The journal adds the ERRORS page (§6.7a). |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
