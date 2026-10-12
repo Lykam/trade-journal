@@ -11,6 +11,7 @@ import { lock } from "./vault";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DeployBanner } from "./components/DeployBanner";
 import { Dashboard } from "./pages/Dashboard";
+import { ErrorsPage } from "./pages/ErrorsPage";
 import { ImportPage } from "./pages/ImportPage";
 import { JournalPage, ReviewPage } from "./pages/JournalPage";
 import { LockScreen } from "./pages/LockScreen";
@@ -28,6 +29,7 @@ const NAV = [
   { path: "/trades", label: "TRADES" },
   { path: "/reports", label: "REPORTS" },
   { path: "/journal", label: "JOURNAL" },
+  { path: "/errors", label: "ERRORS" },
   { path: "/settings", label: "SETTINGS" },
 ];
 
@@ -92,6 +94,7 @@ export function App() {
   else if (path === "/cal") page = <CalendarPage journal={journal!} view={view} params={params} />;
   else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
   else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
+  else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
   else if (path === "/reports") page = <ReportsPage journal={journal!} view={view} params={params} />;
   else if (path === "/settings") page = <SettingsPage data={load.data} />;
   else if (path === "/import") page = <ImportPage data={load.data} />;

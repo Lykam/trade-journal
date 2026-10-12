@@ -6,7 +6,7 @@ import { dailyTotals, monthGrid, yearView } from "../src/core/journal/calendar-v
 import {
   dateRange, defaultView, emptyFilter, parseView, queryOf, tradeMatcher, viewToParams, type TradeFilter, type ViewState,
 } from "../src/core/journal/filter";
-import { buildJournal, exitMissing, filterReviews, filterTrades, journalOrder, reviewAttention, type Journal } from "../src/core/journal/journal";
+import { buildJournal, errorTable, exitMissing, filterReviews, filterTrades, journalOrder, reviewAttention, type Journal } from "../src/core/journal/journal";
 import { applyBulkAction, changedOverrideIds, previewOverrides } from "../src/core/journal/overrides";
 import { buildRows, neighbors, pageOf, paginate, sortRows, summarizeRows, tradeOrder, viewRows } from "../src/core/journal/rows";
 import type { DerivedTrades, Fill, Idea, ReviewFile, Trade } from "../src/core/types";
@@ -430,5 +430,24 @@ describe("journal list order (#22)", () => {
     const ordered = journalOrder(j, list).map((r) => r.id);
     expect(ordered[0]).toBe("2025-03-14-SDAY");
     expect(ordered.slice(1)).toEqual(list.map((r) => r.id).filter((id) => id !== "2025-03-14-SDAY"));
+  });
+});
+
+describe("error table (Q77)", () => {
+  const review = (ticker: string, date: string, error?: string): ReviewFile => ({
+    path: `Reviews/${date}-${ticker}.md`,
+    markdown: `# Playbook Review — ${ticker} ${date}\n\n**Date:** ${date}\n**Ticker:** ${ticker}\n**Status:** CLOSED\n\n## Category\n\nBreakout\n${error === undefined ? "" : `\n## The Error\n\n${error}\n`}`,
+  });
+
+  it("lists reviewed losing ideas, newest first, with their error", () => {
+    const loss = closed({ symbol: "ZZA", closedAt: "2025-04-01T10:00:00-04:00", net: -5 });
+    const blank = closed({ symbol: "ZZB", closedAt: "2025-04-03T10:00:00-04:00", net: -2 });
+    const win = closed({ symbol: "ZZC", closedAt: "2025-04-02T10:00:00-04:00", net: 4 });
+    const unreviewed = closed({ symbol: "ZZD", closedAt: "2025-04-02T10:00:00-04:00", net: -9 });
+    const stillOpen = open({ symbol: "ZZE", openedAt: "2025-04-02T10:00:00-04:00" });
+    const j = journal([loss, blank, win, unreviewed, stillOpen], [
+      review("ZZA", "2025-04-01", "Chased it."), review("ZZB", "2025-04-03"), review("ZZC", "2025-04-02", "None."), review("ZZE", "2025-04-02", "Early."),
+    ]);
+    expect(errorTable(j).map((r) => [r.idea.underlying, r.idea.netPnl, r.error])).toEqual([["ZZB", -2, null], ["ZZA", -5, "Chased it."]]);
   });
 });

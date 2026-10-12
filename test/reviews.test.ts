@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { chartsFor, parseChartPath, resolvePlaybookPath } from "../src/core/reviews/images";
 import { joinReviews, readReviews } from "../src/core/reviews/join";
-import { categoryLabel, parseReviewHeader, parseReviewName } from "../src/core/reviews/parse-header";
+import { categoryLabel, errorText, parseReviewHeader, parseReviewName } from "../src/core/reviews/parse-header";
 import type { DerivedTrades, Idea, ReviewFile, Trade } from "../src/core/types";
 import { closed, open } from "./factory";
 import { FIXTURES, symbols } from "./helpers";
@@ -22,7 +22,7 @@ describe("parseReviewHeader", () => {
       header(["**Date:** 2025-04-01", "**Ticker:** zzab", "**P&L:** +$85", "**Trade Type:** DAY TRADE", "**Status:** CLOSED"]),
     );
     expect(h).toEqual({
-      date: "2025-04-01", ticker: "ZZAB", pnl: "+$85", tradeType: "day", status: "closed", ideaId: null, category: "Breaking news",
+      date: "2025-04-01", ticker: "ZZAB", pnl: "+$85", tradeType: "day", status: "closed", ideaId: null, category: "Breaking news", error: null,
     });
   });
 
@@ -53,6 +53,21 @@ describe("parseReviewHeader", () => {
     expect(byName["Reviews/2025-03-13-FAKU.md"]).toMatchObject({ ticker: "FAKU", tradeType: "swing", status: "closed", category: "Swing trade" });
     expect(byName["Reviews/2025-03-12-HOLD.md"]!.ideaId).toBe("wb-f1716d322462");
     expect(byName["Reviews/2025-03-14-SDAY.md"]).toMatchObject({ status: "open", pnl: null });
+  });
+});
+
+describe("the error section (Q77)", () => {
+  const withError = (body: string) => `${header(["**Date:** 2025-04-01"])}\n## The Error\n\n${body}\n\n## How I Should Have Traded It\n\nLater.\n`;
+
+  it("reads it as one line", () => {
+    expect(parseReviewHeader(withError("Chased it\nafter the breakout.")).error).toBe("Chased it after the breakout.");
+  });
+
+  it("is null when missing, empty, a comment or not applicable", () => {
+    expect(parseReviewHeader(header(["**Date:** 2025-04-01"])).error).toBeNull();
+    expect(parseReviewHeader(withError("<!-- What was the error? -->")).error).toBeNull();
+    expect(parseReviewHeader(withError("Not applicable — the trade made money.")).error).toBeNull();
+    expect(errorText("{{ERROR}}")).toBeNull();
   });
 });
 

@@ -1,9 +1,11 @@
 // Demo reviews, built mechanically from the review template's structure: the
-// header fields, Idea ID, a Category from a fixed list and the same short
-// placeholder line in every section. No invented prose (owner decision).
+// header fields, Idea ID, a Category and (for a closed loss) an Error from fixed
+// lists, and the same short placeholder line in every other section. No invented prose (owner decision).
 import type { Idea, ReviewFile } from "../core/types";
 
 export const CATEGORIES = ["Gap and go", "Breaking news", "Pullback to the 20 EMA", "Breakout", "Earnings drift"];
+
+export const ERRORS = ["Chased it after the breakout", "No stop set", "Held past my stop", "Sized too big", "Traded against the market"];
 
 const PLACEHOLDER = "Demo placeholder: on the real site this section holds the review written in Playbook.";
 
@@ -15,6 +17,8 @@ export function demoReview(idea: Idea, status: "OPEN" | "CLOSED", index: number,
     const path = charts.find((c) => c.endsWith(`-${kind}.png`));
     return path ? `![${u} ${kind} chart](../${path})` : "No chart saved.";
   };
+  const loss = status === "CLOSED" && idea.status === "closed" && idea.netPnl < 0;
+  const error = loss ? `## The Error\n\n${ERRORS[index % ERRORS.length]}.\n\n` : "";
   const markdown = `# Playbook Review — ${u} ${idea.date}
 
 **Date:** ${idea.date}
@@ -46,7 +50,7 @@ ${idea.style === "day" ? chart("intraday") : "Not used for this swing trade."}
 
 ${PLACEHOLDER}
 
-## How I Should Have Traded It
+${error}## How I Should Have Traded It
 
 ${PLACEHOLDER}
 
