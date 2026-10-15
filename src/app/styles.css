@@ -279,6 +279,14 @@ tr.current { background: var(--inset); }
 .thumb { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid var(--border); background: var(--inset); color: var(--text-2); cursor: zoom-in; text-align: left; font: inherit; }
 .thumb:hover { border-color: var(--accent); }
 .thumb img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; }
+.chart-upload { display: flex; flex-direction: column; gap: 8px; margin: 0 14px 12px; padding: 10px; border: 1px dashed var(--border-strong); }
+.chart-upload.drag { border-color: var(--accent); background: var(--inset); }
+.chart-upload .row { flex-wrap: wrap; }
+.upload-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.upload-preview { width: 220px; max-width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border: 1px solid var(--border); background: var(--inset); }
+.upload-fields { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1 1 220px; }
+.upload-fields .seg { align-self: flex-start; }
+.upload-fields code { overflow-wrap: anywhere; }
 .lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, 0.92); display: flex; flex-direction: column; }
 .lightbox .lb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; background: var(--bar); border-bottom: 1px solid var(--accent); }
 .lightbox img { flex: 1; min-height: 0; max-width: 100%; margin: auto; object-fit: contain; padding: 16px; }

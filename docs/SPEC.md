@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.21)
+# Trade Journal — Spec (v0.22)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -32,7 +32,7 @@ hosts the site on GitHub Pages, with all data encrypted.
 
 - Options, short selling, futures and crypto. Only long stocks and ETFs; the
   schema should not rule these out later.
-- TradingView / candlestick charts and MFE/MAE (see §11). Charts come from Playbook images.
+- TradingView / candlestick charts and MFE/MAE (see §11). Charts come from Playbook images, saved by the skill or uploaded on Trade detail (Q78).
 - Multiple users, real-time broker API sync, and editing reviews in the app.
   Reviews are still written with the `playbook-review` skill.
 
@@ -1065,8 +1065,19 @@ other than date they read **‹ Prev / Next ›**.
   timeline and idea, beside the review): a gallery of
   `Images/<date>/<UNDERLYING>-daily*` and `-intraday*` (also matching the
   traded ETF symbol). Thumbnails open a full-size lightbox. If there are no
-  images, it shows "No charts saved for this trade. Use `/chart-image` in
-  Playbook."
+  images, it shows "No charts saved for this trade. Paste or upload one below."
+- **Add chart (Q78),** under the gallery: paste a screenshot (Ctrl+V anywhere
+  on the page), drop an image, or choose a file (PNG, JPEG, GIF, WebP or BMP,
+  up to 10 MB). Pick **1M / 5M / DAILY** (default 5M for day trades, DAILY for
+  swing), the date (the idea date or any open / close date of the idea's
+  trades) and, when the idea traded more than one symbol, the symbol. The
+  file name is shown before the commit:
+  `Images/<DATE>/<SYMBOL>-intraday-1m|intraday-5m|daily.<ext>`, with -2, -3, …
+  when the name is taken. **COMMIT TO PLAYBOOK** writes one commit to
+  Playbook's main with the browser token (which then needs Contents: read and
+  write on Playbook too; Settings shows "Chart uploads"), and Playbook's
+  notify-journal redeploys the site. The demo build shows the panel with
+  COMMIT disabled.
 
 ### 6.5 Reports
 
@@ -1592,6 +1603,7 @@ the commit leaves the private repo.
 | Q75 | Calendar week column | Owner request 2026-10-10: a week that started in the previous month added those days into the month's WEEK column. The column now counts only the month's own days (P&L, trades, ideas, link to those dates). A week that also traded outside the month shows its whole total underneath (`FULL WK +x · n`), replacing the dimmed `WK · INCL. SEP` cell of #16. |
 | Q76 | Calendar day / swing split | Owner request 2026-10-10: see swing vs day results at a glance on the calendar. The month header shows each style's P&L and count, and day and week cells add a `D … · n  S … · n` line (booked P&L by day, Q67; the count follows COUNT BY). Shown only when both styles traded that month, so a style filter or a one-style month hides it. Cells drop the line at phone width; the header keeps it. |
 | Q77 | Error table | Owner request 2026-10-12, after Nicolas Darvas's table of errors (*How I Made $2,000,000 in the Stock Market*): every reviewed loss records its error and a page lists them to learn from. Kept simple: one free-text line per loss, no fixed error categories, no P&L-by-error report. Playbook's template and skill gain a `## The Error` section asked only when the idea lost money ("What was the error?"; Darvas's exact wording was not found, so this is a paraphrase of his practice). The journal adds the ERRORS page (§6.7a). |
+| Q78 | Chart uploads | Owner request 2026-10-15: add chart screenshots from the app instead of starting a Claude session. Trade detail's Charts panel takes a pasted, dropped or chosen image and commits it to **Playbook** through the Git Data API, one image per commit (`Add <SYMBOL> <DATE> <1m/5m/daily> chart (uploaded in the journal)`), the same blobs → tree → commit → ref path as trade-history edits. The name is picked against Playbook's main at commit time and never overwrites (-2, -3, …, across image formats), and a moved main is re-read and retried. 1m and 5m are saved as `-intraday-1m` / `-intraday-5m`, so Q33's gallery rule and the review skill still treat them as intraday charts (Playbook's `sync_review.py` accepts the suffix); the gallery labels them 1M / 5M. The one browser token now also needs Contents: read and write on Playbook; saving it checks that (`playbook` in the sealed record) and Settings shows it. Owner chose uploads over drawn candlestick charts, so §11's TradingView item stays future. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
