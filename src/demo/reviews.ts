@@ -1,5 +1,5 @@
 // Demo reviews, built mechanically from the review template's structure: the
-// header fields, Idea ID, a Category and (for a closed loss) an Error from fixed
+// header fields, Idea ID, a Category and (for a closed idea) an Error from fixed
 // lists, and the same short placeholder line in every other section. No invented prose (owner decision).
 import type { Idea, ReviewFile } from "../core/types";
 
@@ -17,8 +17,10 @@ export function demoReview(idea: Idea, status: "OPEN" | "CLOSED", index: number,
     const path = charts.find((c) => c.endsWith(`-${kind}.png`));
     return path ? `![${u} ${kind} chart](../${path})` : "No chart saved.";
   };
-  const loss = status === "CLOSED" && idea.status === "closed" && idea.netPnl < 0;
-  const error = loss ? `## The Error\n\n${ERRORS[index % ERRORS.length]}.\n\n` : "";
+  // Every closed loss names an error; every third closed win does too, the rest say "No error." (Q79).
+  const closed = status === "CLOSED" && idea.status === "closed";
+  const named = closed && (idea.netPnl < 0 || index % 3 === 0);
+  const error = !closed ? "" : `## The Error\n\n${named ? `${ERRORS[index % ERRORS.length]}.` : "No error."}\n\n`;
   const markdown = `# Playbook Review — ${u} ${idea.date}
 
 **Date:** ${idea.date}

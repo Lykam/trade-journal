@@ -22,7 +22,7 @@ describe("parseReviewHeader", () => {
       header(["**Date:** 2025-04-01", "**Ticker:** zzab", "**P&L:** +$85", "**Trade Type:** DAY TRADE", "**Status:** CLOSED"]),
     );
     expect(h).toEqual({
-      date: "2025-04-01", ticker: "ZZAB", pnl: "+$85", tradeType: "day", status: "closed", ideaId: null, category: "Breaking news", error: null,
+      date: "2025-04-01", ticker: "ZZAB", pnl: "+$85", tradeType: "day", status: "closed", ideaId: null, category: "Breaking news", error: null, noError: false,
     });
   });
 
@@ -68,6 +68,15 @@ describe("the error section (Q77)", () => {
     expect(parseReviewHeader(withError("<!-- What was the error? -->")).error).toBeNull();
     expect(parseReviewHeader(withError("Not applicable — the trade made money.")).error).toBeNull();
     expect(errorText("{{ERROR}}")).toBeNull();
+  });
+
+  it("tells a no-error answer from an unanswered section (Q79)", () => {
+    for (const body of ["No error.", "None", "n/a", "Not applicable — the trade made money."]) {
+      expect(parseReviewHeader(withError(body))).toMatchObject({ error: null, noError: true });
+    }
+    expect(parseReviewHeader(withError("<!-- What was the error? -->")).noError).toBe(false);
+    expect(parseReviewHeader(header(["**Date:** 2025-04-01"])).noError).toBe(false);
+    expect(parseReviewHeader(withError("Nonexistent stop.")).error).toBe("Nonexistent stop.");
   });
 });
 

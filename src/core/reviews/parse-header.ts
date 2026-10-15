@@ -26,8 +26,10 @@ export interface ReviewHeader {
   ideaId: string | null;
   /** Short label from the "## Category" section, used as an automatic tag (SPEC §6.6). */
   category: string | null;
-  /** The "## The Error" section as one line: what caused the loss (Q77). */
+  /** The "## The Error" section as one line: the error made on the trade, win or loss (Q77, Q79). */
   error: string | null;
+  /** The section says there was no error ("No error", "None", "Not applicable…"), as opposed to not answered yet (Q79). */
+  noError: boolean;
 }
 
 export interface ReviewName {
@@ -68,10 +70,19 @@ export function categoryLabel(body: string): string | null {
   return first.charAt(0).toUpperCase() + first.slice(1);
 }
 
-/** "## The Error" as one line; null when empty, a placeholder or "Not applicable…". */
+const NO_ERROR_RE = /^(not applicable|no error|none|n\/a)\b/i;
+
+const errorLine = (body: string) => stripComments(body).replace(/\s+/g, " ").trim();
+
+/** "## The Error" as one line; null when empty, a placeholder or a no-error answer. */
 export function errorText(body: string): string | null {
-  const v = stripComments(body).replace(/\s+/g, " ").trim();
-  return v === "" || /\{\{.*\}\}/.test(v) || /^not applicable/i.test(v) ? null : v;
+  const v = errorLine(body);
+  return v === "" || /\{\{.*\}\}/.test(v) || NO_ERROR_RE.test(v) ? null : v;
+}
+
+/** "## The Error" answered with "No error", "None" or "Not applicable…" (Q79). */
+export function isNoError(body: string): boolean {
+  return NO_ERROR_RE.test(errorLine(body));
 }
 
 /** The body of a "## Heading" section, up to the next "## ". */
@@ -105,5 +116,6 @@ export function parseReviewHeader(markdown: string): ReviewHeader {
     ideaId: clean(fields.get("idea id"))?.split(/\s/)[0] ?? null,
     category: category === null ? null : categoryLabel(category),
     error: error === null ? null : errorText(error),
+    noError: error !== null && isNoError(error),
   };
 }

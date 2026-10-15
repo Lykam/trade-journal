@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.22)
+# Trade Journal — Spec (v0.23)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -1197,23 +1197,27 @@ other than date they read **‹ Prev / Next ›**.
   skill. An OPEN review whose idea has closed shows an **Exit missing** panel
   with a **Finish review** button that copies the launch command (Q72).
 
-### 6.7a Errors (Q77)
+### 6.7a Errors (Q77, Q79)
 
-Darvas's table of errors: after each loss, write down the error that caused
-it, then read the list for the mistakes that repeat.
+Darvas's table of errors: after each trade, write down the error made on it,
+win or lose, then read the list for the mistakes that repeat.
 
-- In Playbook, a closed review whose idea lost money has a `## The Error`
-  section (after How It Resolved): the skill asks "What was the error?" and
-  writes the short answer as given. A winning or breakeven trade writes "Not
-  applicable — the trade made money." without asking.
-- The **ERRORS** page lists every **closed idea with a net loss that has a
-  review**, newest idea first: date, ticker, type, net P&L and the error. The
-  title shows the count and total loss. A review with no error yet shows
-  **NOT WRITTEN**. Each row opens the review. No filter bar.
-- The error is read from the section as one line (comments stripped); empty,
-  placeholder or "Not applicable…" counts as not written. With several
-  reviews on one idea, the latest that names an error is used.
-- Unreviewed losses are not listed: swing reviews are required (Q70), day
+- In Playbook, every closed review has a `## The Error` section (after How
+  It Resolved): the skill asks "What was the error? (or skip if there wasn't
+  one)" on every closed trade, win or loss, and writes the short answer as
+  given. A skip writes "No error."
+- The **ERRORS** page lists every **closed, reviewed idea whose review names
+  an error**, whatever its P&L, newest idea first: date, ticker, type, net
+  P&L and the error. The title shows the count and the rows' net P&L. A
+  review that says there was no error is not listed. A reviewed **loss** with
+  nothing written yet is still listed as **NOT WRITTEN**, so it gets
+  answered; a win with nothing written is not. Each row opens the review. No
+  filter bar.
+- The error is read from the section as one line (comments stripped). Empty
+  or a placeholder counts as not written; "No error", "None", "N/A" or "Not
+  applicable…" (older reviews' wording for wins) counts as no error. With
+  several reviews on one idea, the latest that names an error is used.
+- Unreviewed trades are not listed: swing reviews are required (Q70), day
   reviews optional.
 
 ### 6.8 Import
@@ -1604,6 +1608,7 @@ the commit leaves the private repo.
 | Q76 | Calendar day / swing split | Owner request 2026-10-10: see swing vs day results at a glance on the calendar. The month header shows each style's P&L and count, and day and week cells add a `D … · n  S … · n` line (booked P&L by day, Q67; the count follows COUNT BY). Shown only when both styles traded that month, so a style filter or a one-style month hides it. Cells drop the line at phone width; the header keeps it. |
 | Q77 | Error table | Owner request 2026-10-12, after Nicolas Darvas's table of errors (*How I Made $2,000,000 in the Stock Market*): every reviewed loss records its error and a page lists them to learn from. Kept simple: one free-text line per loss, no fixed error categories, no P&L-by-error report. Playbook's template and skill gain a `## The Error` section asked only when the idea lost money ("What was the error?"; Darvas's exact wording was not found, so this is a paraphrase of his practice). The journal adds the ERRORS page (§6.7a). |
 | Q78 | Chart uploads | Owner request 2026-10-15: add chart screenshots from the app instead of starting a Claude session. Trade detail's Charts panel takes a pasted, dropped or chosen image and commits it to **Playbook** through the Git Data API, one image per commit (`Add <SYMBOL> <DATE> <1m/5m/daily> chart (uploaded in the journal)`), the same blobs → tree → commit → ref path as trade-history edits. The name is picked against Playbook's main at commit time and never overwrites (-2, -3, …, across image formats), and a moved main is re-read and retried. 1m and 5m are saved as `-intraday-1m` / `-intraday-5m`, so Q33's gallery rule and the review skill still treat them as intraday charts (Playbook's `sync_review.py` accepts the suffix); the gallery labels them 1M / 5M. The one browser token now also needs Contents: read and write on Playbook; saving it checks that (`playbook` in the sealed record) and Settings shows it. Owner chose uploads over drawn candlestick charts, so §11's TradingView item stays future. |
+| Q79 | Errors on any trade | Owner request 2026-10-15: an error can be made on a trade that still made money (one real review already names one), so the error table is no longer losses only. The Playbook skill asks "What was the error?" on every closed trade and offers a skip, which writes "No error."; the ERRORS page lists every closed reviewed idea whose review names an error, win or loss, and leaves out no-error answers. A reviewed loss with nothing written still shows NOT WRITTEN (a reminder); a win with nothing written is not listed. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
