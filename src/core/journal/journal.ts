@@ -146,21 +146,23 @@ export interface ErrorRow {
   idea: Idea;
   /** The review the error comes from (the idea's latest review when none names one). */
   review: Review;
-  /** null: the review has no "## The Error" yet. */
+  /** null: a losing idea's review has no "## The Error" answer yet. */
   error: string | null;
 }
 
 /**
- * The error table (Q77, after Darvas): every closed idea with a net loss that has a
- * review, with the error its review names. Newest idea first.
+ * The error table (Q77, Q79, after Darvas): every closed, reviewed idea whose review
+ * names an error, win or loss. A reviewed loss with no answer yet is listed with a
+ * null error; a review that says "No error" is left out. Newest idea first.
  */
 export function errorTable(j: Journal): ErrorRow[] {
   const rows: ErrorRow[] = [];
   for (const [ideaId, rs] of j.reviews.byIdea) {
     const idea = j.ideaById.get(ideaId);
-    if (!idea || idea.status !== "closed" || idea.netPnl >= 0) continue;
+    if (!idea || idea.status !== "closed") continue;
     const named = [...rs].reverse().find((r) => r.header.error !== null);
-    rows.push({ idea, review: named ?? rs.at(-1)!, error: named?.header.error ?? null });
+    if (named) rows.push({ idea, review: named, error: named.header.error });
+    else if (idea.netPnl < 0 && !rs.some((r) => r.header.noError)) rows.push({ idea, review: rs.at(-1)!, error: null });
   }
   return rows.sort((a, b) => b.idea.date.localeCompare(a.idea.date) || a.idea.underlying.localeCompare(b.idea.underlying));
 }

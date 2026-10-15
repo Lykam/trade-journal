@@ -1,5 +1,5 @@
-// Errors (SPEC §6.7a, Q77): Darvas's table of errors. Every reviewed losing idea
-// with the error its review names, so the mistakes that repeat stand out.
+// Errors (SPEC §6.7a, Q77, Q79): Darvas's table of errors. Every reviewed idea whose
+// review names an error, win or loss, so the mistakes that repeat stand out.
 import { useMemo } from "react";
 import { errorTable, type Journal } from "../../core/journal/journal";
 import { money } from "../format";
@@ -13,16 +13,16 @@ export function ErrorsPage({ journal: j }: { journal: Journal }) {
   return (
     <main className="page">
       <header className="page-head">
-        <h1>ERRORS <span className="sub">/ {rows.length} REVIEWED LOSS{rows.length === 1 ? "" : "ES"}{rows.length ? ` · ${money(total)}` : ""}</span></h1>
+        <h1>ERRORS <span className="sub">/ {rows.length} TRADE{rows.length === 1 ? "" : "S"}{rows.length ? ` · ${money(total)}` : ""}</span></h1>
       </header>
       <div className="dim small">
-        Every losing trade's review, and the error that caused the loss. Read down the list for the ones that repeat.
-        {missing > 0 && <> {missing} still {missing === 1 ? "has" : "have"} no error written.</>}
+        Every reviewed trade with an error, whether it made or lost money. Read down the list for the ones that repeat.
+        {missing > 0 && <> {missing} losing trade{missing === 1 ? " still has" : "s still have"} no error written.</>}
       </div>
       <section className="panel">
         {rows.length === 0 ? (
           <div className="empty">
-            No reviewed losing trades yet. When a reviewed trade closes at a loss, <code>/playbook-review</code> asks “What was the error?” and the answer shows here.
+            No errors written yet. When a reviewed trade closes, <code>/playbook-review</code> asks “What was the error?” (skip it if there was none) and the answer shows here.
           </div>
         ) : (
           <div className="scroll-x">
@@ -38,7 +38,7 @@ export function ErrorsPage({ journal: j }: { journal: Journal }) {
                     <td className="muted ph-hide">{idea.style.toUpperCase()}</td>
                     <td className="num"><Pnl p={{ value: idea.netPnl, open: false }} b /></td>
                     <td className="error-text">
-                      {error ?? <span className="half" title="Add it under “## The Error” in the review">NOT WRITTEN</span>}
+                      {error ?? <span className="half" title="Add it under “## The Error” in the review, or write “No error.”">NOT WRITTEN</span>}
                     </td>
                   </tr>
                 ))}
