@@ -1,19 +1,20 @@
 // Trade detail (SPEC §6.4): header with Back / Previous / Next following the
 // current filter and sort, stats, executions, timeline, idea, review notes and
-// Playbook charts.
+// Playbook charts, with chart uploads (Q78).
 import { useEffect, useMemo, useState } from "react";
 import { buyFees, daysHeld, holdLabel } from "../../core/dashboard/dashboard";
 import { quoteStatus } from "../../core/gauge/gauge";
 import { tradeDate, type ViewState } from "../../core/journal/filter";
 import { groupPnl, reviewsOf, type Journal } from "../../core/journal/journal";
 import { neighbors, pageOf, tradeOrder, viewRows } from "../../core/journal/rows";
-import { chartsFor } from "../../core/reviews/images";
+import { chartLabel, chartsFor } from "../../core/reviews/images";
 import { cents, etDate } from "../../core/normalize/util";
 import { markToMarket } from "../../core/trades/stats";
 import type { DataBundle, Trade } from "../../core/types";
 import { StagedPreview, useStagedOverrides } from "../components/BulkBar";
 import { SymbolMapForm } from "../components/SymbolMap";
 import { viewHref } from "../components/FilterBar";
+import { ChartUpload } from "../components/ChartUpload";
 import { Lightbox, type LightboxImage } from "../components/Lightbox";
 import { Timeline } from "../components/OpenPositions";
 import { Pnl } from "../components/Pnl";
@@ -98,7 +99,7 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
           </section>
           <IdeaPanel journal={j} t={t} view={view} />
           {/* Charts sit beside the review instead of under it (#21). */}
-          <Charts data={data} journal={j} t={t} />
+          <Charts key={t.id} data={data} journal={j} t={t} />
         </div>
         <div className="col">
           <NotesPanel data={data} journal={j} t={t} />
@@ -320,28 +321,36 @@ function Charts({ data, journal: j, t }: { data: DataBundle; journal: Journal; t
   const idea = j.ideaById.get(t.ideaId);
   const trades = (idea?.tradeIds ?? [t.id]).map((id) => j.tradeById.get(id)).filter((x) => x !== undefined);
   const dates = new Set([...(idea ? [idea.date] : []), ...trades.flatMap((x) => [etDate(x.openedAt), ...(x.closedAt ? [etDate(x.closedAt)] : [])])]);
-  const charts = chartsFor(data.playbook?.images ?? [], dates, [t.underlying, ...(idea?.symbolsTraded ?? [t.symbol])]);
+  const symbols = [...new Set([t.underlying, ...(idea?.symbolsTraded ?? [t.symbol])])];
+  const charts = chartsFor(data.playbook?.images ?? [], dates, symbols);
   const srcs = useImageSrcs(charts.map((c) => c.path));
   const images: Array<LightboxImage & { kind: string; date: string }> = charts.flatMap((c) => {
     const src = srcs.get(c.path);
-    return src === null ? [] : [{ src: src ?? "", caption: `${c.name} · ${c.date}`, kind: c.kind, date: c.date }];
+    return src === null ? [] : [{ src: src ?? "", caption: `${c.name} · ${c.date}`, kind: chartLabel(c), date: c.date }];
   });
   const [open, setOpen] = useState<number | null>(null);
   return (
     <section className="panel" aria-label="Charts">
       <div className="panel-head"><h2>Charts · {images.length}</h2><span className="dim small">PLAYBOOK IMAGES/{[...dates].sort().join(", ")}</span></div>
       {images.length === 0 ? (
-        <div className="empty">No charts saved for this trade. Use <code>/chart-image</code> in Playbook.</div>
+        <div className="empty">No charts saved for this trade. Paste or upload one below.</div>
       ) : (
         <div className="gallery">
           {images.map((img, i) => (
             <button type="button" key={img.caption} className="thumb" disabled={!img.src} onClick={() => setOpen(i)} aria-label={`Open ${img.caption}`}>
               {img.src ? <img src={img.src} alt={img.caption} loading="lazy" /> : <span className="thumb-wait dim small">DECRYPTING…</span>}
-              <span className="small"><b>{img.kind.toUpperCase()}</b> <span className="muted">{img.date}</span></span>
+              <span className="small"><b>{img.kind}</b> <span className="muted">{img.date}</span></span>
             </button>
           ))}
         </div>
       )}
+      <ChartUpload
+        dates={[...dates].sort()}
+        defaultDate={idea?.date ?? etDate(t.openedAt)}
+        symbols={symbols}
+        defaultKind={t.style === "day" ? "5m" : "daily"}
+        existing={data.playbook?.images ?? []}
+      />
       <Lightbox images={images} index={open} onIndex={setOpen} />
     </section>
   );

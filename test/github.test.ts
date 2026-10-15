@@ -14,6 +14,7 @@ import { clearToken, loadToken, saveToken, tokenKey, TOKEN_STORAGE_KEY, type Key
 import { importFingerprint, importMessage, importWrites, planImport } from "../src/core/import/plan";
 import { MissingTradesError, planOverrideCommit, type StagedAction } from "../src/core/journal/overrides";
 import { applySymbolChanges, mappingError, planSymbolCommit } from "../src/core/symbols/mapping";
+import { canWrite, checkUpload, commitChart } from "../src/core/reviews/upload";
 import { FakeGitHub, TOKEN } from "./fake-github";
 import { FIXTURES, IMPORTED_AT, SCHWAB_A, SCHWAB_B, WEBULL_A, WEBULL_B } from "./helpers";
 
@@ -460,5 +461,51 @@ describe("symbol mappings (symbols.json from the app)", () => {
     expect(mappingError("tst u", twoX("TSTZ"))).toMatch(/Symbol/);
     expect(mappingError("TSTU", twoX("TSTZ"))).toBeNull();
     expect(applySymbolChanges({}, [{ symbol: "TSTU", info: { ...twoX("TSTZ"), issuer: "  " } }])).toEqual({ TSTU: twoX("TSTZ") });
+  });
+});
+
+describe("chart uploads to Playbook (Q78)", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 1, 2, 255]);
+  const up = { date: "2026-10-13", symbol: "TSTU", kind: "5m" as const, type: "image/png", bytes: PNG };
+  const playbook = () => new FakeGitHub({ "Template.md": "# T", "Images/2026-10-13/TSTU-intraday-5m.png": new Uint8Array([1]) });
+
+  it("commits the image bytes as one commit, next to a taken name", async () => {
+    const fake = playbook();
+    const before = fake.commitCount();
+    const out = await commitChart(new GitHubClient(TOKEN, fake.fetch), DATA, up);
+    expect(out.path).toBe("Images/2026-10-13/TSTU-intraday-5m-2.png");
+    expect(fake.files()[out.path]).toEqual(PNG);
+    expect(fake.files()["Images/2026-10-13/TSTU-intraday-5m.png"]).toEqual(new Uint8Array([1]));
+    expect(fake.commitCount()).toBe(before + 1);
+    expect(fake.commits.get(fake.head)!.message).toBe("Add TSTU 2026-10-13 5m chart (uploaded in the journal)");
+  });
+
+  it("re-reads and picks a fresh name when main moved, never overwriting", async () => {
+    let pushed = false;
+    const fake = new FakeGitHub({ "Template.md": "# T" }, {
+      beforePatch: (f) => {
+        if (!pushed) f.push({ "Images/2026-10-13/TSTU-intraday-5m.png": new Uint8Array([7]) }, "someone else's chart");
+        pushed = true;
+      },
+    });
+    const out = await commitChart(new GitHubClient(TOKEN, fake.fetch), DATA, up);
+    expect(out.path).toBe("Images/2026-10-13/TSTU-intraday-5m-2.png");
+    expect(fake.files()["Images/2026-10-13/TSTU-intraday-5m.png"]).toEqual(new Uint8Array([7]));
+  });
+
+  it("explains a token without Playbook access", async () => {
+    const hidden = new FakeGitHub({ "a.txt": "a" }, { read: false });
+    await expect(commitChart(new GitHubClient(TOKEN, hidden.fetch), DATA, up)).rejects.toThrow(/can't see .*Repository access/);
+    const readOnly = new FakeGitHub({ "a.txt": "a" }, { write: false });
+    await expect(commitChart(new GitHubClient(TOKEN, readOnly.fetch), DATA, up)).rejects.toThrow(/not write/);
+    expect(await canWrite(new GitHubClient(TOKEN, readOnly.fetch), DATA)).toBe(false);
+    expect(await canWrite(new GitHubClient(TOKEN, playbook().fetch), DATA)).toBe(true);
+  });
+
+  it("refuses non-images, empty and oversized files before any request", () => {
+    expect(() => checkUpload({ type: "image/svg+xml", bytes: PNG })).toThrow(/Not an image/);
+    expect(() => checkUpload({ type: "image/png", bytes: new Uint8Array() })).toThrow(/empty/);
+    expect(() => checkUpload({ type: "image/png", bytes: new Uint8Array(10 * 1024 * 1024 + 1) })).toThrow(/limit/);
+    expect(checkUpload({ type: "image/jpeg", bytes: PNG })).toBe("jpg");
   });
 });

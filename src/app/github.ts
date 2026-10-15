@@ -4,11 +4,14 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { checkActionsToken, checkToken, dispatchWorkflow, GitHubClient, parseRepo, type RepoId } from "../core/github/client";
 import { DEPLOY_POLL_MS, DEPLOY_TIMEOUT_MS, deployIncludes, type Awaited } from "../core/github/deploy";
+import { canWrite } from "../core/reviews/upload";
 import { clearToken, loadToken, saveToken, type KeyValueStore, type TokenRecord } from "../core/github/token-store";
 import { fetchNewBundle, secretKey } from "./vault";
 
 export const DEFAULT_DATA_REPO = "Lykam/trade-history";
 export const APP_REPO: RepoId = { owner: "Lykam", repo: "trade-journal" };
+/** Where Trade detail commits uploaded charts (Q78); notify-journal there redeploys the site. */
+export const PLAYBOOK_REPO: RepoId = { owner: "Lykam", repo: "Playbook" };
 export const ACTIONS_URL = `https://github.com/${APP_REPO.owner}/${APP_REPO.repo}/actions`;
 
 /** Tiny external store, so every component sees the same state. */
@@ -76,12 +79,14 @@ export async function saveCheckedToken(token: string, repoText: string, actionsT
   const a = actionsToken.trim();
   const check = await checkToken(new GitHubClient(t), t, repo, APP_REPO);
   if (a) await checkActionsToken(new GitHubClient(a), a, APP_REPO);
+  const playbook = await canWrite(new GitHubClient(t), PLAYBOOK_REPO);
   const record: TokenRecord = {
     token: t,
     repo: `${repo.owner}/${repo.repo}`,
     actions: Boolean(a) || check.actions,
     ...(a ? { actionsToken: a } : {}),
     mainReachesApp: check.actions,
+    playbook,
     expiresAt: check.expiresAt,
     checkedAt: new Date().toISOString(),
   };
