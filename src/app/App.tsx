@@ -8,6 +8,7 @@ import type { Broker, DataBundle } from "../core/types";
 import { appNow, useBundle, useRoute } from "./data";
 import { DOW, stamp } from "./format";
 import { lock } from "./vault";
+import { CalculatorPage } from "./pages/CalculatorPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DeployBanner } from "./components/DeployBanner";
 import { Dashboard } from "./pages/Dashboard";
@@ -30,6 +31,7 @@ const NAV = [
   { path: "/reports", label: "REPORTS" },
   { path: "/journal", label: "JOURNAL" },
   { path: "/errors", label: "ERRORS" },
+  { path: "/calc", label: "CALC" },
   { path: "/settings", label: "SETTINGS" },
 ];
 
@@ -75,11 +77,14 @@ export function App() {
 
   const pinned = new URLSearchParams(window.location.search).has("now");
 
-  // The encrypted site shows nothing but the passphrase screen until unlocked. (The demo never locks.)
-  if (load.status === "locked") return __TJ_DEMO__ ? null : <LockScreen notice={load.notice} unlock={load.unlock} />;
+  // The encrypted site shows nothing but the passphrase screen until unlocked (the demo never
+  // locks), except the calculator: it needs no trade data, so it stays reachable for quick
+  // access (e.g. a phone home-screen shortcut) without unlocking first.
+  if (load.status === "locked" && path !== "/calc") return __TJ_DEMO__ ? null : <LockScreen notice={load.notice} unlock={load.unlock} />;
 
   let page: React.ReactNode;
-  if (load.status === "loading") page = <div className="center-msg">LOADING…</div>;
+  if (path === "/calc") page = <CalculatorPage />;
+  else if (load.status === "loading") page = <div className="center-msg">LOADING…</div>;
   else if (load.status === "error")
     page = (
       <div className="center-msg">
@@ -87,18 +92,23 @@ export function App() {
         <pre>{load.message}</pre>
       </div>
     );
-  else if (path === "/") page = <Dashboard data={load.data} journal={journal!} now={now} />;
-  else if (path === "/open") page = <OpenPage data={load.data} now={now} />;
-  else if (path === "/trades") page = <TradesPage data={load.data} journal={journal!} view={view} />;
-  else if (path.startsWith("/trade/")) page = <TradeDetail key={path} data={load.data} journal={journal!} id={decodeURIComponent(path.slice(7))} view={view} now={now} />;
-  else if (path === "/cal") page = <CalendarPage journal={journal!} view={view} params={params} />;
-  else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
-  else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
-  else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
-  else if (path === "/reports") page = <ReportsPage journal={journal!} view={view} params={params} />;
-  else if (path === "/settings") page = <SettingsPage data={load.data} />;
-  else if (path === "/import") page = <ImportPage data={load.data} />;
-  else page = <Stub title="NOT FOUND" />;
+  else if (load.status === "locked") page = null; // unreachable here: excluded by the guard above except for /calc, handled already
+  else {
+    // `load.status` is narrowed to "ready" by the branches above, so `data` is always there.
+    const { data } = load;
+    if (path === "/") page = <Dashboard data={data} journal={journal!} now={now} />;
+    else if (path === "/open") page = <OpenPage data={data} now={now} />;
+    else if (path === "/trades") page = <TradesPage data={data} journal={journal!} view={view} />;
+    else if (path.startsWith("/trade/")) page = <TradeDetail key={path} data={data} journal={journal!} id={decodeURIComponent(path.slice(7))} view={view} now={now} />;
+    else if (path === "/cal") page = <CalendarPage journal={journal!} view={view} params={params} />;
+    else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
+    else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
+    else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
+    else if (path === "/reports") page = <ReportsPage journal={journal!} view={view} params={params} />;
+    else if (path === "/settings") page = <SettingsPage data={data} />;
+    else if (path === "/import") page = <ImportPage data={data} />;
+    else page = <Stub title="NOT FOUND" />;
+  }
 
   const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path;
   return (
