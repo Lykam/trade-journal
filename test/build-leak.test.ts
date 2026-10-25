@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { build } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bundleData } from "../build/bundle-data";
-import { checkDist, checkEncrypted, findLeaks, playbookNames } from "../build/check-dist";
+import { appSourceText, checkDist, checkEncrypted, findLeaks, playbookNames } from "../build/check-dist";
 import { encryptBundle, readKdfParams } from "../build/encrypt";
 import { checkDemoDist } from "../build/check-demo";
 import { REPO_ROOT } from "../cli/lib/history";
@@ -126,6 +126,18 @@ describe("vite build output", () => {
     writeFileSync(join(outDir, "planted.js"), `const s = "${CANARY}";`);
     expect(checkDist(outDir, new Set([CANARY]), (s) => logs.push(s))).toBe(1);
     expect(logs.join("\n")).not.toContain(CANARY);
+  });
+
+  it("skips a symbol that is also a word in bundled public library code (parse5's HTML tag names, Q65)", () => {
+    // TBODY is an HTML tag name in parse5, which the review renderer bundles; it stands in for a ticker that is also a tag name.
+    expect(appSourceText()).toMatch(/\bTBODY\b/);
+    const dir = join(tmp, "dist-vendor");
+    mkdirSync(join(dir, "assets"), { recursive: true });
+    writeFileSync(join(dir, "assets", "vendor.js"), `const t = { TBODY: "tbody" };`);
+    expect(checkDist(dir, new Set(["TBODY"]), () => {})).toBe(0);
+    // A ticker that is in no public code is still caught next to it.
+    writeFileSync(join(dir, "assets", "planted.js"), `const s = "${CANARY}";`);
+    expect(checkDist(dir, new Set(["TBODY", CANARY]), () => {})).toBe(1);
   });
 });
 

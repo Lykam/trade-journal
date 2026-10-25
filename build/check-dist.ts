@@ -26,12 +26,17 @@ function files(dir: string): string[] {
 }
 
 /**
- * All app source text (src/ and index.html), ticker-scanned before each commit.
- * The browser no longer bundles Ajv (its validators are precompiled, Q46), so
- * no vendor code is exempted any more (supersedes Q39).
+ * Public library code the app bundles whose words can look like tickers: parse5
+ * (rehype-raw's HTML parser) lists every HTML tag and entity name in capitals.
+ * Like the app source, it is public and holds no data (Q39, Q65). The browser no
+ * longer bundles Ajv (its validators are precompiled, Q46).
  */
+export const VENDOR_DIRS = ["node_modules/parse5/dist"];
+
+/** All app source text (src/ and index.html, ticker-scanned before each commit) plus the bundled vendor code above. */
 export function appSourceText(root = REPO_ROOT): string {
-  return [...files(join(root, "src")), join(root, "index.html")].map((f) => readFileSync(f, "utf8")).join("\n");
+  const vendor = VENDOR_DIRS.flatMap((d) => (existsSync(join(root, d)) ? files(join(root, d)).filter((f) => f.endsWith(".js")) : []));
+  return [...files(join(root, "src")), join(root, "index.html"), ...vendor].map((f) => readFileSync(f, "utf8")).join("\n");
 }
 
 /** Shannon entropy in bits per byte (8.0 for uniformly random bytes). */

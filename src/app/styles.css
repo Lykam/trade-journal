@@ -262,6 +262,10 @@ table.trades tr.sub td { padding-top: 5px; padding-bottom: 5px; }
 /* ---- trade detail */
 .tagrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .tagrow .chip + .chip { margin-left: 0; }
+/* Symbol → underlying form (Trade detail, Settings). */
+.symmap { display: flex; flex-direction: column; gap: 8px; flex-basis: 100%; padding: 6px 0; }
+.symmap .row { flex-wrap: wrap; align-items: flex-end; }
+.symmap .field { display: flex; flex-direction: column; gap: 4px; }
 .detail { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
 .detail .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
@@ -275,6 +279,14 @@ tr.current { background: var(--inset); }
 .thumb { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid var(--border); background: var(--inset); color: var(--text-2); cursor: zoom-in; text-align: left; font: inherit; }
 .thumb:hover { border-color: var(--accent); }
 .thumb img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; }
+.chart-upload { display: flex; flex-direction: column; gap: 8px; margin: 0 14px 12px; padding: 10px; border: 1px dashed var(--border-strong); }
+.chart-upload.drag { border-color: var(--accent); background: var(--inset); }
+.chart-upload .row { flex-wrap: wrap; }
+.upload-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.upload-preview { width: 220px; max-width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border: 1px solid var(--border); background: var(--inset); }
+.upload-fields { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1 1 220px; }
+.upload-fields .seg { align-self: flex-start; }
+.upload-fields code { overflow-wrap: anywhere; }
 .lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, 0.92); display: flex; flex-direction: column; }
 .lightbox .lb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; background: var(--bar); border-bottom: 1px solid var(--accent); }
 .lightbox img { flex: 1; min-height: 0; max-width: 100%; margin: auto; object-fit: contain; padding: 16px; }
@@ -301,6 +313,7 @@ tr.current { background: var(--inset); }
 /* ---- calendar */
 .cal { display: flex; flex-direction: column; }
 .cal-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)) minmax(0, 1.1fr); }
+.cal.weekdays .cal-row { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.1fr); }
 .cal-row.head > div { padding: 6px 8px; color: var(--dim); font-size: 11px; letter-spacing: 0.1em; border-bottom: 1px solid var(--border); }
 .cal-cell {
   min-height: 84px; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; color: var(--text);
@@ -313,11 +326,14 @@ a.cal-cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; color
 .cal-date { color: var(--muted); font-size: 11px; }
 .cal-pnl { font-weight: 700; font-size: 13px; }
 .cal-n { font-size: 11px; }
+.cal-split { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 10px; }
+.cal-split.head { font-size: 11px; gap: 0 14px; margin-left: 4px; }
 .compact { display: none; }
 .year { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 18px 22px; padding: 14px; }
 .ymonth { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .ylabel { display: flex; justify-content: space-between; color: var(--text); }
 .ygrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.ygrid.five { grid-template-columns: repeat(5, 1fr); }
 .ygrid > * { aspect-ratio: 1; }
 .ycell { background: var(--rule-faint); border: 1px solid var(--rule); }
 a.ycell[href]:hover { outline: 1px solid var(--accent); }
@@ -341,6 +357,10 @@ a.ycell[href]:hover { outline: 1px solid var(--accent); }
 .settings .body p { margin: 0; }
 .settings .check { padding: 4px 0; white-space: normal; }
 .settings .check:hover { background: none; }
+.settings .panel.wide { grid-column: 1 / -1; }
+.settings .symmap .row { column-gap: 20px; }
+.settings .symmap .field { min-width: max-content; }
+.settings .symmap .field .label { white-space: nowrap; }
 .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; overflow-wrap: anywhere; }
@@ -433,6 +453,8 @@ table.grid tr.sub td { border-top-color: var(--rule-faint); }
 .calc-shares { margin: 0 0 8px; font-size: 24px; font-weight: 700; color: var(--accent); }
 a.sym.big { font-size: 15px; }
 table.open-quick { min-width: 1040px; }
+.acct-line { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.acct-line .nw { white-space: nowrap; }
 table.open-table { min-width: 1180px; }
 table.open-table thead tr { border-bottom: 1px solid var(--border-strong); }
 table.open-table td.sym-cell { padding-top: 10px; }
@@ -467,7 +489,7 @@ td.review-cell { width: 18px; }
 }
 .donut-value { fill: var(--text); font: 700 15px var(--font); }
 .donut-legend { display: flex; flex-direction: column; gap: 4px; }
-.cal-cell.week.spans .cal-pnl, .cal-cell.week.spans .cal-n { opacity: 0.5; }
+.cal-full { font-size: 10px; margin-top: 2px; border-top: 1px dashed var(--border); padding-top: 2px; }
 /* Phone tables (#17): middle columns go, so SYMBOL and P&L always fit. */
 .ph-only { display: none; }
 @media (max-width: 640px) {
@@ -529,3 +551,4 @@ rect.bar-on { stroke: var(--accent); stroke-width: 1; vector-effect: non-scaling
 /* Settings (#23): the two JSON panels share a row across the page. */
 .json-pair { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
 .nav a.btn.active { background: var(--accent); color: var(--on-accent); }
+table.grid td.error-text { white-space: normal; min-width: 220px; width: 55%; color: var(--text-2); }

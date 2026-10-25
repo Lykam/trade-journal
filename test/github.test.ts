@@ -13,6 +13,8 @@ import {
 import { clearToken, loadToken, saveToken, tokenKey, TOKEN_STORAGE_KEY, type KeyValueStore, type TokenRecord } from "../src/core/github/token-store";
 import { importFingerprint, importMessage, importWrites, planImport } from "../src/core/import/plan";
 import { MissingTradesError, planOverrideCommit, type StagedAction } from "../src/core/journal/overrides";
+import { applySymbolChanges, mappingError, planSymbolCommit } from "../src/core/symbols/mapping";
+import { canWrite, checkUpload, commitChart } from "../src/core/reviews/upload";
 import { FakeGitHub, TOKEN } from "./fake-github";
 import { FIXTURES, IMPORTED_AT, SCHWAB_A, SCHWAB_B, WEBULL_A, WEBULL_B } from "./helpers";
 
@@ -399,5 +401,111 @@ describe("Import page file order", () => {
       const sym = (rels: string[]) => planImport(inputs(rels), remote.snap, { importedAt: IMPORTED_AT }).result.fills.map((f) => f.symbol);
       expect(sym([WEBULL_A, WEBULL_B])).not.toEqual(sym([WEBULL_B, WEBULL_A]));
     });
+  });
+});
+
+describe("symbol mappings (symbols.json from the app)", () => {
+  const twoX = (underlying: string, leverage = 2) => ({ underlying, type: "leveraged_etf" as const, leverage, direction: "long" as const });
+
+  it("maps a symbol to its underlying and regenerates the trades in one commit", async () => {
+    const { fake, gh } = await seededRepo();
+    const remote = await readHistory(gh, DATA, validate);
+    const before = remote.snap.derived!.trades.filter((t) => t.symbol === "TSTU");
+    expect(before.length).toBeGreaterThan(0);
+    expect(before.every((t) => t.underlying === "TSTU" && t.instrument === "stock")).toBe(true);
+
+    const plan = planSymbolCommit(remote.snap, [{ symbol: "TSTU", info: twoX("TSTZ") }], { generator: generatorVersion() }, validate);
+    expect(plan.changes).toEqual({ TSTU: twoX("TSTZ") });
+    expect(plan.preview.trades).toBe(before.length);
+    expect(plan.message).toBe("Map symbols: TSTU → TSTZ 2x long");
+    // Existing mappings keep their place; the new one goes at the end, as the importer writes it.
+    expect(Object.keys(plan.symbols)).toEqual([...Object.keys(remote.snap.symbols), "TSTU"]);
+
+    const res = await commitFiles(gh, remote.state, plan.files, plan.message);
+    expect(res!.paths.sort()).toEqual(["derived/trades.json", "symbols.json"]);
+    const derived = JSON.parse(fake.text("derived/trades.json")!);
+    const after = derived.trades.filter((t: { symbol: string }) => t.symbol === "TSTU");
+    expect(after.every((t: { underlying: string; instrument: string; leverage: number }) => t.underlying === "TSTZ" && t.instrument === "leveraged_etf" && t.leverage === 2)).toBe(true);
+    // P&L stays on the symbol actually traded.
+    expect(after.map((t: { netPnl: number }) => t.netPnl)).toEqual(before.map((t) => t.netPnl));
+  });
+
+  it("changes and removes an existing mapping", async () => {
+    const { gh } = await seededRepo();
+    const remote = await readHistory(gh, DATA, validate);
+    const ctx = { generator: generatorVersion() };
+    const edited = planSymbolCommit(remote.snap, [{ symbol: "FAKU", info: { ...remote.snap.symbols.FAKU!, leverage: 3 } }], ctx, validate);
+    expect(Object.keys(edited.changes)).toEqual(["FAKU"]);
+    expect(edited.derived.trades.filter((t) => t.symbol === "FAKU").every((t) => t.leverage === 3)).toBe(true);
+
+    const removed = planSymbolCommit(remote.snap, [{ symbol: "FAKU", info: null }], ctx, validate);
+    expect(removed.changes).toEqual({ FAKU: null });
+    expect(removed.message).toBe("Map symbols: FAKU unmapped");
+    const faku = removed.derived.trades.filter((t) => t.symbol === "FAKU");
+    expect(faku.length).toBeGreaterThan(0);
+    expect(faku.every((t) => t.underlying === "FAKU" && t.instrument === "stock")).toBe(true);
+  });
+
+  it("finds nothing to commit when trade-history already has the mapping", async () => {
+    const { gh } = await seededRepo();
+    const remote = await readHistory(gh, DATA, validate);
+    const plan = planSymbolCommit(remote.snap, [{ symbol: "FAKU", info: remote.snap.symbols.FAKU! }], { generator: generatorVersion() }, validate);
+    expect(plan.changes).toEqual({});
+    expect(await commitFiles(gh, remote.state, plan.files, plan.message)).toBeNull();
+  });
+
+  it("refuses a mapping that can't be right", () => {
+    expect(mappingError("TSTU", twoX("TSTU"))).toMatch(/different ticker/);
+    expect(mappingError("TSTU", twoX(""))).toMatch(/Underlying/);
+    expect(mappingError("TSTU", twoX("TSTZ", 0))).toMatch(/Leverage/);
+    expect(mappingError("tst u", twoX("TSTZ"))).toMatch(/Symbol/);
+    expect(mappingError("TSTU", twoX("TSTZ"))).toBeNull();
+    expect(applySymbolChanges({}, [{ symbol: "TSTU", info: { ...twoX("TSTZ"), issuer: "  " } }])).toEqual({ TSTU: twoX("TSTZ") });
+  });
+});
+
+describe("chart uploads to Playbook (Q78)", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 1, 2, 255]);
+  const up = { date: "2026-10-13", symbol: "TSTU", kind: "5m" as const, type: "image/png", bytes: PNG };
+  const playbook = () => new FakeGitHub({ "Template.md": "# T", "Images/2026-10-13/TSTU-intraday-5m.png": new Uint8Array([1]) });
+
+  it("commits the image bytes as one commit, next to a taken name", async () => {
+    const fake = playbook();
+    const before = fake.commitCount();
+    const out = await commitChart(new GitHubClient(TOKEN, fake.fetch), DATA, up);
+    expect(out.path).toBe("Images/2026-10-13/TSTU-intraday-5m-2.png");
+    expect(fake.files()[out.path]).toEqual(PNG);
+    expect(fake.files()["Images/2026-10-13/TSTU-intraday-5m.png"]).toEqual(new Uint8Array([1]));
+    expect(fake.commitCount()).toBe(before + 1);
+    expect(fake.commits.get(fake.head)!.message).toBe("Add TSTU 2026-10-13 5m chart (uploaded in the journal)");
+  });
+
+  it("re-reads and picks a fresh name when main moved, never overwriting", async () => {
+    let pushed = false;
+    const fake = new FakeGitHub({ "Template.md": "# T" }, {
+      beforePatch: (f) => {
+        if (!pushed) f.push({ "Images/2026-10-13/TSTU-intraday-5m.png": new Uint8Array([7]) }, "someone else's chart");
+        pushed = true;
+      },
+    });
+    const out = await commitChart(new GitHubClient(TOKEN, fake.fetch), DATA, up);
+    expect(out.path).toBe("Images/2026-10-13/TSTU-intraday-5m-2.png");
+    expect(fake.files()["Images/2026-10-13/TSTU-intraday-5m.png"]).toEqual(new Uint8Array([7]));
+  });
+
+  it("explains a token without Playbook access", async () => {
+    const hidden = new FakeGitHub({ "a.txt": "a" }, { read: false });
+    await expect(commitChart(new GitHubClient(TOKEN, hidden.fetch), DATA, up)).rejects.toThrow(/can't see .*Repository access/);
+    const readOnly = new FakeGitHub({ "a.txt": "a" }, { write: false });
+    await expect(commitChart(new GitHubClient(TOKEN, readOnly.fetch), DATA, up)).rejects.toThrow(/not write/);
+    expect(await canWrite(new GitHubClient(TOKEN, readOnly.fetch), DATA)).toBe(false);
+    expect(await canWrite(new GitHubClient(TOKEN, playbook().fetch), DATA)).toBe(true);
+  });
+
+  it("refuses non-images, empty and oversized files before any request", () => {
+    expect(() => checkUpload({ type: "image/svg+xml", bytes: PNG })).toThrow(/Not an image/);
+    expect(() => checkUpload({ type: "image/png", bytes: new Uint8Array() })).toThrow(/empty/);
+    expect(() => checkUpload({ type: "image/png", bytes: new Uint8Array(10 * 1024 * 1024 + 1) })).toThrow(/limit/);
+    expect(checkUpload({ type: "image/jpeg", bytes: PNG })).toBe("jpg");
   });
 });

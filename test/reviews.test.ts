@@ -2,9 +2,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { chartsFor, parseChartPath, resolvePlaybookPath } from "../src/core/reviews/images";
+import { chartLabel, chartsFor, parseChartPath, resolvePlaybookPath, uploadPath } from "../src/core/reviews/images";
 import { joinReviews, readReviews } from "../src/core/reviews/join";
-import { categoryLabel, parseReviewHeader, parseReviewName } from "../src/core/reviews/parse-header";
+import { categoryLabel, errorText, parseReviewHeader, parseReviewName } from "../src/core/reviews/parse-header";
 import type { DerivedTrades, Idea, ReviewFile, Trade } from "../src/core/types";
 import { closed, open } from "./factory";
 import { FIXTURES, symbols } from "./helpers";
@@ -22,7 +22,7 @@ describe("parseReviewHeader", () => {
       header(["**Date:** 2025-04-01", "**Ticker:** zzab", "**P&L:** +$85", "**Trade Type:** DAY TRADE", "**Status:** CLOSED"]),
     );
     expect(h).toEqual({
-      date: "2025-04-01", ticker: "ZZAB", pnl: "+$85", tradeType: "day", status: "closed", ideaId: null, category: "Breaking news",
+      date: "2025-04-01", ticker: "ZZAB", pnl: "+$85", tradeType: "day", status: "closed", ideaId: null, category: "Breaking news", error: null, noError: false,
     });
   });
 
@@ -53,6 +53,30 @@ describe("parseReviewHeader", () => {
     expect(byName["Reviews/2025-03-13-FAKU.md"]).toMatchObject({ ticker: "FAKU", tradeType: "swing", status: "closed", category: "Swing trade" });
     expect(byName["Reviews/2025-03-12-HOLD.md"]!.ideaId).toBe("wb-f1716d322462");
     expect(byName["Reviews/2025-03-14-SDAY.md"]).toMatchObject({ status: "open", pnl: null });
+  });
+});
+
+describe("the error section (Q77)", () => {
+  const withError = (body: string) => `${header(["**Date:** 2025-04-01"])}\n## The Error\n\n${body}\n\n## How I Should Have Traded It\n\nLater.\n`;
+
+  it("reads it as one line", () => {
+    expect(parseReviewHeader(withError("Chased it\nafter the breakout.")).error).toBe("Chased it after the breakout.");
+  });
+
+  it("is null when missing, empty, a comment or not applicable", () => {
+    expect(parseReviewHeader(header(["**Date:** 2025-04-01"])).error).toBeNull();
+    expect(parseReviewHeader(withError("<!-- What was the error? -->")).error).toBeNull();
+    expect(parseReviewHeader(withError("Not applicable — the trade made money.")).error).toBeNull();
+    expect(errorText("{{ERROR}}")).toBeNull();
+  });
+
+  it("tells a no-error answer from an unanswered section (Q79)", () => {
+    for (const body of ["No error.", "None", "n/a", "Not applicable — the trade made money."]) {
+      expect(parseReviewHeader(withError(body))).toMatchObject({ error: null, noError: true });
+    }
+    expect(parseReviewHeader(withError("<!-- What was the error? -->")).noError).toBe(false);
+    expect(parseReviewHeader(header(["**Date:** 2025-04-01"])).noError).toBe(false);
+    expect(parseReviewHeader(withError("Nonexistent stop.")).error).toBe("Nonexistent stop.");
   });
 });
 
@@ -199,6 +223,40 @@ describe("chart images", () => {
 
 // Golden join result for the fixture reviews. Playbook's skill scripts mirror this
 // join in Python (trade_ideas.py) and check themselves against this file.
+describe("chart uploads (Q78)", () => {
+  it("names uploads like the chart-image skill, with 1m / 5m as intraday charts", () => {
+    expect(uploadPath([], "2026-10-13", "tstu", "5m", "png")).toBe("Images/2026-10-13/TSTU-intraday-5m.png");
+    expect(uploadPath([], "2026-10-13", "TSTU", "1m", "jpg")).toBe("Images/2026-10-13/TSTU-intraday-1m.jpg");
+    expect(uploadPath([], "2026-10-13", "TSTU", "daily", "png")).toBe("Images/2026-10-13/TSTU-daily.png");
+    // Every upload still parses as a chart the gallery shows.
+    for (const k of ["1m", "5m", "daily"] as const) expect(parseChartPath(uploadPath([], "2026-10-13", "TSTU", k, "png"))).not.toBeNull();
+  });
+
+  it("never overwrites: a taken name (any format, any case) gets -2, -3, …", () => {
+    const existing = ["Images/2026-10-13/TSTU-daily.png", "Images/2026-10-13/tstu-daily-2.jpg", "Images/2026-10-12/TSTU-daily-3.png", "Reviews/TSTU-daily-3.png"];
+    expect(uploadPath(existing, "2026-10-13", "TSTU", "daily", "png")).toBe("Images/2026-10-13/TSTU-daily-3.png");
+    expect(uploadPath(existing, "2026-10-13", "TSTU", "5m", "png")).toBe("Images/2026-10-13/TSTU-intraday-5m.png");
+    // TSTU-daily-after is another kind, not a taken daily name.
+    expect(uploadPath(["Images/2026-10-13/TSTU-daily-after.png"], "2026-10-13", "TSTU", "daily", "png")).toBe("Images/2026-10-13/TSTU-daily.png");
+  });
+
+  it("rejects bad dates, symbols and types", () => {
+    expect(() => uploadPath([], "10/13/2026", "TSTU", "daily", "png")).toThrow(/date/);
+    expect(() => uploadPath([], "2026-10-13", "../x", "daily", "png")).toThrow(/symbol/);
+    expect(() => uploadPath([], "2026-10-13", "TSTU", "daily", "svg")).toThrow(/type/);
+  });
+
+  it("labels gallery charts by timeframe", () => {
+    const label = (p: string) => chartLabel(parseChartPath(p)!);
+    expect(label("Images/2026-10-13/TSTU-intraday-5m.png")).toBe("5M");
+    expect(label("Images/2026-10-13/TSTU-intraday-1m-2.png")).toBe("1M");
+    expect(label("Images/2026-10-13/TSTU-intraday.png")).toBe("INTRADAY");
+    expect(label("Images/2026-10-13/TSTU-daily-2.png")).toBe("DAILY");
+    expect(label("Images/2026-10-13/TSTU-daily-after.png")).toBe("DAILY AFTER");
+    expect(label("Images/2026-10-13/TSTU-intraday-after-2.png")).toBe("INTRADAY AFTER");
+  });
+});
+
 describe("review join golden", () => {
   it("matches test/fixtures/expected/review-join.json", async () => {
     const j = joinReviews(readReviews(fixtureReviews(), symbols), expected);

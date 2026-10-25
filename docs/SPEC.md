@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.13)
+# Trade Journal — Spec (v0.23)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -18,7 +18,7 @@ hosts the site on GitHub Pages, with all data encrypted.
    (or a CLI) import it from `~/Downloads`. Both paths must produce identical
    results.
 3. **Weekly temperature gauges**, one for day trades and one for swing trades.
-   Each compares this week's win rate with your rolling 90-day win rate and
+   Each compares this week's win rate with your all-time win rate for that style and
    tells you whether to trade at **full, ½, or ¼ size**. The swing gauge also
    counts open positions at their current price.
 4. **A journal like Tradervue:** a trade list, trade detail, P&L calendar,
@@ -32,7 +32,7 @@ hosts the site on GitHub Pages, with all data encrypted.
 
 - Options, short selling, futures and crypto. Only long stocks and ETFs; the
   schema should not rule these out later.
-- TradingView / candlestick charts and MFE/MAE (see §11). Charts come from Playbook images.
+- TradingView / candlestick charts and MFE/MAE (see §11). Charts come from Playbook images, saved by the skill or uploaded on Trade detail (Q78).
 - Multiple users, real-time broker API sync, and editing reviews in the app.
   Reviews are still written with the `playbook-review` skill.
 
@@ -239,11 +239,19 @@ grouping can ignore it and read `fills/`.
   "webullAccount": "webull",
   "styleByAccount": { "schwab-main": "swing", "webull": "day" },  // intent default; override per trade
   "gauge": {
-    "baselineDays": 90,
-    "excludeCurrentWeekFromBaseline": true,
+    "baselineDays": null,  // null = all time (Q74); a number = that many days
+    "excludeCurrentWeekFromBaseline": false,  // true = the 90 days before this week (Q73)
     "minSample": { "day": 5, "swing": 3 },
     "bands": { "halfSizeBelowPts": 0, "quarterSizeBelowPts": 10 },
     "swingIncludesOpenPositions": true
+  },
+  "balances": {                                  // optional; edited in Settings → Account value (Q68)
+    "schwab-main": {
+      "start": { "date": "2026-06-22", "amount": 500 },  // cash that day, before its trades
+      "checkpoints": [                             // actual values from the broker, at a close
+        { "date": "2026-10-06", "value": 503.10, "marks": { "NVQU": 29.5 } }
+      ]
+    }
   }
 }
 ```
@@ -278,6 +286,15 @@ that it was an ETF trade.
   name (e.g. "DEMO DAILY MZRT BULL2X SHARES" → MZRT, 2x, long). The answer
   is written to `symbols.json` in the same commit. Symbols that are never
   answered stay unmapped and are listed under "Needs attention".
+- **Mapping from the app (Q66):** an ETF whose broker name doesn't look like
+  one is never offered at import. Trade detail (**SET UNDERLYING +**, or
+  **UNDERLYING … · EDIT** once mapped) and Settings → **Symbol mappings**
+  (EDIT, ADD MAPPING +) set, change or remove a mapping. COMMIT reads
+  trade-history fresh, previews the trades whose underlying changes and the
+  ideas that regroup, and writes `symbols.json` plus a regenerated
+  `derived/trades.json` in one commit (the Q40 flow). Existing keys keep their
+  order and new ones are appended, as the importer writes them; a mapping
+  trade-history already has commits nothing.
 
 ### 3.5 `derived/trades.json`: trades and ideas
 
@@ -660,10 +677,13 @@ MZRT +$10 (W). The window is 3W / 2L = 60%.
 
 ### 5.3 Baseline and sizing state
 
-- **Baseline:** win rate of that style's **closed** trades in the 90 days
-  *before* the current week. Open positions never enter the baseline. If the
-  baseline has fewer than 20 trades, a "low-confidence baseline" note is
-  shown.
+- **Baseline:** win rate of **all** that style's **closed** trades through
+  today, this week's included (Q74: `baselineDays: null`). A number instead
+  limits it to that many days back (Q73 used a rolling 90), and
+  `excludeCurrentWeekFromBaseline: true` ends it before the current week
+  instead of today (the original rule, Q13). Open positions never enter the
+  baseline. If the baseline has fewer than 20 trades, a "low-confidence
+  baseline" note is shown.
 - Let `Δ = windowWinRate − baselineWinRate` (percentage points):
 
 | State | Condition | Example, baseline 60% | Message |
@@ -789,10 +809,13 @@ candlestick charts in v1 (see §11).
   - **Green `#22c55e` gains / red `#ef4444` losses.** Yellow `#facc15` is used
     only for the "½ size" state.
   - **Top navigation bar** instead of a sidebar: DASH · OPEN · CAL · TRADES ·
-    REPORTS · JOURNAL · SETTINGS, with IMPORT and LOCK on the right. Beside
+    REPORTS · JOURNAL · ERRORS · SETTINGS, with IMPORT and LOCK on the right. Beside
     them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
     SCHWAB 10-02`, the last import per broker turning amber with `!` when it
-    is older than the latest closed session (Q55). At phone width it is one
+    is older than the latest closed session (Q55). Webull counts an import at
+    any time on the session's date, since its day trades are mostly premarket:
+    it turns amber only once a session has closed with no Webull import that
+    day (Q71). At phone width it is one
     line that scrolls sideways, IMPORT included, with the active tab kept in
     view (Q57).
   - All colors are CSS variables, so a light theme or different palette can be
@@ -825,8 +848,15 @@ candlestick charts in v1 (see §11).
   review=yes&range=lastweek|from=…&to=…|date=…&flag=overnight&pnl=gross&
   count=idea&sort=-pnl&page=2`. Defaults are left out. Trade detail and review
   pages carry the same query, so Back / Previous / Next follow it.
-- **Trade date** for the date filter, the calendar and the week strip is the
+- **Trade date** for the date filter and the Trades date column is the
   ET close date, or the open date while a trade is open (Q26).
+- **Booked date:** the calendar and the week strip count P&L on the day it
+  was booked instead: each trim on its own day and the rest on the close, so
+  a trim on a still-open swing shows the day it was taken (Q67). Their links
+  add `booked=1` to the date, which lists the trades with a trim or close in
+  the range (open ones included), shown as a `BOOKED` chip in the filter bar.
+  The list then values each trade at what it booked in the range (an open
+  trade's trims read `+4.46 TRIM`) and totals that, so it matches the day.
 
 ### 6.1 Dashboard
 
@@ -841,10 +871,11 @@ the top, above everything else, in the same order at phone width.
 1a. **Needs attention** (Q55): one line under the gauges, `! NEEDS ATTENTION
    3 ITEMS ›`, that opens into the list; hidden when nothing needs
    attention. It lists unmatched fills, unpriced open positions, stale prices
-   (with their stamp), day trades held overnight, today's unreviewed trades
+   (with their stamp), day trades held overnight, today's unreviewed **swing** trades
    (`2 unreviewed trades today REVIEW ›`, the Trades view
-   `range=today&review=no`), and the review checks: OPEN swing reviews whose
-   idea has closed (`NVQX idea from 08-25 closed 09-23: write the exit`),
+   `style=swing&range=today&review=no`; day-trade reviews are optional, Q70), and the review checks: OPEN swing reviews whose
+   idea has closed (`NVQX idea from 08-25 closed 09-23: write the exit`,
+   with a **Copy command** button for the review launch command, Q72),
    reviews that match no idea, and ideas with more than one review. Unmapped
    ETFs need the broker's name column, which fills don't store, so they
    surface in the import preview.
@@ -853,12 +884,16 @@ the top, above everything else, in the same order at phone width.
    - **Header totals:** count, **Unrealized**, **Realized** (trims, less buy fees; Q54),
      **Total open P&L**, and an **ALL OPEN ›** link to the Open Positions
      page (§6.1a). The price stamp is in the top bar.
+   - **Account line** (Q68), once an account has a balance: its **value**
+     and **cash** (with cash's share), `N AT COST` when a position has no
+     price, and EDIT › to Settings.
    - **One row per position:**
      - Symbol (with the `2x→UNDERLYING` badge for ETFs, `−2x→` for inverse)
        and style.
      - **Opened** date (plus days held) and **Trims** (date, −qty, @price for
        each partial sell).
      - Shares now / max held, avg cost, last price.
+     - **% ACCT:** the position's share of its account's value (Q68).
      - **Unrealized $** and %, **Realized $**, and **Total $**.
    - An empty state reads "No open positions" (one line, no table).
 3. **Recent 10, Day | Swing:** two columns side by side, stacked at phone
@@ -877,9 +912,10 @@ the top, above everything else, in the same order at phone width.
      30/60/90 range.
 4. **Week strip:** day cards for the gauge week (`weekStartsOn`, Mon–Sun by
    default, Q19), all styles (labeled). Saturday and Sunday get a card only
-   when something closed on them. Each shows the date, net P&L (colored) and
-   the number of trades. A 📄 icon appears if any review exists for that day.
-   Clicking a card opens the Trades page filtered to that day. Arrows step to
+   when something was booked on them. Each shows the date, the net P&L booked
+   that day, trims included (colored, Q67), and the number of trades that
+   booked it. A 📄 icon appears if any review exists for that day.
+   Clicking a card opens the Trades page with the trades booked that day. Arrows step to
    previous weeks. At phone width the cards show the weekday only.
 5. **Range selector:** **30 / 60 / 90 days** (top right), plus **ALL / DAY /
    SWING** (Q55), both remembered per browser. They drive every widget below.
@@ -915,6 +951,8 @@ dashboard quick view has, plus:
   values sort last.
 - **Last price:** a stale quote shows its own stamp on the row
   (`9.80 * 10-01 14:00`).
+- **Account line** and a sortable **% OF ACCT** column (with a total) once
+  an account has a balance (Q68).
 - **Per position,** extra columns: **Market value** and **Unrealized %**,
   plus a **timeline** of every event, shown only when the position has adds
   or trims (and not at phone width):
@@ -937,13 +975,25 @@ dashboard quick view has, plus:
 
 ### 6.2 Calendar
 
-- A month grid. Each day cell shows net P&L (green or red background tint),
-  the number of trades, and 📄 if a review exists. A weekly total column sits
-  on the right; a week that reaches into another month is dimmed and says
-  so (`WK · INCL. SEP`), since its total includes those days. At phone width
-  amounts are whole dollars (`+16`, `−43`) and the weekend columns are
-  narrower.
-- Clicking a day opens the Trades page filtered to that date. Today's cell
+- A month grid. Each day cell shows the P&L booked that day (green or red
+  background tint): each trim on the day it was taken and the rest of a
+  trade on its close, so a trade's days add up to its P&L (Q67). It also
+  shows the number of trades that booked P&L that day, and 📄 if a review
+  exists. A weekly total column sits on the right. It counts only that
+  month's days of the week (Q75); when the week also has trades in the next
+  or previous month, the whole week's total shows underneath
+  (`FULL WK +12.40 · 7`).
+- **Day / swing split** (Q76): when both styles traded in the month, the
+  month header adds `DAY −42.85 · 15  SWING +154.67 · 3`, and each day and
+  week cell adds a small line under its total (`D −11.60 · 1  S +39.98 · 1`,
+  styles with nothing booked left out). Desktop only in the cells; phones
+  keep the header line. At phone width
+  amounts are whole dollars (`+16`, `−43`).
+- **Weekdays only** (Q69): the month grid and the year heatmap show Mon–Fri.
+  If a weekend day in view has trades, that month (or year) shows all seven
+  days again, in the `weekStartsOn` order, so nothing is ever hidden.
+- Clicking a day opens the Trades page with the trades booked that day
+  (`booked=1`, Q67). Today's cell
   has an amber outline. Arrows step between months, and a **year view**
   shows a 12-month heatmap with weekday letters above each month and a
   one-line color legend.
@@ -1006,7 +1056,8 @@ other than date they read **‹ Prev / Next ›**.
   - If there is no review, the panel shows a short **quick note**, editable
     and saved to `overrides.json` (one or two lines, like Tradervue's notes
     field). The edit is staged, previewed, then committed (Q32, §4.5A). It also has a **Start review** button that copies
-    `/playbook-review <TICKER> <DATE>` to the clipboard to paste into Claude.
+    `cd ~/GitProjects/Playbook; claude "/playbook-review <TICKER> <IDEA DATE>"`
+    to the clipboard to paste into a terminal (Q72).
     This replaces Tradervue's "Insert template".
 - **Keys:** `j` / `k` step to the next / previous trade in the list (not
   while typing). A 📄 beside the header links to the review.
@@ -1014,8 +1065,19 @@ other than date they read **‹ Prev / Next ›**.
   timeline and idea, beside the review): a gallery of
   `Images/<date>/<UNDERLYING>-daily*` and `-intraday*` (also matching the
   traded ETF symbol). Thumbnails open a full-size lightbox. If there are no
-  images, it shows "No charts saved for this trade. Use `/chart-image` in
-  Playbook."
+  images, it shows "No charts saved for this trade. Paste or upload one below."
+- **Add chart (Q78),** under the gallery: paste a screenshot (Ctrl+V anywhere
+  on the page), drop an image, or choose a file (PNG, JPEG, GIF, WebP or BMP,
+  up to 10 MB). Pick **1M / 5M / DAILY** (default 5M for day trades, DAILY for
+  swing), the date (the idea date or any open / close date of the idea's
+  trades) and, when the idea traded more than one symbol, the symbol. The
+  file name is shown before the commit:
+  `Images/<DATE>/<SYMBOL>-intraday-1m|intraday-5m|daily.<ext>`, with -2, -3, …
+  when the name is taken. **COMMIT TO PLAYBOOK** writes one commit to
+  Playbook's main with the browser token (which then needs Contents: read and
+  write on Playbook too; Settings shows "Chart uploads"), and Playbook's
+  notify-journal redeploys the site. The demo build shows the panel with
+  COMMIT disabled.
 
 ### 6.5 Reports
 
@@ -1132,7 +1194,31 @@ other than date they read **‹ Prev / Next ›**.
   shows the linked idea's trades and P&L (`DAY · 10-01 → 10-01 · CLOSED`, how
   it was linked on hover), with links to each trade.
 - Read-only. Reviews are written in Playbook with the `playbook-review`
-  skill.
+  skill. An OPEN review whose idea has closed shows an **Exit missing** panel
+  with a **Finish review** button that copies the launch command (Q72).
+
+### 6.7a Errors (Q77, Q79)
+
+Darvas's table of errors: after each trade, write down the error made on it,
+win or lose, then read the list for the mistakes that repeat.
+
+- In Playbook, every closed review has a `## The Error` section (after How
+  It Resolved): the skill asks "What was the error? (or skip if there wasn't
+  one)" on every closed trade, win or loss, and writes the short answer as
+  given. A skip writes "No error."
+- The **ERRORS** page lists every **closed, reviewed idea whose review names
+  an error**, whatever its P&L, newest idea first: date, ticker, type, net
+  P&L and the error. The title shows the count and the rows' net P&L. A
+  review that says there was no error is not listed. A reviewed **loss** with
+  nothing written yet is still listed as **NOT WRITTEN**, so it gets
+  answered; a win with nothing written is not. Each row opens the review. No
+  filter bar.
+- The error is read from the section as one line (comments stripped). Empty
+  or a placeholder counts as not written; "No error", "None", "N/A" or "Not
+  applicable…" (older reviews' wording for wins) counts as no error. With
+  several reviews on one idea, the latest that names an error is used.
+- Unreviewed trades are not listed: swing reviews are required (Q70), day
+  reviews optional.
 
 ### 6.8 Import
 
@@ -1156,10 +1242,16 @@ top bar.
   pre-filled (`?name=…&target_name=Lykam&expires_in=90&contents=write`);
   repository access can't be pre-filled and is picked by hand.
 - **Gauge rules** in plain words, from `config.json` ("Average = your win %
-  over the last 90 days, this week excluded. Half size below your average;
+  over all your closed trades of that style. Half size below your average;
   quarter size 10+ points below it…", Q64).
-- A read-only view of `config.json` and `symbols.json` side by side, with
-  links to edit them on GitHub.
+- **Account value** (Q68): per account, the starting balance, the value and
+  cash now, and the latest actual value with its correction. SET START /
+  EDIT START (date and amount), ENTER ACTUAL VALUE (a close date, the
+  broker's total, and the price of each symbol held at that close,
+  pre-filled from the latest quotes for today), and a list of actual values
+  with REMOVE. Each commits `config.json` through the usual preview (Q40).
+- A read-only view of `config.json` with a link to edit it on GitHub, and a
+  **Symbol mappings** table for `symbols.json`, editable in the app (§3.4, Q66).
 
 ### 6.10 Not in v1 (compared with Tradervue)
 
@@ -1252,6 +1344,7 @@ trade-journal/
     core/trades/       grouping.ts, stats.ts
     core/gauge/        gauge.ts
     core/dashboard/    dashboard.ts (open positions, recent 10, week strip, range widgets)
+    core/account/      value.ts (cash, account value, % of account, checkpoints), commit.ts (config.json balances)
     core/calendar.ts   ET dates, weeks, trading sessions
     core/quotes.ts     quotes.json merge rules
     core/crypto.ts     encrypted file format + WebCrypto decrypt (shared with build/encrypt.ts)
@@ -1462,7 +1555,7 @@ the commit leaves the private repo.
 | Q23 | Gauge "now" | Gauges are computed as of `now`: later closes are ignored and open positions are rebuilt from their events, so past weeks (sparkline, tests, `?now=`) are reproducible. Historical marks use whatever quotes are passed in. (2026-10-04, milestone 2) |
 | Q24 | Dev data and leak guard | Dev data comes from a serve-only Vite plugin behind `import.meta.env.DEV`; a build test plants a canary symbol and checks `dist/`. `check-dist` skips symbols that are also words in the public source. (2026-10-04, milestone 2) |
 | Q25 | Swing mark basis | Open swing positions are marked on the **current average cost** (`avgCost`) plus realized P&L from trims, the same numbers as the Open Positions page, rather than `avgEntry`. (2026-10-04, milestone 2) |
-| Q26 | Trade date | A trade belongs to its **ET close date** (the open date while open) for the Trades date column and date filter, the calendar and the week strip, so a day card and the trades it links to always agree. The calendar sums scored trades only (closed, matched, not excluded). (2026-10-04, milestone 3) |
+| Q26 | Trade date | A trade belongs to its **ET close date** (the open date while open) for the Trades date column and date filter, the calendar and the week strip, so a day card and the trades it links to always agree. The calendar sums scored trades only (closed, matched, not excluded). (2026-10-04, milestone 3) Superseded for the calendar and week strip by Q67 (booked date). |
 | Q27 | Gross / Net | Resolves the open item: a URL parameter (`pnl=gross`, default Net) on Trades, Trade detail, Calendar and Journal. Win / loss / breakeven always come from net P&L (Q2), so a trade that is green gross but red after fees is a loss in both modes. The dashboard stays Net. (2026-10-04, milestone 3) |
 | Q28 | Idea view | An idea row is made of those of its trades that pass the filter; its result is the sign of their combined net P&L (scored trades only), and the summary counts ideas. Previous / Next in the Idea view walk each idea's trades oldest first. (2026-10-04, milestone 3) |
 | Q29 | Review join details | Header fields win over the file name (`<DATE>-<TICKER>[-suffix].md`). A ticker matches the idea's underlying (through `symbols.json`) or any symbol traded in the idea. If a day and a swing idea share the underlying and date, the review's Trade Type picks one. A swing review dated a re-entry trade's open date links to the idea that trade joined. An Idea ID that no longer exists falls back to date + ticker. Unmatched reviews and ideas with several reviews appear under Needs attention. (2026-10-04, milestone 3) |
@@ -1501,11 +1594,21 @@ the commit leaves the private repo.
 | Q62 | Trades and Trade detail | UX review (#21). The Date column is always one date (close, or open while open), with a multi-day range moved to Hold. The bulk bar docks at the bottom of the screen under the table. Notes hides when the page has none. Filter bars start collapsed unless something is filtered, with the active filters as chips. Trade detail moves the charts into the left column, links its review with 📄 (the one reviewed marker everywhere, replacing the dashboard's `R` and the detail chip), and steps with `j` / `k`. Native date inputs stay (owner decision): a text field would lose the phone date picker. (2026-10-04, #21) |
 | Q63 | Journal and Calendar | UX review (#22). The Journal's REVIEW column folds in the idea status; an OPEN review on a closed idea (`exitMissing`, the same check Needs attention uses) reads EXIT MISSING and sorts first (`journalOrder`). The second IDEA column is gone and the Reviewed filter is hidden there. The review page header gives the idea's date span. The calendar outlines today and the year view gets weekday letters and a legend. (2026-10-04, #22) |
 | Q64 | Import and Settings | UX review (#23), owner decision 2026-10-04: a new ETF mapping row is pre-ticked when its guessed underlying is already traded (`preTick`). It stays visible and editable and is written only on Commit, so Q8's explicit mapping holds. Import plumbing (file list, ref) is collapsed; a commit ends with a link back to the dashboard; IMPORT shows as active on its page. Settings states the gauge rules from config (`gaugeRules`) and puts the two JSON views side by side. (2026-10-04, #23) |
-| Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
-
-### Still open
-
-- UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
+| Q65 | Leak guard vs. HTML names | `check-dist` again skips symbols that appear as words in bundled public library code (`VENDOR_DIRS`), now **parse5**, the HTML parser behind `rehype-raw`, which lists every HTML tag and entity name in capitals. A newly traded ticker that is also an HTML tag name failed a deploy on 2026-10-05 as a false positive. Like the app source, library code is public and can hold no data; the guard still checks every other symbol, and `.enc` files are unaffected (Q39, Q46). (2026-10-05) |
+| Q66 | Symbol mappings in the app | Owner request 2026-10-05: two ETFs whose broker names didn't look leveraged were never offered at import, so `symbols.json` is now editable from Trade detail and Settings. One commit writes `symbols.json` and a regenerated `derived/trades.json` (`src/core/symbols/mapping.ts`), through the same read-fresh / preview / CONFIRM / retry flow as override edits (Q40), with the changed entries as the fingerprint. Mapping stays an explicit choice (Q8): nothing is mapped without CONFIRM. The demo shows the form with COMMIT disabled, and its GitHub code is not in the demo bundle (Q50). (2026-10-05) |
+| Q67 | Trims on the calendar | Owner request 2026-10-06: a trim on a still-open swing should count on the day it was taken. The calendar (month, week totals, year view) and the dashboard week strip now sum P&L **by booked date**: each trim and the close on its own ET day (`bookedByDay` in `core/trades/stats`). Buy fees go with the first sale after them; the close books whatever is left, so a closed trade's days add up to its gross or net P&L exactly. Open trades count their trims; excluded and unmatched trades book nothing. A day's trade and idea counts are the trades and ideas that booked P&L that day. Clicking a day or week opens Trades with `booked=1`, listing trades with a trim or close in the range, so a day and its list still agree. With BOOKED, the Trades P&L column, its sort and the total tile (`NET P&L · BOOKED THESE DAYS`) use what each trade booked in the range: an open trade shows its trims (`+4.46 TRIM`), with the whole trade's figure in the title (owner report 2026-10-06: the day list showed the open mark and closed-only total, so it didn't match the calendar). Q26 still holds for the date filter, the Trades date column and Reports, which score closed trades on their close date. (2026-10-06) || Q10 | Look and feel | Direction **B "Terminal"** (monospace, near-black, amber accent, top nav) with **standard green/red** gain/loss colors (§6.0). |
+| Q68 | Account value | Owner request 2026-10-06: see each holding's share of the swing account. `config.json` gets optional `balances`: per account a **start** (date and cash amount; trades opened before it are left out) and **checkpoints** (an actual value from the broker at a close, with the price of each symbol held then). **Cash** = start + every buy and sale since, from the events' prices and the trades' fees, so it is exact to the cent; **value** = cash + open positions at the last quote, or at cost without one (`N AT COST`). Excluded trades still move cash. The latest checkpoint up to today adds a **correction**: its value minus what the trades give for that close at its stored prices. It is recomputed from today's trades, so fills imported after it was entered don't count twice, and it carries forward until the next one; it covers what fills miss (interest, fees, transfers; the owner says this account has none). Dashboard and Open Positions show an account line and **% ACCT** (market value, or cost when unpriced, ÷ account value). Settings → Account value edits it; a commit writes `config.json` and trade-history's `schema/config.schema.json`, never trades. The demo's swing account gets a round starting balance. Code: `core/account`. (2026-10-06) |
+| Q69 | Weekdays-only calendar | Owner request 2026-10-06: Saturday and Sunday columns are noise, since nothing is traded then. The month grid and year heatmap show **Mon–Fri** (plus the WEEK column); week totals still cover the whole week. Fallback: if any weekend day in view has trades (a mis-dated fill, say), the full seven-day layout returns for that month or year, so no P&L is ever hidden. The dashboard week strip already hides empty weekends (#15). (2026-10-06) |### Still open
+| Q70 | Reviews: swing required, day optional | Owner decision 2026-10-06: every swing trade gets a review; day-trade reviews are optional. Needs attention's "unreviewed trades today" counts **swing trades only**, and its REVIEW › link opens `style=swing&range=today&review=no`, so the line (and the whole block, when nothing else is listed) goes away once the swing trades are reviewed. Nothing on screen says day reviews are optional. (2026-10-06) |
+| Q71 | Webull import alert | Owner request 2026-10-06: day trades are mostly premarket, so a morning Webull import already holds the day, yet the top bar flagged `WEBULL 10-06 !` after the close. Webull now counts an import at any time on the latest session's date; it is flagged only once that session has closed with no Webull import that day. Schwab keeps Q55 (an import after that session's 16:00 close). (2026-10-06) |- UX review fixes (#13–#23, Q54–Q64) were checked on the local demo at
+| Q72 | Review launch command | Owner report 2026-10-10: `/playbook-review NVQX` from Needs attention failed with "Unknown command", because the skill only exists in a Claude Code session started inside `Playbook/`. Every place that offers the command now copies `cd ~/GitProjects/Playbook; claude "/playbook-review <TICKER> <IDEA DATE>"` (the checkout layout of §2): Needs attention (**Copy command**), the review page (**Finish review**, shown when the exit is missing) and the trade's **Start review**. The date is the idea date, so a closed swing idea is still found. In Playbook the same day, the skill gained a How It Resolved exit section (after-the-fact daily and intraday charts) and fills the P&L line from trade-history. |
+| Q73 | Rolling baseline | Owner decision 2026-10-10: the gauge baseline was the 90 days before this week (Q13), so it sat still from Monday to Sunday. It is now the rolling 90 days through today, this week's closed trades included (`excludeCurrentWeekFromBaseline: false` in trade-history's config.json; no code change, the option already existed). Chosen over a rolling window that leaves this week out; the trade-off accepted is that this week's trades count in both the gauge and its average, which softens the gauge in a bad week, most for swing. Supersedes Q13's baseline sentence. The demo keeps `true`, since its current week is scripted against that baseline. |
+| Q74 | All-time baseline | Owner decision 2026-10-10, same day as Q73: for a steadier average, the gauge baseline is each style's **all-time** closed W/L record (day and swing apart), through today. `baselineDays` takes `null` for all time; the labels read `ALL-TIME AVG` and the low-confidence note says `trades all time`. On 2026-10-10 that moved day from 36% to 40% and swing from 33% to 35%. |
+| Q75 | Calendar week column | Owner request 2026-10-10: a week that started in the previous month added those days into the month's WEEK column. The column now counts only the month's own days (P&L, trades, ideas, link to those dates). A week that also traded outside the month shows its whole total underneath (`FULL WK +x · n`), replacing the dimmed `WK · INCL. SEP` cell of #16. |
+| Q76 | Calendar day / swing split | Owner request 2026-10-10: see swing vs day results at a glance on the calendar. The month header shows each style's P&L and count, and day and week cells add a `D … · n  S … · n` line (booked P&L by day, Q67; the count follows COUNT BY). Shown only when both styles traded that month, so a style filter or a one-style month hides it. Cells drop the line at phone width; the header keeps it. |
+| Q77 | Error table | Owner request 2026-10-12, after Nicolas Darvas's table of errors (*How I Made $2,000,000 in the Stock Market*): every reviewed loss records its error and a page lists them to learn from. Kept simple: one free-text line per loss, no fixed error categories, no P&L-by-error report. Playbook's template and skill gain a `## The Error` section asked only when the idea lost money ("What was the error?"; Darvas's exact wording was not found, so this is a paraphrase of his practice). The journal adds the ERRORS page (§6.7a). |
+| Q78 | Chart uploads | Owner request 2026-10-15: add chart screenshots from the app instead of starting a Claude session. Trade detail's Charts panel takes a pasted, dropped or chosen image and commits it to **Playbook** through the Git Data API, one image per commit (`Add <SYMBOL> <DATE> <1m/5m/daily> chart (uploaded in the journal)`), the same blobs → tree → commit → ref path as trade-history edits. The name is picked against Playbook's main at commit time and never overwrites (-2, -3, …, across image formats), and a moved main is re-read and retried. 1m and 5m are saved as `-intraday-1m` / `-intraday-5m`, so Q33's gallery rule and the review skill still treat them as intraday charts (Playbook's `sync_review.py` accepts the suffix); the gallery labels them 1M / 5M. The one browser token now also needs Contents: read and write on Playbook; saving it checks that (`playbook` in the sealed record) and Settings shows it. Owner chose uploads over drawn candlestick charts, so §11's TradingView item stays future. |
+| Q79 | Errors on any trade | Owner request 2026-10-15: an error can be made on a trade that still made money (one real review already names one), so the error table is no longer losses only. The Playbook skill asks "What was the error?" on every closed trade and offers a skip, which writes "No error."; the ERRORS page lists every closed reviewed idea whose review names an error, win or loss, and leaves out no-error answers. A reviewed loss with nothing written still shows NOT WRITTEN (a reminder); a win with nothing written is not listed. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
@@ -1540,9 +1643,9 @@ the commit leaves the private repo.
 - Auto-suggest "worth reviewing" trades.
 - **From the UX review (#24, 2026-10-04),** things other journals have, each
   a scope decision for later (owner: none in this round): initial risk / stop
-  and R-multiples (above, the trader's top pick); an **account balance**, so
-  % views and drawdown are measured against the account rather than peak
-  profit; execution markers on an intraday chart (the TradingView item
+  and R-multiples (above, the trader's top pick); an **account balance**
+  (done for the value and % of account, Q68; drawdown and % views against it
+  are still open); execution markers on an intraday chart (the TradingView item
   above); MFE / MAE (needs intraday prices); an **entry time column** on
   Trades for day trades; a **daily note / pre-market plan**, perhaps in
   Playbook like reviews; a **"mistakes cost" line** (e.g. a tag's P&L this

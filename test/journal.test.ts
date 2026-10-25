@@ -6,7 +6,7 @@ import { dailyTotals, monthGrid, yearView } from "../src/core/journal/calendar-v
 import {
   dateRange, defaultView, emptyFilter, parseView, queryOf, tradeMatcher, viewToParams, type TradeFilter, type ViewState,
 } from "../src/core/journal/filter";
-import { buildJournal, exitMissing, filterReviews, filterTrades, journalOrder, reviewAttention, type Journal } from "../src/core/journal/journal";
+import { buildJournal, errorTable, exitMissing, filterReviews, filterTrades, journalOrder, reviewAttention, type Journal } from "../src/core/journal/journal";
 import { applyBulkAction, changedOverrideIds, previewOverrides } from "../src/core/journal/overrides";
 import { buildRows, neighbors, pageOf, paginate, sortRows, summarizeRows, tradeOrder, viewRows } from "../src/core/journal/rows";
 import type { DerivedTrades, Fill, Idea, ReviewFile, Trade } from "../src/core/types";
@@ -297,6 +297,12 @@ describe("calendar", () => {
     expect(days.get("2025-11-03")).toEqual({ pnl: 4, trades: 1, ideas: 1 });
     const w = monthGrid(ts, "2025-11", { pnl: "net" }).weeks.find((x) => x.start === "2025-10-27")!;
     expect(w).toMatchObject({ pnl: 3, trades: 2 }); // Nov 2 is the Sunday of that Mon–Sun week
+    // Nov 2 is the only November day in that week: the WEEK column shows just it (Q75).
+    expect(w.month).toEqual({ pnl: 3, trades: 2, ideas: 2 });
+    expect(w.spills).toBe(false);
+    const oct = monthGrid(ts, "2025-10", { pnl: "net" }).weeks.find((x) => x.start === "2025-10-27")!;
+    expect(oct.month).toEqual({ pnl: 0, trades: 0, ideas: 0 });
+    expect(oct).toMatchObject({ pnl: 3, trades: 2, spills: true });
   });
 
   it("uses gross or net P&L, counts ideas once per day and week, and skips unscored trades", () => {
@@ -424,5 +430,30 @@ describe("journal list order (#22)", () => {
     const ordered = journalOrder(j, list).map((r) => r.id);
     expect(ordered[0]).toBe("2025-03-14-SDAY");
     expect(ordered.slice(1)).toEqual(list.map((r) => r.id).filter((id) => id !== "2025-03-14-SDAY"));
+  });
+});
+
+describe("error table (Q77)", () => {
+  const review = (ticker: string, date: string, error?: string): ReviewFile => ({
+    path: `Reviews/${date}-${ticker}.md`,
+    markdown: `# Playbook Review — ${ticker} ${date}\n\n**Date:** ${date}\n**Ticker:** ${ticker}\n**Status:** CLOSED\n\n## Category\n\nBreakout\n${error === undefined ? "" : `\n## The Error\n\n${error}\n`}`,
+  });
+
+  it("lists reviewed ideas with an error, win or loss, newest first (Q79)", () => {
+    const loss = closed({ symbol: "ZZA", closedAt: "2025-04-01T10:00:00-04:00", net: -5 });
+    const blank = closed({ symbol: "ZZB", closedAt: "2025-04-03T10:00:00-04:00", net: -2 });
+    const cleanWin = closed({ symbol: "ZZC", closedAt: "2025-04-02T10:00:00-04:00", net: 4 });
+    const unreviewed = closed({ symbol: "ZZD", closedAt: "2025-04-02T10:00:00-04:00", net: -9 });
+    const stillOpen = open({ symbol: "ZZE", openedAt: "2025-04-02T10:00:00-04:00" });
+    const errWin = closed({ symbol: "ZZF", closedAt: "2025-04-04T10:00:00-04:00", net: 3 });
+    const blankWin = closed({ symbol: "ZZG", closedAt: "2025-04-04T10:00:00-04:00", net: 1 });
+    const cleanLoss = closed({ symbol: "ZZH", closedAt: "2025-04-04T10:00:00-04:00", net: -1 });
+    const j = journal([loss, blank, cleanWin, unreviewed, stillOpen, errWin, blankWin, cleanLoss], [
+      review("ZZA", "2025-04-01", "Chased it."), review("ZZB", "2025-04-03"), review("ZZC", "2025-04-02", "None."), review("ZZE", "2025-04-02", "Early."),
+      review("ZZF", "2025-04-04", "Entered late."), review("ZZG", "2025-04-04"), review("ZZH", "2025-04-04", "No error."),
+    ]);
+    expect(errorTable(j).map((r) => [r.idea.underlying, r.idea.netPnl, r.error])).toEqual([
+      ["ZZF", 3, "Entered late."], ["ZZB", -2, null], ["ZZA", -5, "Chased it."],
+    ]);
   });
 });

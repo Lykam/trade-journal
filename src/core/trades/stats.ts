@@ -20,6 +20,39 @@ export interface Summary {
 /** Trades that count toward statistics: closed, matched and not excluded. */
 export const isScored = (t: Trade) => t.status === "closed" && !t.excluded && t.result !== null;
 
+/** Trades whose trims and closes book P&L on the calendar (Q67): matched and not excluded, open or closed. */
+export const booksPnl = (t: Trade) => t.status !== "unmatched" && !t.excluded;
+
+/**
+ * P&L a trade booked per ET date (Q67): each trim and the close on its own day.
+ * Buy fees go with the first sale after them, so a buy alone books nothing. The
+ * close books whatever is left, so a closed trade's days add up to its P&L exactly.
+ */
+export function bookedByDay(t: Trade, pnl: "net" | "gross"): Map<string, number> {
+  const out = new Map<string, number>();
+  if (!booksPnl(t)) return out;
+  let shares = 0;
+  let avgCost = 0;
+  let fees = 0;
+  let booked = 0;
+  for (const e of t.events) {
+    if (e.kind === "open" || e.kind === "add") {
+      avgCost = (avgCost * shares + e.price * e.qty) / (shares + e.qty);
+      shares += e.qty;
+      fees += e.fees ?? 0;
+      continue;
+    }
+    const gross = (e.price - avgCost) * Math.min(e.qty, shares);
+    shares = Math.max(0, shares - e.qty);
+    const amount = e.kind === "close" ? (pnl === "gross" ? t.grossPnl : t.netPnl) - booked : cents(pnl === "gross" ? gross : (e.realized ?? 0) - fees);
+    fees = 0;
+    booked = cents(booked + amount);
+    const d = etDate(e.at);
+    out.set(d, cents((out.get(d) ?? 0) + amount));
+  }
+  return out;
+}
+
 export function summarize(trades: Trade[]): Summary {
   const scored = trades.filter(isScored);
   const wins = scored.filter((t) => t.result === "win").length;

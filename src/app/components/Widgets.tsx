@@ -7,6 +7,7 @@ import { useState } from "react";
 import type { Quote, Trade } from "../../core/types";
 import { dateOf, days, DOW, minutes, mmdd, money, pct, pnlClass, stamp, etfBadge } from "../format";
 import { tradeHref } from "./OpenPositions";
+import { CopyCommand, reviewCommand } from "./ReviewCommand";
 
 export function Widget({ title, children, wide }: { title: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
   return (
@@ -276,7 +277,7 @@ function attentionRows({ a, reviews, journal, quotes, unreviewedToday }: Attenti
     rows.push(<div key="ho"><span className="accent">i</span> {plural(a.heldOvernight.length, "day trade")} held overnight: keep as DAY? <a href="#/trades?flag=overnight">REVIEW ›</a></div>);
   }
   if (unreviewedToday) {
-    rows.push(<div key="ur"><span className="accent">i</span> {plural(unreviewedToday, "unreviewed trade")} today <a href="#/trades?range=today&review=no">REVIEW ›</a></div>);
+    rows.push(<div key="ur"><span className="accent">i</span> {plural(unreviewedToday, "unreviewed trade")} today <a href="#/trades?style=swing&range=today&review=no">REVIEW ›</a></div>);
   }
   for (const r of reviews.openButClosed) {
     const idea = journal.ideaById.get(journal.reviews.ideaOf.get(r.id) ?? "");
@@ -285,7 +286,7 @@ function attentionRows({ a, reviews, journal, quotes, unreviewedToday }: Attenti
     rows.push(
       <div key={`ro${r.id}`}>
         <span className="half">!</span> <a className="sym" href={reviewHref(r.id)}>{r.ticker}</a> idea from {r.date ? mmdd(r.date) : "?"}{closedOn}: write
-        the exit (<code>/playbook-review {r.ticker}</code>)
+        the exit <CopyCommand compact label="COPY COMMAND" command={reviewCommand(r.ticker ?? "", idea?.date ?? r.date ?? "")} />
       </div>,
     );
   }

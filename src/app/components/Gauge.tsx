@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { winsToFull, type Gauge as GaugeData, type SizeState } from "../../core/gauge/gauge";
+import { baselineSpan, winsToFull, type Gauge as GaugeData, type SizeState } from "../../core/gauge/gauge";
 import type { Config } from "../../core/types";
 import { money, pct, pnlClass, pts, stamp } from "../format";
 
@@ -106,7 +106,7 @@ export function GaugeCard({ g, config }: { g: GaugeData; config: Config }) {
       <Dial g={g} bands={config.gauge.bands} />
       <div className="body">
         <div className="label">
-          {g.style} · {config.gauge.baselineDays}-day avg {pct(b.winRate)} ({wl(b.wins, b.losses)})
+          {g.style} · {baselineSpan(config)} avg {pct(b.winRate)} ({wl(b.wins, b.losses)})
         </div>
         <div className={`state ${g.state ?? "none"}`}>▌{g.state ? STATE_LABEL[g.state] : "NO SIGNAL"}</div>
         <div className="muted">
@@ -156,7 +156,7 @@ export function GaugeCard({ g, config }: { g: GaugeData; config: Config }) {
               </span>
             )}
             {b.lowConfidence && (
-              <span className="dim">LOW-CONFIDENCE AVERAGE: {b.wins + b.losses} trades in {config.gauge.baselineDays} days (&lt; 20)</span>
+              <span className="dim">LOW-CONFIDENCE AVERAGE: {b.wins + b.losses} trades {config.gauge.baselineDays === null ? "all time" : `in ${config.gauge.baselineDays} days`} (&lt; 20)</span>
             )}
           </div>
           <Sparkline g={g} />

@@ -48,6 +48,20 @@ export interface DemoData {
   images: Record<string, string>;
 }
 
+/**
+ * A round starting balance for the demo's swing account (Q68): enough that its
+ * cash never went below about a fifth of the most it ever had invested.
+ */
+export function demoStartingCash(fills: Fill[], account: string): number {
+  let flow = 0;
+  let low = 0;
+  for (const f of fills.filter((x) => x.account === account).sort(compareFills)) {
+    flow += (f.side === "buy" ? -1 : 1) * f.qty * f.price - f.fees;
+    low = Math.min(low, flow);
+  }
+  return Math.ceil((-low * 1.25) / 1000) * 1000 || 1000;
+}
+
 // ---------------------------------------------------------------- calendar
 
 /** Weekdays (holidays not modeled), oldest first, ending at the last weekday on or before `anchor`. */
@@ -534,7 +548,7 @@ export function generateDemo(now: string): DemoData {
 
   const lastImport = new Date(Math.min(etInstant(lastSessionDate(now), "17:30:00"), nowMs)).toISOString();
   const bundle: DataBundle = {
-    config: DEMO_CONFIG,
+    config: { ...DEMO_CONFIG, balances: { "schwab-main": { start: { date: days[0]!, amount: demoStartingCash(fills, "schwab-main") } } } },
     symbols: DEMO_SYMBOLS,
     derived: { generated: true, generator: "trade-journal demo", trades, ideas },
     fills,

@@ -109,6 +109,12 @@ export function FilterBar({
         )}
         {controls}
       </div>
+      {f.booked && dates && (f.preset || f.from || f.to) && (
+        <div className="fflag">
+          <span className="chip accent">BOOKED</span> Trades with a trim or close on these dates, as the calendar counts them
+          <button type="button" className="btn ghost small" onClick={() => set({ booked: false })} aria-label="Show trades dated in this range instead">✕</button>
+        </div>
+      )}
       {f.flag && (
         <div className="fflag">
           <span className="chip accent">FLAG</span> {FLAG_LABEL[f.flag]}
@@ -128,17 +134,17 @@ export function FilterBar({
           {dates && <div className="fgroup">
             <span className="flabel">DATE</span>
             <div className="seg wrap" role="group" aria-label="Date presets">
-              <button type="button" aria-pressed={!f.preset && !f.from && !f.to} onClick={() => set({ preset: null, from: null, to: null })}>ALL</button>
+              <button type="button" aria-pressed={!f.preset && !f.from && !f.to} onClick={() => set({ preset: null, from: null, to: null, booked: false })}>ALL</button>
               {PRESETS.map((p) => (
-                <button key={p} type="button" aria-pressed={f.preset === p} onClick={() => set({ preset: p, from: null, to: null })}>
+                <button key={p} type="button" aria-pressed={f.preset === p} onClick={() => set({ preset: p, from: null, to: null, booked: false })}>
                   <span className="ph-hide">{PRESET_LABELS[p]}</span><span className="ph-only-inline">{PRESET_SHORT[p]}</span>
                 </button>
               ))}
             </div>
             <span className="dates">
-              <input type="date" className="input" aria-label="From" value={range.from ?? ""} onChange={(e) => set({ preset: null, from: e.target.value || null, to: range.to })} />
+              <input type="date" className="input" aria-label="From" value={range.from ?? ""} onChange={(e) => set({ preset: null, from: e.target.value || null, to: range.to, booked: false })} />
               <span className="muted">–</span>
-              <input type="date" className="input" aria-label="To" value={range.to ?? ""} onChange={(e) => set({ preset: null, from: range.from, to: e.target.value || null })} />
+              <input type="date" className="input" aria-label="To" value={range.to ?? ""} onChange={(e) => set({ preset: null, from: range.from, to: e.target.value || null, booked: false })} />
             </span>
           </div>}
           <Seg label="STYLE" value={f.style} options={[{ value: null, label: "ALL" }, { value: "day", label: "DAY" }, { value: "swing", label: "SWING" }]} onChange={(style) => set({ style })} />

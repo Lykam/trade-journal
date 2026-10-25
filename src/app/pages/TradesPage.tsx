@@ -3,12 +3,12 @@
 import { Fragment, useMemo, useState } from "react";
 import { queryOf, tradeDate, viewToParams, type SortKey, type ViewState } from "../../core/journal/filter";
 import { groupPnl, reviewsOf, type Journal } from "../../core/journal/journal";
-import { paginate, summarizeRows, viewRows, type Row } from "../../core/journal/rows";
+import { bookedIn, bookedRange, paginate, summarizeRows, viewRows, type Row } from "../../core/journal/rows";
 import { holdLabel } from "../../core/dashboard/dashboard";
 import type { DataBundle, Trade } from "../../core/types";
 import { BulkBar } from "../components/BulkBar";
 import { FilterBar, viewHref } from "../components/FilterBar";
-import { Pnl } from "../components/Pnl";
+import { BookedPnl, Pnl } from "../components/Pnl";
 import { go } from "../data";
 import { etfBadge, mmdd, money, pct, pnlClass, qty } from "../format";
 
@@ -55,6 +55,7 @@ function Tags({ r, j }: { r: Row; j: Journal }) {
 export function TradesPage({ data, journal: j, view }: { data: DataBundle; journal: Journal; view: ViewState }) {
   const rows = useMemo(() => viewRows(j, view), [j, view]);
   const summary = summarizeRows(rows, view.pnl);
+  const range = bookedRange(j, view);
   const { items, page, pages } = paginate(rows, view.page);
   // Notes were empty on every row in review: the column shows only when this page has one (#21).
   const showNotes = items.some((r) => r.note);
@@ -81,7 +82,7 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
       <FilterBar view={view} journal={j} base="#/trades" />
 
       <section className="panel statrow" aria-label="Summary">
-        <div><div className="label small">{view.pnl.toUpperCase()} P&amp;L · CLOSED {unit}</div><div className={`v ${pnlClass(summary.pnl)}`}>{money(summary.pnl)}</div></div>
+        <div><div className="label small">{view.pnl.toUpperCase()} P&amp;L · {summary.booked ? "BOOKED THESE DAYS" : `CLOSED ${unit}`}</div><div className={`v ${pnlClass(summary.pnl)}`}>{money(summary.pnl)}</div></div>
         <div>
           <div className="label small">WIN % ({unit})</div><div className="v">{pct(summary.winRate, 1)}</div>
           <div className="muted small">{summary.wins}W {summary.losses}L{summary.breakevens ? ` ${summary.breakevens}BE` : ""}{view.pnl === "gross" ? " · ON NET" : ""}</div>
@@ -156,7 +157,9 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                         <td className="num ph-hide">{qty(r.volume)}</td>
                         <td className="num ph-hide">{r.executions}</td>
                         <td className="muted ph-hide">{rowHold(r)}{r.firstDate !== r.date ? ` · from ${mmdd(r.firstDate)}` : ""}</td>
-                        <td className="num"><Pnl p={groupPnl(j, r.trades, view.pnl)} b /></td>
+                        <td className="num">
+                          {r.booked ? <BookedPnl value={r.booked[view.pnl]} open={r.open} whole={groupPnl(j, r.trades, view.pnl)} b /> : <Pnl p={groupPnl(j, r.trades, view.pnl)} b />}
+                        </td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {review ? <a href={reviewLink(review.id)} title="Open review" aria-label="Open review">📄</a> : null}
                         </td>
@@ -174,7 +177,9 @@ export function TradesPage({ data, journal: j, view }: { data: DataBundle; journ
                           <td className="num ph-hide">{qty(t.events.reduce((s, e) => s + e.qty, 0))}</td>
                           <td className="num ph-hide">{t.fillIds.length}</td>
                           <td className="muted ph-hide">{t.status === "open" ? "open" : holdLabel(t)}</td>
-                          <td className="num"><Pnl p={groupPnl(j, [t], view.pnl)} /></td>
+                          <td className="num">
+                            {range ? <BookedPnl value={bookedIn(t, range, view.pnl)} open={t.status === "open"} whole={groupPnl(j, [t], view.pnl)} /> : <Pnl p={groupPnl(j, [t], view.pnl)} />}
+                          </td>
                           <td />
                           {showNotes && <td className="note ph-hide" title={t.note}>{t.note}</td>}
 

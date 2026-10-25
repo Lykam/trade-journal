@@ -12,6 +12,7 @@ import { CalculatorPage } from "./pages/CalculatorPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { DeployBanner } from "./components/DeployBanner";
 import { Dashboard } from "./pages/Dashboard";
+import { ErrorsPage } from "./pages/ErrorsPage";
 import { ImportPage } from "./pages/ImportPage";
 import { JournalPage, ReviewPage } from "./pages/JournalPage";
 import { LockScreen } from "./pages/LockScreen";
@@ -29,6 +30,7 @@ const NAV = [
   { path: "/trades", label: "TRADES" },
   { path: "/reports", label: "REPORTS" },
   { path: "/journal", label: "JOURNAL" },
+  { path: "/errors", label: "ERRORS" },
   { path: "/calc", label: "CALC" },
   { path: "/settings", label: "SETTINGS" },
 ];
@@ -47,9 +49,11 @@ function DataStamps({ data, now }: { data: DataBundle; now: string }) {
       {BROKERS.map((b) => {
         const at = data.imports?.[b];
         if (!at) return null;
-        const behind = importBehind(at, now);
+        // Webull day trades are mostly premarket: any import that day counts (Q71).
+        const behind = importBehind(at, now, { anyTimeThatDay: b === "webull" });
+        const why = b === "webull" ? ": no import on the last market day" : ": older than the last market close";
         return (
-          <span key={b} className={behind ? "accent" : "muted"} title={`Last ${b} import ${stamp(at)} ET${behind ? ": older than the last market close" : ""}`}>
+          <span key={b} className={behind ? "accent" : "muted"} title={`Last ${b} import ${stamp(at)} ET${behind ? why : ""}`}>
             {b.toUpperCase()} {etDate(at).slice(5)}{behind ? " !" : ""}
           </span>
         );
@@ -99,6 +103,7 @@ export function App() {
     else if (path === "/cal") page = <CalendarPage journal={journal!} view={view} params={params} />;
     else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
     else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
+    else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
     else if (path === "/reports") page = <ReportsPage journal={journal!} view={view} params={params} />;
     else if (path === "/settings") page = <SettingsPage data={data} />;
     else if (path === "/import") page = <ImportPage data={data} />;

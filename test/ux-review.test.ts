@@ -104,6 +104,17 @@ describe("#15 dashboard", () => {
     expect(importBehind("2026-10-02T15:00:00-04:00", sunday)).toBe(true); // before Friday's close
   });
 
+  it("lets Webull's import count at any time on the session's day (Q71)", () => {
+    const opts = { anyTimeThatDay: true };
+    const tueEvening = "2026-10-06T19:19:00-04:00";
+    expect(importBehind("2026-10-06T08:30:00-04:00", tueEvening, opts)).toBe(false); // premarket import, after the close
+    expect(importBehind("2026-10-06T08:30:00-04:00", tueEvening)).toBe(true); // the Schwab rule still wants one after 16:00
+    expect(importBehind("2026-10-05T18:00:00-04:00", tueEvening, opts)).toBe(true); // closed with no import that day
+    // During the day nothing is flagged yet: Monday's import covers Monday, today's session hasn't closed.
+    expect(importBehind("2026-10-05T09:00:00-04:00", "2026-10-06T11:00:00-04:00", opts)).toBe(false);
+    expect(importBehind("2026-10-02T09:00:00-04:00", "2026-10-04T20:00:00-04:00", opts)).toBe(false); // Friday import, weekend
+  });
+
   it("takes each broker's latest import from the fills", () => {
     const f = (broker: Fill["broker"], importedAt: string) => ({ broker, importedAt }) as Fill;
     expect(lastImports([f("webull", "2026-10-01T22:00:00Z"), f("webull", "2026-10-02T22:00:00Z"), f("schwab", "2026-09-30T22:00:00Z"), f("schwab", "")]))

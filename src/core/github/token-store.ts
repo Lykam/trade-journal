@@ -22,6 +22,8 @@ export interface TokenRecord {
   actionsToken?: string;
   /** The main token can reach trade-journal too (it then has Contents: write there): warn. */
   mainReachesApp?: boolean;
+  /** The main token can also write Playbook, for chart uploads (Q78). Absent on tokens saved before the check existed. */
+  playbook?: boolean;
   expiresAt: string | null;
   checkedAt: string;
 }

@@ -35,12 +35,32 @@ export interface Config {
   webullAccount: string;
   styleByAccount: Record<string, Style>;
   gauge: {
-    baselineDays: number;
+    /** Days of closed trades in the gauge average; null = all time (Q74). */
+    baselineDays: number | null;
     excludeCurrentWeekFromBaseline: boolean;
     minSample: { day: number; swing: number };
     bands: { halfSizeBelowPts: number; quarterSizeBelowPts: number };
     swingIncludesOpenPositions: boolean;
   };
+  /** Account label → its starting balance and the actual values entered since (Q68). */
+  balances?: Record<string, AccountBalance>;
+}
+
+/** An account's money, for its value and each holding's share of it (Q68). */
+export interface AccountBalance {
+  /** Cash in the account on `date` (ET), before that day's trades. Trades opened earlier are left out. */
+  start: { date: string; amount: number };
+  /** Actual account values entered from the broker; the latest one corrects any drift. */
+  checkpoints?: AccountCheckpoint[];
+}
+
+export interface AccountCheckpoint {
+  /** ET date whose close the value is for. */
+  date: string;
+  /** Total account value (cash + positions) the broker showed. */
+  value: number;
+  /** Price of each symbol held at that close, as entered (a symbol left out counts at cost). */
+  marks: Record<string, number>;
 }
 
 export interface TradeOverride {

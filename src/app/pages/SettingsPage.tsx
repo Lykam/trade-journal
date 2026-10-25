@@ -4,9 +4,11 @@
 import { useState } from "react";
 import { gaugeRules } from "../../core/gauge/gauge";
 import type { DataBundle } from "../../core/types";
+import { AccountsPanel } from "../components/AccountBalance";
+import { SymbolsPanel } from "../components/SymbolMap";
 import { DEMO_TOKEN_NOTE } from "../demo-text";
 import { dateTimeOf } from "../format";
-import { DEFAULT_DATA_REPO, forgetToken, saveCheckedToken, useToken } from "../github";
+import { DEFAULT_DATA_REPO, PLAYBOOK_REPO, forgetToken, saveCheckedToken, useToken } from "../github";
 import { isRemembered, lock, setRemembered } from "../vault";
 
 /** GitHub pre-fills these fields; repository access must still be picked by hand. */
@@ -68,6 +70,14 @@ function TokenPanel() {
           <>
             <dl className="kv">
               <dt>Writes to</dt><dd>{record.repo}</dd>
+              <dt>Chart uploads</dt>
+              <dd>
+                {record.playbook === undefined
+                  ? "not checked (REPLACE to check)"
+                  : record.playbook
+                    ? `yes (${PLAYBOOK_REPO.owner}/${PLAYBOOK_REPO.repo})`
+                    : `no: add ${PLAYBOOK_REPO.repo} to this token with Contents: read and write`}
+              </dd>
               <dt>Refresh prices</dt><dd>{record.actions ? (record.actionsToken ? "yes (separate Actions token)" : "yes") : "no (no Actions token)"}</dd>
               <dt>Expires</dt>
               <dd>
@@ -91,9 +101,9 @@ function TokenPanel() {
         {form && (
           <form className="token-form" onSubmit={save} autoComplete="off">
             <p className="muted small">
-              A <b>fine-grained</b> token with <b>Contents: read and write</b> on {DEFAULT_DATA_REPO} only.{" "}
+              A <b>fine-grained</b> token with <b>Contents: read and write</b> on {DEFAULT_DATA_REPO}, plus {PLAYBOOK_REPO.repo} for chart uploads.{" "}
               <a href={NEW_TOKEN_URL} target="_blank" rel="noopener noreferrer">CREATE ONE ↗</a> (permissions are pre-filled; under Repository access pick
-              "Only select repositories" and choose trade-history).
+              "Only select repositories" and choose trade-history and {PLAYBOOK_REPO.repo}).
             </p>
             <label className="field">
               <span className="label small">Repository</span>
@@ -170,6 +180,7 @@ function DemoSettingsPage({ data }: { data: DataBundle }) {
             </dl>
           </div>
         </section>
+        <AccountsPanel data={data} />
         <GaugeRules data={data} />
         <JsonPair data={data} />
       </div>
@@ -192,7 +203,7 @@ function JsonPair({ data }: { data: DataBundle }) {
   return (
     <div className="json-pair">
       <JsonPanel title="config.json" file="config.json" value={data.config} />
-      <JsonPanel title="symbols.json" file="symbols.json" value={data.symbols} />
+      <SymbolsPanel data={data} />
     </div>
   );
 }
@@ -244,6 +255,7 @@ function RealSettingsPage({ data }: { data: DataBundle }) {
         </section>
 
         <TokenPanel />
+        <AccountsPanel data={data} />
         <GaugeRules data={data} />
         <JsonPair data={data} />
       </div>

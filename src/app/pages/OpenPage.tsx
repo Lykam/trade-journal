@@ -1,8 +1,9 @@
 import { useMemo } from "react";
+import { accountValues } from "../../core/account/value";
 import { openPositions, openTotals } from "../../core/dashboard/dashboard";
 import { cents } from "../../core/normalize/util";
 import type { DataBundle } from "../../core/types";
-import { OpenTable } from "../components/OpenPositions";
+import { AccountLine, OpenTable } from "../components/OpenPositions";
 import { usePersisted } from "../data";
 import { money, pnlClass, realizedNote, stamp } from "../format";
 
@@ -12,7 +13,8 @@ const FILTERS = ["all", "swing", "day"] as const;
 export function OpenPage({ data, now }: { data: DataBundle; now: string }) {
   const [filter, setFilter] = usePersisted("tj.openFilter", "all", FILTERS);
   const quotes = data.quotes?.quotes ?? {};
-  const all = useMemo(() => openPositions(data.derived.trades, quotes, now), [data, quotes, now]);
+  const accounts = useMemo(() => accountValues(data.derived.trades, data.config, quotes, now), [data, quotes, now]);
+  const all = useMemo(() => openPositions(data.derived.trades, quotes, now, accounts), [data, quotes, now, accounts]);
   const rows = filter === "all" ? all : all.filter((r) => r.trade.style === filter);
   const t = openTotals(rows);
   const trims = rows.reduce((n, r) => n + r.trims.length, 0);
@@ -44,7 +46,8 @@ export function OpenPage({ data, now }: { data: DataBundle; now: string }) {
           </div>
         ))}
       </section>
-      <OpenTable rows={rows} totals={t} />
+      {accounts.size > 0 && <section className="panel" aria-label="Accounts"><AccountLine accounts={accounts} /></section>}
+      <OpenTable rows={rows} totals={t} acct={accounts.size > 0} />
       <div className="dim small" title="Realized = locked in by trims, less buy fees. Unrealized = shares × (last − avg cost). Total = both.">
         Average-cost basis; may differ from Schwab's FIFO tax lots.
       </div>

@@ -2,9 +2,9 @@
 // Sorting is stable: rows with equal keys keep the default order (newest first).
 import { daysBetween } from "../calendar";
 import { cents, etDate } from "../normalize/util";
-import { isScored } from "../trades/stats";
+import { bookedByDay, isScored } from "../trades/stats";
 import type { Style, Trade, TradeResult } from "../types";
-import { tradeDate, type CountMode, type PnlMode, type SortKey, type ViewState } from "./filter";
+import { dateRange, tradeDate, type CountMode, type PnlMode, type SortKey, type ViewState } from "./filter";
 import { filterTrades, type Journal } from "./journal";
 
 export interface Row {
@@ -31,6 +31,8 @@ export interface Row {
   holdDays: number;
   gross: number;
   net: number;
+  /** With the BOOKED filter: P&L the row booked in its date range (trims and closes, Q67); else null. */
+  booked: { gross: number; net: number } | null;
   /** Win/loss/breakeven from net P&L of scored trades (Q2); null if none are scored. */
   result: TradeResult | null;
   open: boolean;
@@ -47,7 +49,24 @@ const instant = (t: Trade) => Date.parse(t.closedAt ?? t.openedAt);
 /** Shares bought plus shares sold. A sell event already holds the full fill qty, oversold shares included. */
 const volumeOf = (t: Trade) => t.events.reduce((s, e) => s + e.qty, 0);
 
-function makeRow(kind: Row["kind"], id: string, trades: Trade[], j: Journal, order: Map<string, number>): Row {
+/** A date range for booked P&L; either end may be open. */
+export type BookedRange = { from: string | null; to: string | null };
+
+/** P&L a trade booked inside the range (Q67). */
+export function bookedIn(t: Trade, range: BookedRange, mode: PnlMode): number {
+  let sum = 0;
+  for (const [d, v] of bookedByDay(t, mode)) if ((!range.from || d >= range.from) && (!range.to || d <= range.to)) sum += v;
+  return cents(sum);
+}
+
+/** The range the BOOKED filter covers, or null when the view isn't booked (Q67). */
+export function bookedRange(j: Journal, v: ViewState): BookedRange | null {
+  if (!v.filter.booked) return null;
+  const r = dateRange(v.filter, j.today, j.startsOn);
+  return r.from || r.to ? r : null;
+}
+
+function makeRow(kind: Row["kind"], id: string, trades: Trade[], j: Journal, order: Map<string, number>, range: BookedRange | null): Row {
   const sorted = [...trades].sort((a, b) => Date.parse(a.openedAt) - Date.parse(b.openedAt) || order.get(a.id)! - order.get(b.id)!);
   const last = sorted.reduce((a, b) => (instant(b) > instant(a) || (instant(b) === instant(a) && order.get(b.id)! > order.get(a.id)!) ? b : a));
   const first = sorted[0]!;
@@ -77,6 +96,9 @@ function makeRow(kind: Row["kind"], id: string, trades: Trade[], j: Journal, ord
     holdDays: daysBetween(etDate(first.openedAt), lastClose && !open ? etDate(lastClose) : j.today),
     gross: cents(sorted.reduce((s, t) => s + t.grossPnl, 0)),
     net: cents(sorted.reduce((s, t) => s + t.netPnl, 0)),
+    booked: range
+      ? { gross: cents(sorted.reduce((s, t) => s + bookedIn(t, range, "gross"), 0)), net: cents(sorted.reduce((s, t) => s + bookedIn(t, range, "net"), 0)) }
+      : null,
     result: scored.length === 0 ? null : kind === "trade" ? first.result : scoredNet > 0 ? "win" : scoredNet < 0 ? "loss" : "breakeven",
     open,
     reviewed: j.reviews.byIdea.has(first.ideaId),
@@ -87,14 +109,14 @@ function makeRow(kind: Row["kind"], id: string, trades: Trade[], j: Journal, ord
 }
 
 /** Rows in default order (newest first), one per trade or one per idea. */
-export function buildRows(trades: Trade[], j: Journal, count: CountMode): Row[] {
+export function buildRows(trades: Trade[], j: Journal, count: CountMode, range: BookedRange | null = null): Row[] {
   const order = new Map(j.trades.map((t, i) => [t.id, i]));
   let rows: Row[];
-  if (count === "trade") rows = trades.map((t) => makeRow("trade", t.id, [t], j, order));
+  if (count === "trade") rows = trades.map((t) => makeRow("trade", t.id, [t], j, order, range));
   else {
     const groups = new Map<string, Trade[]>();
     for (const t of trades) groups.set(t.ideaId, [...(groups.get(t.ideaId) ?? []), t]);
-    rows = [...groups].map(([id, ts]) => makeRow("idea", id, ts, j, order));
+    rows = [...groups].map(([id, ts]) => makeRow("idea", id, ts, j, order, range));
   }
   return rows.sort(byDefault);
 }
@@ -113,7 +135,8 @@ function sortValue(r: Row, key: SortKey, pnl: PnlMode): number | string | null {
     case "executions": return r.executions;
     case "hold": return r.holdMinutes ?? r.holdDays * 1440;
     // An open row has no result yet: it sorts after the closed ones either way (#14).
-    case "pnl": return r.open ? null : pnlOf(r, pnl);
+    // With BOOKED, every row has an amount booked in the range, open ones included (Q67).
+    case "pnl": return r.booked ? r.booked[pnl] : r.open ? null : pnlOf(r, pnl);
     case "review": return r.reviewed ? 1 : 0;
     case "notes": return r.note || null;
     case "tags": return r.tags.length ? r.tags.join(" ") : null;
@@ -141,7 +164,7 @@ export function sortRows(rows: Row[], sort: ViewState["sort"], pnl: PnlMode): Ro
 
 /** Filter → rows → sort: exactly what the Trades table shows. */
 export function viewRows(j: Journal, v: ViewState): Row[] {
-  return sortRows(buildRows(filterTrades(j, v.filter), j, v.count), v.sort, v.pnl);
+  return sortRows(buildRows(filterTrades(j, v.filter), j, v.count, bookedRange(j, v)), v.sort, v.pnl);
 }
 
 /** Trades in table order (an idea row contributes its trades oldest first), for Previous / Next. */
@@ -160,8 +183,9 @@ export interface RowSummary {
   losses: number;
   breakevens: number;
   winRate: number | null;
-  /** Realized P&L of scored trades (gross or net). */
+  /** Realized P&L of scored trades (gross or net); with BOOKED, the P&L booked in the range (Q67). */
   pnl: number;
+  booked: boolean;
   /** Rows still open (no result yet). */
   open: number;
   volume: number;
@@ -173,6 +197,7 @@ export function summarizeRows(rows: Row[], pnl: PnlMode): RowSummary {
   const wins = count("win");
   const losses = count("loss");
   const scored = rows.flatMap((r) => r.trades).filter(isScored);
+  const booked = rows.length > 0 && rows.every((r) => r.booked !== null);
   return {
     rows: rows.length,
     open: rows.filter((r) => r.open).length,
@@ -180,7 +205,10 @@ export function summarizeRows(rows: Row[], pnl: PnlMode): RowSummary {
 
     wins, losses, breakevens: count("breakeven"),
     winRate: wins + losses ? wins / (wins + losses) : null,
-    pnl: cents(scored.reduce((s, t) => s + (pnl === "gross" ? t.grossPnl : t.netPnl), 0)),
+    pnl: booked
+      ? cents(rows.reduce((s, r) => s + r.booked![pnl], 0))
+      : cents(scored.reduce((s, t) => s + (pnl === "gross" ? t.grossPnl : t.netPnl), 0)),
+    booked,
     volume: rows.reduce((s, r) => s + r.volume, 0),
   };
 }
