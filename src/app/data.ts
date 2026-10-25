@@ -133,6 +133,27 @@ export function usePersisted<T extends string>(name: string, initial: T, allowed
   return [v, set];
 }
 
+/** Like {@link usePersisted}, but for free-form text (no fixed set of allowed values). */
+export function usePersistedText(name: string, initial: string): [string, (v: string) => void] {
+  const key = prefKey(name);
+  const [v, setV] = useState<string>(() => {
+    try {
+      return localStorage.getItem(key) ?? initial;
+    } catch {
+      return initial;
+    }
+  });
+  const set = (next: string) => {
+    setV(next);
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      /* storage unavailable: keep in memory only */
+    }
+  };
+  return [v, set];
+}
+
 /**
  * Display URLs for Playbook images, by path: a string once available, undefined
  * while an encrypted image is still decrypting, null if the image isn't
