@@ -180,6 +180,8 @@ class TradeBuilder {
     };
     if (ov.note) trade.note = ov.note;
     if (ov.ideaId) trade.ideaId = ov.ideaId;
+    if (ov.setup) trade.setup = ov.setup;
+    if (ov.entry) trade.entry = ov.entry;
     return trade;
   }
 }

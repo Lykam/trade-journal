@@ -67,6 +67,10 @@ export interface TradeOverride {
   style?: Style;
   exclude?: boolean;
   tags?: string[];
+  /** Daily setup: one per trade, picked from values used on past trades of the same style. */
+  setup?: string;
+  /** Intraday entry trigger: one per trade, same style-scoped value list as setup. */
+  entry?: string;
   note?: string;
   ideaId?: string;
 }
@@ -138,6 +142,8 @@ export interface Trade {
   realizedPnl: number;
   events: TradeEvent[];
   tags: string[];
+  setup?: string;
+  entry?: string;
   note?: string;
   excluded: boolean;
 }

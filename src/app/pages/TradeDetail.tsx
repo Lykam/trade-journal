@@ -12,6 +12,7 @@ import { cents, etDate } from "../../core/normalize/util";
 import { markToMarket } from "../../core/trades/stats";
 import type { DataBundle, Trade } from "../../core/types";
 import { StagedPreview, useStagedOverrides } from "../components/BulkBar";
+import type { Staged } from "../../core/journal/staging";
 import { SymbolMapForm } from "../components/SymbolMap";
 import { viewHref } from "../components/FilterBar";
 import { ChartUpload } from "../components/ChartUpload";
@@ -21,7 +22,7 @@ import { Pnl } from "../components/Pnl";
 import { LazyReview } from "../components/LazyReview";
 import { useImageSrcs } from "../data";
 import { CopyCommand, reviewCommand } from "../components/ReviewCommand";
-import { mmdd, money, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, whenOf } from "../format";
+import { mmdd, money, pillColor, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, whenOf } from "../format";
 import { AUTO_TAGS } from "../../core/journal/tags";
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
 
@@ -84,6 +85,7 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
           <a className={`btn ${nb.next ? "" : "disabled"}`} aria-disabled={!nb.next} href={nb.next ? tradeLink(nb.next, view) : undefined}>{steps.next} ›</a>
         </nav>
       </header>
+      <SetupEntryRow data={data} journal={j} t={t} />
       <TagRow data={data} journal={j} t={t} />
       <UnderlyingRow data={data} t={t} />
 
@@ -128,6 +130,71 @@ function UnderlyingRow({ data, t }: { data: DataBundle; t: Trade }) {
           {mapped ? `UNDERLYING ${mapped.underlying} · EDIT` : "SET UNDERLYING +"}
         </button>
       )}
+    </section>
+  );
+}
+
+/** One setup/entry field: pills for every value used on past trades of this style, plus a free-text add. Single-select; clicking the selected pill clears it. */
+function PillPicker({ label, options, value, disabled, onChange }: {
+  label: string;
+  options: string[];
+  value: string;
+  disabled: boolean;
+  onChange: (v: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const selected = (o: string) => o.toLowerCase() === value.toLowerCase();
+  return (
+    <div className="pillgroup" role="group" aria-label={label}>
+      <span className="label small">{label}</span>
+      {options.map((o) => (
+        <button
+          key={o} type="button" className="pill" style={{ color: pillColor(o) }} disabled={disabled}
+          aria-pressed={selected(o)} onClick={() => onChange(selected(o) ? "" : o)}
+        >
+          {o}
+        </button>
+      ))}
+      {adding ? (
+        <form className="row" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) onChange(draft.trim()); setDraft(""); setAdding(false); }}>
+          <input className="input" autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={label.toLowerCase()} aria-label={`New ${label.toLowerCase()}`} />
+          <button type="submit" className="btn" disabled={disabled}>ADD</button>
+          <button type="button" className="btn ghost" disabled={disabled} onClick={() => { setAdding(false); setDraft(""); }}>CANCEL</button>
+        </form>
+      ) : (
+        <button type="button" className="btn ghost" disabled={disabled} onClick={() => setAdding(true)}>+ NEW</button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The value a staged setSetup/setEntry action left for a trade, most recent first.
+ * Not read off `current.trades[id]`: clearing the field (and nothing else staged
+ * for the trade) tidies the override entry away entirely, which would read back
+ * as "nothing staged" and fall through to the stale committed value.
+ */
+function stagedValue(staged: Staged | null, kind: "setSetup" | "setEntry", id: string): string | undefined {
+  for (let i = (staged?.actions.length ?? 0) - 1; i >= 0; i--) {
+    const a = staged!.actions[i]!;
+    if (!a.tradeIds.includes(id)) continue;
+    if (a.action.kind === "setSetup" && kind === "setSetup") return a.action.setup;
+    if (a.action.kind === "setEntry" && kind === "setEntry") return a.action.entry;
+  }
+  return undefined;
+}
+
+function SetupEntryRow({ data, journal: j, t }: { data: DataBundle; journal: Journal; t: Trade }) {
+  const staging = useStagedOverrides(data);
+  const { apply, locked } = staging;
+  const setup = stagedValue(staging.staged, "setSetup", t.id) ?? t.setup ?? "";
+  const entry = stagedValue(staging.staged, "setEntry", t.id) ?? t.entry ?? "";
+  return (
+    <section className="tagrow" aria-label="Setup and entry">
+      <PillPicker label="SETUP" options={j.setupsByStyle[t.style]} value={setup} disabled={locked} onChange={(v) => apply([t], { kind: "setSetup", setup: v })} />
+      <PillPicker label="ENTRY" options={j.entriesByStyle[t.style]} value={entry} disabled={locked} onChange={(v) => apply([t], { kind: "setEntry", entry: v })} />
+      {(staging.staged || staging.committed) && <div style={{ flexBasis: "100%" }}><StagedPreview data={data} staging={staging} /></div>}
     </section>
   );
 }

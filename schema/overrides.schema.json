@@ -16,6 +16,8 @@
           "style": { "enum": ["day", "swing"] },
           "exclude": { "type": "boolean" },
           "tags": { "type": "array", "items": { "type": "string" } },
+          "setup": { "type": "string" },
+          "entry": { "type": "string" },
           "note": { "type": "string" },
           "ideaId": { "type": "string" }
         }
