@@ -53,6 +53,8 @@
         "realizedPnl": { "type": "number" },
         "events": { "type": "array", "items": { "$ref": "#/definitions/event" } },
         "tags": { "type": "array", "items": { "type": "string" } },
+        "setup": { "type": "string" },
+        "entry": { "type": "string" },
         "note": { "type": "string" },
         "excluded": { "type": "boolean" }
       }

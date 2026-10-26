@@ -12,7 +12,9 @@ export type BulkAction =
   | { kind: "removeTag"; tag: string }
   | { kind: "setStyle"; style: Trade["style"] }
   | { kind: "exclude"; exclude: boolean }
-  | { kind: "setNote"; note: string };
+  | { kind: "setNote"; note: string }
+  | { kind: "setSetup"; setup: string }
+  | { kind: "setEntry"; entry: string };
 
 const sameTag = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -22,6 +24,8 @@ export function tidy(ov: TradeOverride, t: Trade, config: Config): TradeOverride
   if (ov.style && ov.style !== config.styleByAccount[t.account]) out.style = ov.style;
   if (ov.exclude) out.exclude = true;
   if (ov.tags?.length) out.tags = ov.tags;
+  if (ov.setup?.trim()) out.setup = ov.setup.trim();
+  if (ov.entry?.trim()) out.entry = ov.entry.trim();
   if (ov.note?.trim()) out.note = ov.note.trim();
   if (ov.ideaId) out.ideaId = ov.ideaId;
   return Object.keys(out).length ? out : null;
@@ -51,6 +55,12 @@ export function applyBulkAction(overrides: Overrides, selected: Trade[], action:
       case "setNote":
         cur.note = action.note;
         break;
+      case "setSetup":
+        cur.setup = action.setup;
+        break;
+      case "setEntry":
+        cur.entry = action.entry;
+        break;
     }
     const next = tidy(cur, t, config);
     if (next) trades[t.id] = next;
@@ -68,7 +78,7 @@ export function changedOverrideIds(before: Overrides, after: Overrides): string[
 export interface OverridePreview {
   /** Override entries that change. */
   entries: number;
-  /** Derived trades whose style, tags, note or exclusion change. */
+  /** Derived trades whose style, tags, setup, entry, note or exclusion change. */
   trades: number;
   /** Ideas that appear or disappear (a style change can regroup ideas). */
   ideasBefore: number;
@@ -85,7 +95,7 @@ export function previewOverrides(
 ): OverridePreview {
   const a = buildTrades(fills, { ...ctx, overrides: before });
   const b = buildTrades(fills, { ...ctx, overrides: after });
-  const key = (t: Trade) => JSON.stringify([t.style, t.tags, t.note ?? "", t.excluded, t.ideaId]);
+  const key = (t: Trade) => JSON.stringify([t.style, t.tags, t.setup ?? "", t.entry ?? "", t.note ?? "", t.excluded, t.ideaId]);
   const prev = new Map(a.trades.map((t) => [t.id, key(t)]));
   const ideaKey = (i: { id: string; tradeIds: string[] }) => `${i.id}:${i.tradeIds.join(",")}`;
   const aIdeas = new Set(a.ideas.map(ideaKey));
@@ -106,6 +116,8 @@ export function describeAction(a: BulkAction): string {
     case "setStyle": return `style → ${a.style}`;
     case "exclude": return a.exclude ? "exclude" : "include";
     case "setNote": return "note";
+    case "setSetup": return a.setup ? `setup → "${a.setup}"` : "clear setup";
+    case "setEntry": return a.entry ? `entry → "${a.entry}"` : "clear entry";
   }
 }
 

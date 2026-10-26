@@ -14,6 +14,14 @@ export function money(n: number | null | undefined, opts: { sign?: boolean } = {
 
 export const pnlClass = (n: number | null | undefined) => (n === null || n === undefined || n === 0 ? "flat" : n > 0 ? "gain" : "loss");
 
+/** A stable color per setup/entry name, so repeated pills are easy to pick out at a glance. */
+const PILL_PALETTE = ["#60a5fa", "#2dd4bf", "#f5a524", "#4ade80", "#c084fc", "#f472b6", "#fb7185", "#a3a3a3"];
+export function pillColor(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return PILL_PALETTE[h % PILL_PALETTE.length]!;
+}
+
 /** 0.523 → "52%" (or "52.3%" with digits = 1). */
 export function pct(rate: number | null | undefined, digits = 0): string {
   return rate === null || rate === undefined ? "—" : `${(rate * 100).toFixed(digits)}%`;

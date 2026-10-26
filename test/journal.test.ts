@@ -123,6 +123,17 @@ describe("filter", () => {
     expect(ids({ tags: ["Swing trade"] })).toEqual(["ZZD"]); // review Category is an automatic tag
   });
 
+  it("filters by setup and entry, case-insensitively and independently of each other", () => {
+    const withSE = { ...swing, setup: "Flat Top Breakout", entry: "VWAP Reclaim" };
+    const j2 = journal([withSE, stock]);
+    const match = (f: Partial<TradeFilter>) => filterTrades(j2, { ...emptyFilter(), ...f }).map((t) => t.symbol);
+    expect(match({ setup: "flat top breakout" })).toEqual(["ZZD"]);
+    expect(match({ entry: "VWAP Reclaim" })).toEqual(["ZZD"]);
+    expect(match({ setup: "flat top breakout", entry: "ORB" })).toEqual([]); // both must match
+    expect(match({ setup: "nope" })).toEqual([]);
+    expect(match({})).toEqual(["ZZD", "ZZB"]);
+  });
+
   it("supports the dashboard's overnight flag", () => {
     const held = closed({ symbol: "ZZI", openedAt: "2025-04-01T15:50:00-04:00", closedAt: "2025-04-02T09:40:00-04:00", net: 1 });
     const j2 = journal([held, stock]);
@@ -337,6 +348,16 @@ describe("tags and review checks", () => {
     expect(j.allTags).toEqual(["Breaking news", "Day", "ETF", "Reviewed", "imbalance"]);
   });
 
+  it("groups setup and entry values by style, deduping case-insensitively and keeping first-seen casing", () => {
+    const a = { ...closed({ style: "swing", symbol: "ZZS1", closedAt: "2025-04-01T10:00:00-04:00", net: 1 }), setup: "Flag Pullback", entry: "ORB" };
+    const b = { ...closed({ style: "swing", symbol: "ZZS2", closedAt: "2025-04-02T10:00:00-04:00", net: 1 }), setup: "flag pullback", entry: "VWAP Reclaim" };
+    const c = { ...closed({ style: "day", symbol: "ZZD1", closedAt: "2025-04-01T10:00:00-04:00", net: 1 }), setup: "ORB" };
+    const d = closed({ style: "day", symbol: "ZZD2", closedAt: "2025-04-02T10:00:00-04:00", net: 1 }); // no setup/entry
+    const j = journal([a, b, c, d]);
+    expect(j.setupsByStyle).toEqual({ day: ["ORB"], swing: ["Flag Pullback"] });
+    expect(j.entriesByStyle).toEqual({ day: [], swing: ["ORB", "VWAP Reclaim"] });
+  });
+
   it("flags OPEN swing reviews whose idea has closed, unmatched reviews and duplicate reviews", () => {
     const fixtures = JSON.parse(readFileSync(join(FIXTURES, "expected", "trades.json"), "utf8")) as DerivedTrades;
     const dir = join(FIXTURES, "playbook", "Reviews");
@@ -397,6 +418,18 @@ describe("bulk overrides (preview only until milestone 5)", () => {
     expect(ov.trades[zzta.id]).toEqual({ exclude: true });
     expect(changedOverrideIds(noOverrides(), ov)).toEqual([zzta.id]);
     expect(applyBulkAction(ov, [zzta], { kind: "exclude", exclude: false }, config).trades).toEqual({});
+  });
+
+  it("sets and clears setup / entry, keeping other fields", () => {
+    let ov = noOverrides();
+    ov.trades[zzta.id] = { note: "keep me" };
+    ov = applyBulkAction(ov, [zzta], { kind: "setSetup", setup: "Flat Top Breakout" }, config);
+    ov = applyBulkAction(ov, [zzta], { kind: "setEntry", entry: "ORB" }, config);
+    expect(ov.trades[zzta.id]).toEqual({ note: "keep me", setup: "Flat Top Breakout", entry: "ORB" });
+    ov = applyBulkAction(ov, [zzta], { kind: "setSetup", setup: "" }, config);
+    expect(ov.trades[zzta.id]).toEqual({ note: "keep me", entry: "ORB" });
+    ov = applyBulkAction(ov, [zzta], { kind: "setEntry", entry: "" }, config);
+    expect(ov.trades[zzta.id]).toEqual({ note: "keep me" });
   });
 
   it("never mutates its input", () => {

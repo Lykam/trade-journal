@@ -2,7 +2,7 @@
 import { cents } from "../normalize/util";
 import { heldOvernightDayTrades, markToMarket } from "../trades/stats";
 import { joinReviews, readReviews, type Review, type ReviewJoin } from "../reviews/join";
-import type { DataBundle, Fill, Idea, QuotesFile, Trade } from "../types";
+import type { DataBundle, Fill, Idea, QuotesFile, Style, Trade } from "../types";
 import { activeFilterCount, dateRange, tradeMatcher, type MatchContext, type TradeFilter } from "./filter";
 import { tradeTags, type TradeTags } from "./tags";
 
@@ -16,11 +16,28 @@ export interface Journal {
   tags: Map<string, TradeTags>;
   /** Every tag in use, automatic first, then manual, alphabetical within each. */
   allTags: string[];
+  /** Setup values in use, grouped by style, alphabetical. */
+  setupsByStyle: Record<Style, string[]>;
+  /** Entry values in use, grouped by style, alphabetical. */
+  entriesByStyle: Record<Style, string[]>;
   overnight: Set<string>;
   /** Open trades with a quote: unrealized P&L at the last price. Tables add the trade's gross or net realized P&L (§6.1a). */
   marks: Map<string, number>;
   today: string;
   startsOn: "monday" | "sunday";
+}
+
+/** Distinct values of `pick`, case-insensitively deduped (first casing wins), grouped by trade style, alphabetical. */
+function valuesByStyle(trades: Trade[], pick: (t: Trade) => string | undefined): Record<Style, string[]> {
+  const seen: Record<Style, Map<string, string>> = { day: new Map(), swing: new Map() };
+  for (const t of trades) {
+    const v = pick(t);
+    if (!v) continue;
+    const key = v.toLowerCase();
+    if (!seen[t.style].has(key)) seen[t.style].set(key, v);
+  }
+  const sorted = (m: Map<string, string>) => [...m.values()].sort((a, b) => a.localeCompare(b));
+  return { day: sorted(seen.day), swing: sorted(seen.swing) };
 }
 
 export function buildJournal(
@@ -50,6 +67,8 @@ export function buildJournal(
     fillById: new Map((data.fills ?? []).map((f) => [f.id, f])),
     reviews, tags,
     allTags: [...[...auto].sort(byName), ...[...manual].filter((m) => !auto.has(m)).sort(byName)],
+    setupsByStyle: valuesByStyle(trades, (t) => t.setup),
+    entriesByStyle: valuesByStyle(trades, (t) => t.entry),
     overnight: new Set(heldOvernightDayTrades(trades, today).map((t) => t.id)),
     marks,
     today,

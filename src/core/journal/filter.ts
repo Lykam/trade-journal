@@ -27,6 +27,10 @@ export interface TradeFilter {
   symbols: string[];
   tags: string[];
   tagMode: "any" | "all";
+  /** Daily setup; values are style-scoped, so this makes most sense alongside the STYLE filter. */
+  setup: string | null;
+  /** Intraday entry trigger; style-scoped like setup. */
+  entry: string | null;
   style: Style | null;
   instrument: Instrument | null;
   broker: Broker | null;
@@ -54,7 +58,7 @@ export interface ViewState {
 }
 
 export const emptyFilter = (): TradeFilter => ({
-  symbols: [], tags: [], tagMode: "any", style: null, instrument: null, broker: null, duration: null, results: [],
+  symbols: [], tags: [], tagMode: "any", setup: null, entry: null, style: null, instrument: null, broker: null, duration: null, results: [],
   review: null, preset: null, from: null, to: null, booked: false, flag: null,
 });
 
@@ -78,6 +82,8 @@ export function parseView(p: URLSearchParams): ViewState {
       symbols: list(p.get("symbol")).map((s) => s.toUpperCase()),
       tags: list(p.get("tags")),
       tagMode: p.get("tagmode") === "all" ? "all" : "any",
+      setup: p.get("setup") || null,
+      entry: p.get("entry") || null,
       style: oneOf(p.get("style"), ["day", "swing"] as const),
       instrument: oneOf(p.get("instrument"), ["stock", "leveraged_etf"] as const),
       broker: oneOf(p.get("broker"), ["schwab", "webull"] as const),
@@ -104,6 +110,8 @@ export function viewToParams(v: ViewState, opts: { page?: boolean; sort?: boolea
   if (f.symbols.length) p.set("symbol", f.symbols.join(","));
   if (f.tags.length) p.set("tags", f.tags.join(","));
   if (f.tags.length > 1 && f.tagMode === "all") p.set("tagmode", "all");
+  if (f.setup) p.set("setup", f.setup);
+  if (f.entry) p.set("entry", f.entry);
   if (f.style) p.set("style", f.style);
   if (f.instrument) p.set("instrument", f.instrument);
   if (f.broker) p.set("broker", f.broker);
@@ -198,6 +206,8 @@ export function tradeMatcher(f: TradeFilter, ctx: MatchContext): (t: Trade) => b
       const have = new Set(ctx.tagsOf(t).map((x) => x.toLowerCase()));
       if (f.tagMode === "all" ? !tags.every((x) => have.has(x)) : !tags.some((x) => have.has(x))) return false;
     }
+    if (f.setup && t.setup?.toLowerCase() !== f.setup.toLowerCase()) return false;
+    if (f.entry && t.entry?.toLowerCase() !== f.entry.toLowerCase()) return false;
     switch (f.flag) {
       case "overnight": if (!ctx.overnight?.has(t.id)) return false; break;
       case "unmatched": if (t.status !== "unmatched") return false; break;
@@ -216,6 +226,8 @@ export function activeFilterLabels(f: TradeFilter, today: string, startsOn: "mon
   const out: string[] = [];
   if (f.symbols.length) out.push(f.symbols.join(", "));
   if (f.tags.length) out.push(`TAGS ${f.tags.join(f.tagMode === "all" ? " & " : ", ")}`);
+  if (f.setup) out.push(`SETUP ${f.setup}`);
+  if (f.entry) out.push(`ENTRY ${f.entry}`);
   if (f.style) out.push(f.style.toUpperCase());
   if (f.instrument) out.push(f.instrument === "leveraged_etf" ? "ETF" : "STOCK");
   if (f.broker) out.push(f.broker.toUpperCase());
@@ -237,7 +249,7 @@ export function activeFilterLabels(f: TradeFilter, today: string, startsOn: "mon
 /** Number of active filter fields (for the "N FILTERS · CLEAR" control). */
 export function activeFilterCount(f: TradeFilter): number {
   return [
-    f.symbols.length > 0, f.tags.length > 0, f.style, f.instrument, f.broker, f.duration, f.results.length > 0, f.review,
+    f.symbols.length > 0, f.tags.length > 0, f.setup, f.entry, f.style, f.instrument, f.broker, f.duration, f.results.length > 0, f.review,
     f.preset || f.from || f.to, f.flag,
   ].filter(Boolean).length;
 }

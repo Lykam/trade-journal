@@ -88,6 +88,10 @@ export function FilterBar({
   };
   const range = dateRange(f, journal.today, journal.startsOn);
   const toggleTag = (tag: string) => set({ tags: f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag] });
+  const byStyle = (m: typeof journal.setupsByStyle) =>
+    f.style ? m[f.style] : [...new Set([...m.day, ...m.swing])].sort((a, b) => a.localeCompare(b));
+  const setupOptions = byStyle(journal.setupsByStyle);
+  const entryOptions = byStyle(journal.entriesByStyle);
   const toggleResult = (r: TradeResult) => set({ results: f.results.includes(r) ? f.results.filter((x) => x !== r) : [...f.results, r] });
 
   return (
@@ -148,6 +152,20 @@ export function FilterBar({
             </span>
           </div>}
           <Seg label="STYLE" value={f.style} options={[{ value: null, label: "ALL" }, { value: "day", label: "DAY" }, { value: "swing", label: "SWING" }]} onChange={(style) => set({ style })} />
+          <div className="fgroup">
+            <span className="flabel">SETUP</span>
+            <select className="input" aria-label="Setup" value={f.setup ?? ""} onChange={(e) => set({ setup: e.target.value || null })}>
+              <option value="">ANY</option>
+              {setupOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="fgroup">
+            <span className="flabel">ENTRY</span>
+            <select className="input" aria-label="Entry" value={f.entry ?? ""} onChange={(e) => set({ entry: e.target.value || null })}>
+              <option value="">ANY</option>
+              {entryOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
           <Seg label="INSTRUMENT" value={f.instrument} options={[{ value: null, label: "ALL" }, { value: "stock", label: "STOCK" }, { value: "leveraged_etf", label: "ETF" }]} onChange={(instrument) => set({ instrument })} />
           <Seg label="BROKER" value={f.broker} options={[{ value: null, label: "ALL" }, { value: "schwab", label: "SCHWAB" }, { value: "webull", label: "WEBULL" }]} onChange={(broker) => set({ broker })} />
           <Seg label="DURATION" value={f.duration} options={[{ value: null, label: "ALL" }, { value: "intraday", label: "INTRADAY" }, { value: "multiday", label: "MULTI-DAY" }]} onChange={(duration) => set({ duration })} />
