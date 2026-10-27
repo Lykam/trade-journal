@@ -358,6 +358,20 @@ describe("tags and review checks", () => {
     expect(j.entriesByStyle).toEqual({ day: [], swing: ["ORB", "VWAP Reclaim"] });
   });
 
+  it("puts configured setup/entry presets first, in their given order, then any other used values alphabetically", () => {
+    const withConfig = {
+      ...config,
+      setupPresets: { day: [], swing: ["Moving Avg Pullback", "EP", "No Setup"] },
+      entryPresets: { day: [], swing: ["VWAP Reclaim", "No Entry"] },
+    };
+    const a = { ...closed({ style: "swing", symbol: "ZZS1", closedAt: "2025-04-01T10:00:00-04:00", net: 1 }), setup: "Flag Pullback", entry: "ORB" };
+    const b = { ...closed({ style: "swing", symbol: "ZZS2", closedAt: "2025-04-02T10:00:00-04:00", net: 1 }), setup: "ep", entry: "VWAP Reclaim" };
+    const j = buildJournal({ derived: { generated: true, generator: "test", trades: [a, b], ideas: ideasOf([a, b]) }, symbols: {}, config: withConfig, playbook: { reviews: [], images: [] } }, TODAY);
+    expect(j.setupsByStyle.swing).toEqual(["Moving Avg Pullback", "EP", "No Setup", "Flag Pullback"]);
+    expect(j.entriesByStyle.swing).toEqual(["VWAP Reclaim", "No Entry", "ORB"]);
+    expect(j.setupsByStyle.day).toEqual([]);
+  });
+
   it("flags OPEN swing reviews whose idea has closed, unmatched reviews and duplicate reviews", () => {
     const fixtures = JSON.parse(readFileSync(join(FIXTURES, "expected", "trades.json"), "utf8")) as DerivedTrades;
     const dir = join(FIXTURES, "playbook", "Reviews");

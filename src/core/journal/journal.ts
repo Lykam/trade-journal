@@ -16,9 +16,9 @@ export interface Journal {
   tags: Map<string, TradeTags>;
   /** Every tag in use, automatic first, then manual, alphabetical within each. */
   allTags: string[];
-  /** Setup values in use, grouped by style, alphabetical. */
+  /** Setup pill values by style: configured presets first, then any other values in use, alphabetical. */
   setupsByStyle: Record<Style, string[]>;
-  /** Entry values in use, grouped by style, alphabetical. */
+  /** Entry pill values by style: configured presets first, then any other values in use, alphabetical. */
   entriesByStyle: Record<Style, string[]>;
   overnight: Set<string>;
   /** Open trades with a quote: unrealized P&L at the last price. Tables add the trade's gross or net realized P&L (§6.1a). */
@@ -27,8 +27,16 @@ export interface Journal {
   startsOn: "monday" | "sunday";
 }
 
-/** Distinct values of `pick`, case-insensitively deduped (first casing wins), grouped by trade style, alphabetical. */
-function valuesByStyle(trades: Trade[], pick: (t: Trade) => string | undefined): Record<Style, string[]> {
+/**
+ * Distinct values of `pick`, grouped by trade style: configured presets first (in the
+ * given order), then any other values already used on a trade, alphabetical and
+ * case-insensitively deduped against the presets (first casing wins).
+ */
+function valuesByStyle(
+  trades: Trade[],
+  pick: (t: Trade) => string | undefined,
+  presets?: Record<Style, string[]>,
+): Record<Style, string[]> {
   const seen: Record<Style, Map<string, string>> = { day: new Map(), swing: new Map() };
   for (const t of trades) {
     const v = pick(t);
@@ -36,8 +44,13 @@ function valuesByStyle(trades: Trade[], pick: (t: Trade) => string | undefined):
     const key = v.toLowerCase();
     if (!seen[t.style].has(key)) seen[t.style].set(key, v);
   }
-  const sorted = (m: Map<string, string>) => [...m.values()].sort((a, b) => a.localeCompare(b));
-  return { day: sorted(seen.day), swing: sorted(seen.swing) };
+  const merged = (style: Style) => {
+    const preset = presets?.[style] ?? [];
+    const presetKeys = new Set(preset.map((v) => v.toLowerCase()));
+    const extra = [...seen[style]].filter(([k]) => !presetKeys.has(k)).map(([, v]) => v).sort((a, b) => a.localeCompare(b));
+    return [...preset, ...extra];
+  };
+  return { day: merged("day"), swing: merged("swing") };
 }
 
 export function buildJournal(
@@ -67,8 +80,8 @@ export function buildJournal(
     fillById: new Map((data.fills ?? []).map((f) => [f.id, f])),
     reviews, tags,
     allTags: [...[...auto].sort(byName), ...[...manual].filter((m) => !auto.has(m)).sort(byName)],
-    setupsByStyle: valuesByStyle(trades, (t) => t.setup),
-    entriesByStyle: valuesByStyle(trades, (t) => t.entry),
+    setupsByStyle: valuesByStyle(trades, (t) => t.setup, data.config.setupPresets),
+    entriesByStyle: valuesByStyle(trades, (t) => t.entry, data.config.entryPresets),
     overnight: new Set(heldOvernightDayTrades(trades, today).map((t) => t.id)),
     marks,
     today,

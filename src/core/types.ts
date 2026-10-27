@@ -34,6 +34,9 @@ export interface Config {
   schwabAccounts: Record<string, string>;
   webullAccount: string;
   styleByAccount: Record<string, Style>;
+  /** Setup/Entry pill values shown before any trade uses them, keyed by style; values used on trades are added automatically. */
+  setupPresets?: Record<Style, string[]>;
+  entryPresets?: Record<Style, string[]>;
   gauge: {
     /** Days of closed trades in the gauge average; null = all time (Q74). */
     baselineDays: number | null;
