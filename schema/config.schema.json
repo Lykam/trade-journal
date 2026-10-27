@@ -16,6 +16,20 @@
     },
     "webullAccount": { "type": "string" },
     "styleByAccount": { "type": "object", "additionalProperties": { "enum": ["day", "swing"] } },
+    "setupPresets": {
+      "type": "object", "additionalProperties": false, "required": ["day", "swing"],
+      "properties": {
+        "day": { "type": "array", "items": { "type": "string" } },
+        "swing": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "entryPresets": {
+      "type": "object", "additionalProperties": false, "required": ["day", "swing"],
+      "properties": {
+        "day": { "type": "array", "items": { "type": "string" } },
+        "swing": { "type": "array", "items": { "type": "string" } }
+      }
+    },
     "gauge": {
       "type": "object",
       "additionalProperties": false,
