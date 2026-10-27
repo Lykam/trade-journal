@@ -17,6 +17,7 @@ import { SymbolMapForm } from "../components/SymbolMap";
 import { viewHref } from "../components/FilterBar";
 import { ChartUpload } from "../components/ChartUpload";
 import { Lightbox, type LightboxImage } from "../components/Lightbox";
+import { TradingViewChart } from "../components/TradingViewChart";
 import { Timeline } from "../components/OpenPositions";
 import { Pnl } from "../components/Pnl";
 import { LazyReview } from "../components/LazyReview";
@@ -100,7 +101,8 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
             </div>
           </section>
           <IdeaPanel journal={j} t={t} view={view} />
-          {/* Charts sit beside the review instead of under it (#21). */}
+          {/* The live chart sits right above the playbook screenshots of it (#21); Charts sit beside the review instead of under it. */}
+          <TvChartPanel t={t} now={now} />
           <Charts key={t.id} data={data} journal={j} t={t} />
         </div>
         <div className="col">
@@ -109,6 +111,26 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
       </div>
 
     </main>
+  );
+}
+
+/**
+ * A TradingView range preset wide enough to carry today's view back to the trade's open date
+ * (no custom date range, or an explicit default interval, on the free widget — TradingView picks
+ * the candle interval itself from the visible range, going intraday on anything narrower than
+ * ~12M; 12M/60M both land on daily, which is what the chart is meant to default to).
+ */
+function tvRange(openedAt: string, now: string): string {
+  const days = (Date.parse(now) - Date.parse(openedAt)) / 86_400_000;
+  return days <= 365 ? "12M" : "60M";
+}
+
+function TvChartPanel({ t, now }: { t: Trade; now: string }) {
+  return (
+    <section className="panel" aria-label="TradingView chart">
+      <div className="panel-head"><h2>Chart · {t.symbol}</h2><span className="dim small">TRADINGVIEW · DAILY</span></div>
+      <TradingViewChart symbol={t.symbol} range={tvRange(t.openedAt, now)} />
+    </section>
   );
 }
 
