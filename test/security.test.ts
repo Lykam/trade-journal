@@ -59,13 +59,14 @@ describe("scan (S3)", () => {
 });
 
 describe("CSP (S4)", () => {
-  it("allows inline scripts only by hash, and only GitHub's API besides the site", () => {
+  it("allows inline scripts only by hash, TradingView's loader besides the site, and only GitHub's API for data", () => {
     const csp = cspFor('<head><script>var a = 1;</script><script type="module" src="/x.js"></script></head>');
-    expect(csp).toMatch(/script-src 'self' 'sha256-[A-Za-z0-9+/=]{44}';/);
+    expect(csp).toMatch(/script-src 'self' https:\/\/s3\.tradingview\.com 'sha256-[A-Za-z0-9+/=]{44}';/);
     expect(csp.match(/sha256-/g)).toHaveLength(1);
+    expect(csp).toContain("frame-src https://www.tradingview-widget.com https://s.tradingview.com");
     expect(csp).toContain("connect-src 'self' https://api.github.com");
     expect(csp).not.toMatch(/unsafe-(inline|eval)/);
-    expect(cspFor("<head></head>")).toContain("script-src 'self';");
+    expect(cspFor("<head></head>")).toContain("script-src 'self' https://s3.tradingview.com;");
   });
 });
 

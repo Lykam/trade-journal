@@ -7,7 +7,11 @@ import type { Plugin } from "vite";
 
 export const CSP_DIRECTIVES = [
   "default-src 'self'",
-  "script-src 'self' HASHES",
+  // https://s3.tradingview.com loads the Trade detail chart widget, which renders into
+  // a cross-origin iframe it controls (tradingview-widget.com, falling back to s.tradingview.com) —
+  // that iframe's own content isn't subject to this page's CSP.
+  "script-src 'self' https://s3.tradingview.com HASHES",
+  "frame-src https://www.tradingview-widget.com https://s.tradingview.com",
   "style-src 'self'",
   "font-src 'self'",
   "img-src 'self' blob: data:",
