@@ -191,10 +191,10 @@ function SetupEntryRow({ data, journal: j, t }: { data: DataBundle; journal: Jou
   const setup = stagedValue(staging.staged, "setSetup", t.id) ?? t.setup ?? "";
   const entry = stagedValue(staging.staged, "setEntry", t.id) ?? t.entry ?? "";
   return (
-    <section className="tagrow" aria-label="Setup and entry">
+    <section className="setupentry" aria-label="Setup and entry">
       <PillPicker label="SETUP" options={j.setupsByStyle[t.style]} value={setup} disabled={locked} onChange={(v) => apply([t], { kind: "setSetup", setup: v })} />
       <PillPicker label="ENTRY" options={j.entriesByStyle[t.style]} value={entry} disabled={locked} onChange={(v) => apply([t], { kind: "setEntry", entry: v })} />
-      {(staging.staged || staging.committed) && <div style={{ flexBasis: "100%" }}><StagedPreview data={data} staging={staging} /></div>}
+      {(staging.staged || staging.committed) && <StagedPreview data={data} staging={staging} />}
     </section>
   );
 }
