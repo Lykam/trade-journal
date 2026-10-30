@@ -16,6 +16,7 @@ import type { Staged } from "../../core/journal/staging";
 import { SymbolMapForm } from "../components/SymbolMap";
 import { viewHref } from "../components/FilterBar";
 import { ChartUpload } from "../components/ChartUpload";
+import { JournalForm } from "../components/JournalForm";
 import { Lightbox, type LightboxImage } from "../components/Lightbox";
 import { TradingViewChart } from "../components/TradingViewChart";
 import { Timeline } from "../components/OpenPositions";
@@ -373,6 +374,7 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
   const staging = useStagedOverrides(data);
   const { staged, apply, locked } = staging;
   const [note, setNote] = useState(t.note ?? "");
+  const [writing, setWriting] = useState(false);
   if (reviews.length) {
     return (
       <section className="panel notes" aria-label="Review">
@@ -400,7 +402,20 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
           {staged && <span className="dim small">previewed below; commit to save</span>}
         </div>
         <StagedPreview data={data} staging={staging} onDiscard={() => setNote(t.note ?? "")} />
-        <CopyCommand label="START REVIEW" command={command} />
+        {writing && idea ? (
+          <JournalForm
+            idea={idea}
+            existingReviewPaths={(data.playbook?.reviews ?? []).map((r) => r.path)}
+            existingImages={data.playbook?.images ?? []}
+            onDone={() => setWriting(false)}
+          />
+        ) : (
+          <div className="row">
+            {idea && <button type="button" className="btn primary" onClick={() => setWriting(true)}>WRITE REVIEW IN APP</button>}
+            <CopyCommand label="START IN CLAUDE CODE" command={command} />
+          </div>
+        )}
+        {writing && <span className="dim small">Finviz context and after-the-fact charts still need the terminal sync step once this is saved.</span>}
       </div>
     </section>
   );
