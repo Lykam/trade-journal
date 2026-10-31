@@ -2,7 +2,7 @@
 // page), drop or pick an image, choose 1m / 5m / daily and the date, preview the
 // file name, then commit it to Playbook. Playbook's notify-journal redeploys
 // the site, and the image joins the gallery like any other Playbook chart.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UPLOAD_KINDS, UPLOAD_TYPES, UploadError, uploadPath, type UploadKind } from "../../core/reviews/images";
 import { DEMO_COMMIT_NOTE } from "../demo-text";
 import { commitChart, type ChartUpload as Upload } from "../../core/reviews/upload";
@@ -28,6 +28,18 @@ function imageOf(files: FileList | null | undefined): File | null {
   return [...(files ?? [])].find((f) => f.type.startsWith("image/")) ?? null;
 }
 
+/**
+ * Two or more boxes can be on screen at once (the journal form's Daily and
+ * Intraday charts): a bare "paste anywhere" would land the same image in every
+ * one of them. With only one box mounted, paste-anywhere still works exactly
+ * as before (Q78); with more than one, a paste goes only to the box last
+ * clicked into.
+ */
+const mounted = new Set<symbol>();
+let focusedId: symbol | null = null;
+const onMountChange = new Set<() => void>();
+const notifyMountChange = () => onMountChange.forEach((f) => f());
+
 export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing }: {
   dates: string[];
   defaultDate: string;
@@ -43,6 +55,8 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
   const [drag, setDrag] = useState(false);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const busy = phase.kind === "committing";
+  const id = useRef(Symbol());
+  const [, rerender] = useState(0);
 
   const take = (f: Blob | null) => {
     if (!f || busy) return;
@@ -51,11 +65,29 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
     setPhase({ kind: "idle" });
   };
 
-  // Ctrl+V anywhere on Trade detail, straight after Win+Shift+S. Text pastes are left alone.
+  // Register with every other box currently on screen, so paste can tell whether it's alone.
+  useEffect(() => {
+    mounted.add(id.current);
+    notifyMountChange();
+    const onChange = () => rerender((n) => n + 1);
+    onMountChange.add(onChange);
+    return () => {
+      mounted.delete(id.current);
+      onMountChange.delete(onChange);
+      if (focusedId === id.current) focusedId = null;
+      notifyMountChange();
+    };
+  }, []);
+  const solo = mounted.size <= 1;
+
+  // Ctrl+V anywhere on Trade detail, straight after Win+Shift+S (Q78) — unless
+  // another box is also on screen, where only the last-clicked box claims it.
+  // Text pastes are left alone.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const f = imageOf(e.clipboardData?.files);
       if (!f) return;
+      if (!solo && focusedId !== id.current) return;
       e.preventDefault();
       take(f);
     };
@@ -80,6 +112,7 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
   return (
     <div
       className={`chart-upload ${drag ? "drag" : ""}`}
+      onMouseDown={() => { focusedId = id.current; }}
       onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
       onDragLeave={() => setDrag(false)}
       onDrop={(e) => { e.preventDefault(); setDrag(false); take(imageOf(e.dataTransfer.files)); }}
@@ -87,7 +120,7 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
       {!picked ? (
         <div className="row">
           <span className="label small">ADD CHART</span>
-          <span className="muted small">Paste a screenshot (Ctrl+V), drop an image here, or</span>
+          <span className="muted small">{solo ? "Paste a screenshot (Ctrl+V), drop an image here, or" : "Click here, then paste a screenshot (Ctrl+V), drop an image here, or"}</span>
           <label className="btn">
             CHOOSE FILE
             <input type="file" accept={Object.keys(UPLOAD_TYPES).join(",")} hidden onChange={(e) => { take(imageOf(e.target.files)); e.target.value = ""; }} />
