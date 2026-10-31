@@ -32,11 +32,13 @@ function imageOf(files: FileList | null | undefined): File | null {
  * Two or more boxes can be on screen at once (the journal form's Daily and
  * Intraday charts): a bare "paste anywhere" would land the same image in every
  * one of them. With only one box mounted, paste-anywhere still works exactly
- * as before (Q78); with more than one, a paste goes only to the box last
- * clicked into.
+ * as before (Q78); with more than one, a paste goes only to whichever box
+ * currently holds DOM focus (clicked into, or a control inside it, e.g.
+ * CHOOSE FILE) — the browser guarantees only one element can hold focus at a
+ * time, so unlike tracking "last clicked" in a shared variable, this can't
+ * drift: there's nothing to go stale.
  */
 const mounted = new Set<symbol>();
-let focusedId: symbol | null = null;
 const onMountChange = new Set<() => void>();
 const notifyMountChange = () => onMountChange.forEach((f) => f());
 
@@ -56,6 +58,7 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const busy = phase.kind === "committing";
   const id = useRef(Symbol());
+  const box = useRef<HTMLDivElement>(null);
   const [, rerender] = useState(0);
 
   const take = (f: Blob | null) => {
@@ -74,20 +77,19 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
     return () => {
       mounted.delete(id.current);
       onMountChange.delete(onChange);
-      if (focusedId === id.current) focusedId = null;
       notifyMountChange();
     };
   }, []);
   const solo = mounted.size <= 1;
 
   // Ctrl+V anywhere on Trade detail, straight after Win+Shift+S (Q78) — unless
-  // another box is also on screen, where only the last-clicked box claims it.
-  // Text pastes are left alone.
+  // another box is also on screen, where a paste only lands in the box that
+  // currently holds focus. Text pastes are left alone.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const f = imageOf(e.clipboardData?.files);
       if (!f) return;
-      if (!solo && focusedId !== id.current) return;
+      if (!solo && !box.current?.contains(document.activeElement)) return;
       e.preventDefault();
       take(f);
     };
@@ -111,8 +113,9 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
 
   return (
     <div
+      ref={box}
+      tabIndex={-1}
       className={`chart-upload ${drag ? "drag" : ""}`}
-      onMouseDown={() => { focusedId = id.current; }}
       onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
       onDragLeave={() => setDrag(false)}
       onDrop={(e) => { e.preventDefault(); setDrag(false); take(imageOf(e.dataTransfer.files)); }}
