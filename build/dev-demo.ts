@@ -22,8 +22,17 @@ writeFileSync(
   join(dir, "quotes.json"),
   JSON.stringify({ asOf: "2025-03-20T19:45:00Z", quotes: { OPSW: { price: 12.5, time: "2025-03-20T19:45:00Z", marketState: "REGULAR" } } }),
 );
+writeFileSync(
+  join(dir, "regime.json"),
+  JSON.stringify({
+    asOf: "2025-03-20T19:45:00Z",
+    attemptedAt: "2025-03-20T19:45:00Z",
+    snapshot: { state: "unsure", score: 1, indicators: [{ id: "trend", label: "Trend (SPY/QQQ vs 50/200dma)", score: 1, detail: "SPY above rising 50/200dma; QQQ mixed" }] },
+  }),
+);
 process.env.TRADE_HISTORY_DIR = history;
 process.env.QUOTES_FILE = join(dir, "quotes.json");
+process.env.REGIME_FILE = join(dir, "regime.json");
 process.env.PLAYBOOK_DIR = join(fixtures, "playbook");
 
 const server = await createServer({ root: REPO_ROOT, server: { port: Number(process.env.PORT ?? 5174) } });

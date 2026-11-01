@@ -122,6 +122,15 @@ a.sym:hover { color: var(--accent); }
 .dial .needle { stroke: var(--accent); stroke-width: 3; }
 .dial .hub { fill: var(--accent); }
 .dial .marker { stroke: var(--text); stroke-width: 2; }
+
+/* ---- market regime */
+.regime { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.regime-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.regime-head .state { font-size: 16px; font-weight: 700; }
+.regime-head .state.full { color: var(--gain); }
+.regime-head .state.half { color: var(--half); }
+.regime-head .state.quarter { color: var(--loss); }
+.regime-checklist { display: flex; flex-direction: column; gap: 4px; list-style: none; padding: 0; margin: 0; font-size: 13px; }
 .dial .value { fill: var(--text); font: 700 22px var(--font); }
 .dial .scale { fill: var(--dim); font: 9px var(--font); }
 .s-gain { stroke: var(--gain); }

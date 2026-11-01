@@ -28,8 +28,10 @@ let tmp: string;
 let outDir: string;
 let demoDir: string;
 let encDir: string;
-let sources: { historyDir: string; quotesFile: string; playbookDir: string };
-const saved = { history: process.env.TRADE_HISTORY_DIR, quotes: process.env.QUOTES_FILE, playbook: process.env.PLAYBOOK_DIR };
+let sources: { historyDir: string; quotesFile: string; playbookDir: string; regimeFile: string };
+const saved = {
+  history: process.env.TRADE_HISTORY_DIR, quotes: process.env.QUOTES_FILE, playbook: process.env.PLAYBOOK_DIR, regime: process.env.REGIME_FILE,
+};
 
 /** Every file's bytes as latin1, so binary files are searched too. */
 function allText(dir: string): string {
@@ -49,6 +51,10 @@ beforeAll(async () => {
   };
   writeFileSync(join(history, "derived", "trades.json"), JSON.stringify(derived));
   writeFileSync(join(tmp, "quotes.json"), JSON.stringify({ asOf: "x", quotes: { [CANARY]: { price: 1, time: "x" } } }));
+  writeFileSync(
+    join(tmp, "regime.json"),
+    JSON.stringify({ asOf: "x", attemptedAt: "x", snapshot: { state: "unsure", score: 0, indicators: [] } }),
+  );
   const playbook = join(tmp, "playbook");
   mkdirSync(join(playbook, "Reviews"), { recursive: true });
   mkdirSync(join(playbook, "Images", "2026-09-20"), { recursive: true });
@@ -63,6 +69,7 @@ ${REVIEW_TEXT}
   process.env.PLAYBOOK_DIR = playbook;
   process.env.TRADE_HISTORY_DIR = history;
   process.env.QUOTES_FILE = join(tmp, "quotes.json");
+  process.env.REGIME_FILE = join(tmp, "regime.json");
   outDir = join(tmp, "dist");
   // Build exactly as `npm run build` does: production mode (vitest itself runs with NODE_ENV=test).
   const env = process.env.NODE_ENV;
@@ -76,7 +83,7 @@ ${REVIEW_TEXT}
     process.env.NODE_ENV = env;
   }
   // The deploy's next steps: bundle the same data and encrypt it into a copy of dist/.
-  sources = { historyDir: history, quotesFile: join(tmp, "quotes.json"), playbookDir: playbook };
+  sources = { historyDir: history, quotesFile: join(tmp, "quotes.json"), regimeFile: join(tmp, "regime.json"), playbookDir: playbook };
   encDir = join(tmp, "dist-enc");
   cpSync(outDir, encDir, { recursive: true });
   const { bundle, images } = bundleData(sources);
@@ -87,6 +94,7 @@ afterAll(() => {
   const restore = (k: string, v: string | undefined) => (v === undefined ? delete process.env[k] : (process.env[k] = v));
   restore("TRADE_HISTORY_DIR", saved.history);
   restore("QUOTES_FILE", saved.quotes);
+  restore("REGIME_FILE", saved.regime);
   restore("PLAYBOOK_DIR", saved.playbook);
   rmSync(tmp, { recursive: true, force: true });
 });
