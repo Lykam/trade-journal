@@ -14,7 +14,9 @@ import { clearToken, loadToken, saveToken, tokenKey, TOKEN_STORAGE_KEY, type Key
 import { importFingerprint, importMessage, importWrites, planImport } from "../src/core/import/plan";
 import { MissingTradesError, planOverrideCommit, type StagedAction } from "../src/core/journal/overrides";
 import { applySymbolChanges, mappingError, planSymbolCommit } from "../src/core/symbols/mapping";
+import { blankAnswers, commitReview } from "../src/core/reviews/draft";
 import { canWrite, checkUpload, commitChart } from "../src/core/reviews/upload";
+import type { Idea } from "../src/core/types";
 import { FakeGitHub, TOKEN } from "./fake-github";
 import { FIXTURES, IMPORTED_AT, SCHWAB_A, SCHWAB_B, WEBULL_A, WEBULL_B } from "./helpers";
 
@@ -507,5 +509,59 @@ describe("chart uploads to Playbook (Q78)", () => {
     expect(() => checkUpload({ type: "image/png", bytes: new Uint8Array() })).toThrow(/empty/);
     expect(() => checkUpload({ type: "image/png", bytes: new Uint8Array(10 * 1024 * 1024 + 1) })).toThrow(/limit/);
     expect(checkUpload({ type: "image/jpeg", bytes: PNG })).toBe("jpg");
+  });
+});
+
+describe("in-app journal review (Q80)", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 1, 2, 255]);
+  const idea: Idea = {
+    id: "sc-abc123", underlying: "TSTU", accounts: ["schwab-main"], symbolsTraded: ["TSTU"], usedEtf: false,
+    style: "swing", date: "2026-10-13", tradeIds: ["t1"], netPnl: -12.3, status: "closed",
+  };
+  const playbook = () => new FakeGitHub({ "Template.md": "# T" });
+
+  it("commits the review and any picked charts together, in one commit", async () => {
+    const fake = playbook();
+    const before = fake.commitCount();
+    const charts = [
+      { date: "2026-10-13", symbol: "TSTU", kind: "daily" as const, type: "image/png", bytes: PNG },
+      { date: "2026-10-13", symbol: "TSTU", kind: "5m" as const, type: "image/png", bytes: PNG },
+    ];
+    const out = await commitReview(new GitHubClient(TOKEN, fake.fetch), DATA, idea, blankAnswers, charts);
+    expect(fake.commitCount()).toBe(before + 1);
+    expect(out.path).toBe("Reviews/2026-10-13-TSTU.md");
+    expect(out.chartPaths).toEqual(["Images/2026-10-13/TSTU-daily.png", "Images/2026-10-13/TSTU-intraday-5m.png"]);
+    expect(fake.text(out.path)).toContain("# Playbook Review — TSTU 2026-10-13");
+    expect(fake.files()[out.chartPaths[0]!]).toEqual(PNG);
+    expect(fake.files()[out.chartPaths[1]!]).toEqual(PNG);
+  });
+
+  it("still commits review-only when no charts are picked", async () => {
+    const fake = playbook();
+    const before = fake.commitCount();
+    const out = await commitReview(new GitHubClient(TOKEN, fake.fetch), DATA, idea, blankAnswers);
+    expect(fake.commitCount()).toBe(before + 1);
+    expect(out.chartPaths).toEqual([]);
+    expect(Object.keys(fake.files())).toEqual(["Template.md", out.path]);
+  });
+
+  it("avoids name collisions against the repo and against charts in the same save", async () => {
+    const fake = new FakeGitHub({ "Template.md": "# T", "Reviews/2026-10-13-TSTU.md": "# taken", "Images/2026-10-13/TSTU-daily.png": new Uint8Array([9]) });
+    const charts = [
+      { date: "2026-10-13", symbol: "TSTU", kind: "daily" as const, type: "image/png", bytes: PNG },
+      { date: "2026-10-13", symbol: "TSTU", kind: "daily" as const, type: "image/png", bytes: new Uint8Array([3]) },
+    ];
+    const out = await commitReview(new GitHubClient(TOKEN, fake.fetch), DATA, idea, blankAnswers, charts);
+    expect(out.path).toBe("Reviews/2026-10-13-TSTU-2.md");
+    expect(out.chartPaths).toEqual(["Images/2026-10-13/TSTU-daily-2.png", "Images/2026-10-13/TSTU-daily-3.png"]);
+  });
+
+  it("rejects an unsupported or oversized chart before touching the network", async () => {
+    const fake = playbook();
+    const before = fake.commitCount();
+    await expect(
+      commitReview(new GitHubClient(TOKEN, fake.fetch), DATA, idea, blankAnswers, [{ date: "2026-10-13", symbol: "TSTU", kind: "daily", type: "image/svg+xml", bytes: PNG }]),
+    ).rejects.toThrow(/Not an image/);
+    expect(fake.commitCount()).toBe(before);
   });
 });

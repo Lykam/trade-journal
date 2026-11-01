@@ -1,6 +1,9 @@
-// TradingView's free Advanced Chart widget (symbol daily chart on Trade detail). It
-// renders inside a sandboxed iframe TradingView controls, so there's no way to draw
-// buy/sell markers on it — `range` just gets the trade's open date into view.
+// TradingView's free Advanced Chart widget (symbol chart on Trade detail). It renders
+// inside a sandboxed iframe TradingView controls, so there's no way to draw buy/sell
+// markers on it — `range` just gets the trade's open date into view. Requests the 5-minute
+// interval, the one more often grabbed for the journal's Intraday Chart; the widget only
+// honors that on a narrow enough `range` (see tvRange in TradeDetail), falling back to
+// daily candles on a wider one regardless of what's requested here.
 import { useEffect, useRef } from "react";
 
 export function TradingViewChart({ symbol, range, height = 440 }: { symbol: string; range: string; height?: number }) {
@@ -26,7 +29,7 @@ export function TradingViewChart({ symbol, range, height = 440 }: { symbol: stri
     script.text = JSON.stringify({
       autosize: true,
       symbol,
-      interval: "D",
+      interval: "5",
       range,
       timezone: "America/New_York",
       theme: "dark",

@@ -6,6 +6,7 @@
 // ChartUpload (Q78) rather than a new upload path.
 import { useState } from "react";
 import { blankAnswers, commitReview, reviewPath, type ReviewAnswers } from "../../core/reviews/draft";
+import type { ChartUpload as Upload } from "../../core/reviews/upload";
 import { GitHubClient } from "../../core/github/client";
 import { DEMO_COMMIT_NOTE } from "../demo-text";
 import type { Idea } from "../../core/types";
@@ -49,10 +50,13 @@ export function JournalForm({ idea, existingReviewPaths, existingImages, onDone 
 }) {
   const [a, setA] = useState<ReviewAnswers>(blankAnswers);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const [dailyUpload, setDailyUpload] = useState<Upload | null>(null);
+  const [intradayUpload, setIntradayUpload] = useState<Upload | null>(null);
   const day = idea.style === "day";
   const closed = idea.status === "closed";
   const set = <K extends keyof ReviewAnswers>(k: K) => (v: string) => setA((s) => ({ ...s, [k]: v }));
   const busy = phase.kind === "committing";
+  const charts = [dailyUpload, intradayUpload].filter((u): u is Upload => u !== null);
 
   const path = reviewPath(existingReviewPaths, idea.date, idea.underlying);
 
@@ -70,12 +74,18 @@ export function JournalForm({ idea, existingReviewPaths, existingImages, onDone 
       {!day && (
         <>
           <Field label="Daily Chart" hint="What was it doing, volume?" value={a.dailyChart} onChange={set("dailyChart")} />
-          <ChartUpload dates={[idea.date]} defaultDate={idea.date} symbols={[idea.underlying]} defaultKind="daily" existing={existingImages} />
+          <ChartUpload
+            dates={[idea.date]} defaultDate={idea.date} symbols={[idea.underlying]} defaultKind="daily" existing={existingImages}
+            deferred onPicked={setDailyUpload}
+          />
         </>
       )}
 
       <Field label="Intraday Chart" hint="Action, volume, support/resistance, any gap?" value={a.intradayChart} onChange={set("intradayChart")} />
-      <ChartUpload dates={[idea.date]} defaultDate={idea.date} symbols={[idea.underlying]} defaultKind={day ? "5m" : "daily"} existing={existingImages} />
+      <ChartUpload
+        dates={[idea.date]} defaultDate={idea.date} symbols={[idea.underlying]} defaultKind="5m" existing={existingImages}
+        deferred onPicked={setIntradayUpload}
+      />
 
       {day && <Field label="Level 2" hint="Big buyers/sellers, lifting offers vs hitting bids?" value={a.level2} onChange={set("level2")} />}
 
@@ -97,7 +107,9 @@ export function JournalForm({ idea, existingReviewPaths, existingImages, onDone 
         <div className="empty small">This swing position is still open. Save the entry now; come back once it closes to finish the exit sections.</div>
       )}
 
-      <div className="muted small">Saves as <code>{path}</code> in {PLAYBOOK_REPO.repo}</div>
+      <div className="muted small">
+        Saves as <code>{path}</code>{charts.length ? ` + ${charts.length} chart${charts.length === 1 ? "" : "s"}` : ""} in {PLAYBOOK_REPO.repo}, in one commit
+      </div>
       <div className="row">
         {__TJ_DEMO__ ? (
           <>
@@ -108,6 +120,7 @@ export function JournalForm({ idea, existingReviewPaths, existingImages, onDone 
           <SaveButton
             idea={idea}
             answers={a}
+            charts={charts}
             onPhase={(next) => {
               setPhase(next);
               if (next.kind === "done") onDone?.();
@@ -127,7 +140,7 @@ export function JournalForm({ idea, existingReviewPaths, existingImages, onDone 
   );
 }
 
-function SaveButton({ idea, answers, onPhase }: { idea: Idea; answers: ReviewAnswers; onPhase: (p: Phase) => void }) {
+function SaveButton({ idea, answers, charts, onPhase }: { idea: Idea; answers: ReviewAnswers; charts: Upload[]; onPhase: (p: Phase) => void }) {
   const token = useToken();
   if (token.status !== "ok") {
     return <span className="dim small">{token.status === "loading" ? "…" : <>To save, add a GitHub token in <a href="#/settings">SETTINGS</a>.</>}</span>;
@@ -135,7 +148,7 @@ function SaveButton({ idea, answers, onPhase }: { idea: Idea; answers: ReviewAns
   const save = async () => {
     onPhase({ kind: "committing" });
     try {
-      const out = await commitReview(new GitHubClient(token.record.token), PLAYBOOK_REPO, idea, answers);
+      const out = await commitReview(new GitHubClient(token.record.token), PLAYBOOK_REPO, idea, answers, charts);
       watchDeploy({ label: "Review committed", want: { date: out.date }, link: `${ACTIONS_URL}/workflows/deploy.yml`, commitUrl: out.url });
       onPhase({ kind: "done", path: out.path, url: out.url });
     } catch (e) {
