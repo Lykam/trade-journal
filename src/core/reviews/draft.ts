@@ -5,7 +5,10 @@
 // they're never asked. Chart images are attached with the same ChartUpload
 // component Trade detail already uses for Q78, not generated here.
 import { commitFiles, GitHubError, readState, RefMovedError, repoName, type CommitResult, type GitHubClient, type RepoId } from "../github/client";
+import type { FileWrite } from "../history/files";
 import type { Idea } from "../types";
+import { uploadPath } from "./images";
+import { checkUpload, type ChartUpload } from "./upload";
 
 export interface ReviewAnswers {
   category: string;
@@ -110,17 +113,42 @@ export function buildReviewMarkdown(idea: Idea, a: ReviewAnswers): string {
 export const reviewMessage = (idea: Idea, phase: "entry phase, open" | "closed") =>
   `Add ${idea.underlying} ${idea.date} ${idea.style} review (${phase})`;
 
-/** Commit the review to `repo`'s main, picking the file name fresh at commit time so a concurrent write doesn't collide. */
-export async function commitReview(gh: GitHubClient, repo: RepoId, idea: Idea, answers: ReviewAnswers, attempts = 3): Promise<CommitResult & { path: string }> {
+/**
+ * Commit the review to `repo`'s main, along with any chart images picked in the
+ * journal form's upload boxes, in one commit: a review saved with charts attached
+ * either lands whole or not at all, instead of the text landing while an unclicked
+ * per-chart COMMIT button silently leaves the images behind. File names are picked
+ * fresh at commit time so a concurrent write doesn't collide.
+ */
+export async function commitReview(
+  gh: GitHubClient,
+  repo: RepoId,
+  idea: Idea,
+  answers: ReviewAnswers,
+  charts: ChartUpload[] = [],
+  attempts = 3,
+): Promise<CommitResult & { path: string; chartPaths: string[] }> {
   const markdown = buildReviewMarkdown(idea, answers);
-  const message = reviewMessage(idea, idea.status === "closed" ? "closed" : "entry phase, open");
+  const exts = charts.map(checkUpload);
+  const base = reviewMessage(idea, idea.status === "closed" ? "closed" : "entry phase, open");
+  const message = charts.length ? `${base} with ${charts.length} chart${charts.length === 1 ? "" : "s"}` : base;
   for (let i = 1; ; i++) {
     try {
       const state = await readState(gh, repo);
-      const path = reviewPath(state.files.keys(), idea.date, idea.underlying);
-      const commit = await commitFiles(gh, state, [{ path, content: markdown }], message);
-      // A new path always changes the tree, so a commit is always made.
-      return { ...commit!, path };
+      const taken = new Set(state.files.keys());
+      const path = reviewPath(taken, idea.date, idea.underlying);
+      taken.add(path);
+      const chartPaths: string[] = [];
+      const files: FileWrite[] = [{ path, content: markdown }];
+      charts.forEach((c, ci) => {
+        const p = uploadPath(taken, c.date, c.symbol, c.kind, exts[ci]!);
+        taken.add(p);
+        chartPaths.push(p);
+        files.push({ path: p, content: c.bytes });
+      });
+      const commit = await commitFiles(gh, state, files, message);
+      // A new review path always changes the tree, so a commit is always made.
+      return { ...commit!, path, chartPaths };
     } catch (e) {
       if (e instanceof RefMovedError && i < attempts) continue;
       throw explain(e, repo);

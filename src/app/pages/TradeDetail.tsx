@@ -117,20 +117,27 @@ export function TradeDetail({ data, journal: j, id, view, now }: { data: DataBun
 
 /**
  * A TradingView range preset wide enough to carry today's view back to the trade's open date
- * (no custom date range, or an explicit default interval, on the free widget — TradingView picks
- * the candle interval itself from the visible range, going intraday on anything narrower than
- * ~12M; 12M/60M both land on daily, which is what the chart is meant to default to).
+ * (no custom date range on the free widget, and no anchoring a preset to a date other than
+ * today — only how much history is in view, counting back from now). TradingViewChart asks
+ * for 5-minute candles, the more common grab for the journal's Intraday Chart, but the widget
+ * only honors that on a narrow-enough range: wide enough to reach the open date (Q78), it falls
+ * back to daily candles regardless of the requested interval. So a trade recent enough that a
+ * narrow range already reaches it (the common case — reviews happen shortly after the trade)
+ * gets 5D, which keeps 5-minute candles; an older trade falls back to the wide 12M/60M range,
+ * which TradingView renders as daily either way.
  */
 function tvRange(openedAt: string, now: string): string {
   const days = (Date.parse(now) - Date.parse(openedAt)) / 86_400_000;
+  if (days <= 4) return "5D";
   return days <= 365 ? "12M" : "60M";
 }
 
 function TvChartPanel({ t, now }: { t: Trade; now: string }) {
+  const range = tvRange(t.openedAt, now);
   return (
     <section className="panel" aria-label="TradingView chart">
-      <div className="panel-head"><h2>Chart · {t.symbol}</h2><span className="dim small">TRADINGVIEW · DAILY</span></div>
-      <TradingViewChart symbol={t.symbol} range={tvRange(t.openedAt, now)} />
+      <div className="panel-head"><h2>Chart · {t.symbol}</h2><span className="dim small">TRADINGVIEW · {range === "5D" ? "5M" : "DAILY"}</span></div>
+      <TradingViewChart symbol={t.symbol} range={range} />
     </section>
   );
 }

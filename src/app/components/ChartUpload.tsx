@@ -13,6 +13,7 @@ interface Picked {
   blob: Blob;
   type: string;
   url: string;
+  bytes: Uint8Array;
 }
 
 type Phase =
@@ -42,13 +43,20 @@ const mounted = new Set<symbol>();
 const onMountChange = new Set<() => void>();
 const notifyMountChange = () => onMountChange.forEach((f) => f());
 
-export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing }: {
+export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing, deferred, onPicked }: {
   dates: string[];
   defaultDate: string;
   symbols: string[];
   defaultKind: UploadKind;
   /** Playbook image paths in the current data, for the name preview. */
   existing: string[];
+  /**
+   * The journal form's charts aren't committed on their own: they're held here and
+   * handed to the caller (via onPicked) so the whole review — text and charts — commits
+   * together on one SAVE. No own commit button, so there's nothing to forget to click.
+   */
+  deferred?: boolean;
+  onPicked?: (upload: Upload | null) => void;
 }) {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [kind, setKind] = useState<UploadKind>(defaultKind);
@@ -61,12 +69,17 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
   const box = useRef<HTMLDivElement>(null);
   const [, rerender] = useState(0);
 
-  const take = (f: Blob | null) => {
+  const take = async (f: Blob | null) => {
     if (!f || busy) return;
     if (!UPLOAD_TYPES[f.type]) return setPhase({ kind: "error", message: `Not an image this app stores (${f.type || "unknown type"}). Use PNG, JPEG, GIF, WebP or BMP.` });
-    setPicked({ blob: f, type: f.type, url: URL.createObjectURL(f) });
+    setPicked({ blob: f, type: f.type, url: URL.createObjectURL(f), bytes: new Uint8Array(await f.arrayBuffer()) });
     setPhase({ kind: "idle" });
   };
+
+  useEffect(() => {
+    if (!deferred) return;
+    onPicked?.(picked ? { date, symbol, kind, type: picked.type, bytes: picked.bytes } : null);
+  }, [deferred, picked, date, symbol, kind]);
 
   // Register with every other box currently on screen, so paste can tell whether it's alone.
   useEffect(() => {
@@ -148,9 +161,11 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
                 </select>
               )}
             </div>
-            <div className="muted small">Saves as <code>{preview}</code> in {PLAYBOOK_REPO.repo}</div>
+            <div className="muted small">
+              {deferred ? <>Saves as <code>{preview}</code> with the review, on SAVE REVIEW below</> : <>Saves as <code>{preview}</code> in {PLAYBOOK_REPO.repo}</>}
+            </div>
             <div className="row">
-              {__TJ_DEMO__ ? (
+              {deferred ? null : __TJ_DEMO__ ? (
                 <>
                   <button type="button" className="btn primary" disabled>COMMIT…</button>
                   <span className="note-line">{DEMO_COMMIT_NOTE}</span>
@@ -158,7 +173,7 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
               ) : (
                 <CommitButton
                   busy={busy}
-                  upload={async () => ({ date, symbol, kind, type: picked.type, bytes: new Uint8Array(await picked.blob.arrayBuffer()) })}
+                  upload={async () => ({ date, symbol, kind, type: picked.type, bytes: picked.bytes })}
                   onPhase={(next) => {
                     if (next.kind === "done") setPicked(null);
                     setPhase(next);
