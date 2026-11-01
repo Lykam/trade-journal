@@ -168,6 +168,9 @@ function PillPicker({ label, options, value, disabled, onChange }: {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const selected = (o: string) => o.toLowerCase() === value.toLowerCase();
+  // A value just added via + NEW isn't in `options` yet (that list reflects committed trades, not
+  // this staged edit) — show it as its own pressed pill so picking it has visible confirmation.
+  const custom = value && !options.some(selected) ? value : null;
   return (
     <div className="pillgroup" role="group" aria-label={label}>
       <span className="label small">{label}</span>
@@ -179,6 +182,14 @@ function PillPicker({ label, options, value, disabled, onChange }: {
           {o}
         </button>
       ))}
+      {custom && (
+        <button
+          type="button" className="pill" style={{ color: pillColor(custom) }} disabled={disabled}
+          aria-pressed onClick={() => onChange("")}
+        >
+          {custom}
+        </button>
+      )}
       {adding ? (
         <form className="row" onSubmit={(e) => { e.preventDefault(); if (draft.trim()) onChange(draft.trim()); setDraft(""); setAdding(false); }}>
           <input className="input" autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={label.toLowerCase()} aria-label={`New ${label.toLowerCase()}`} />
