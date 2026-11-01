@@ -9,6 +9,7 @@ import { join } from "node:path";
 import type { Plugin } from "vite";
 import { resolveHistoryDir } from "../cli/lib/history.ts";
 import { resolveQuotesFile } from "./fetch-quotes.ts";
+import { resolveRegimeFile } from "./fetch-regime.ts";
 import { loadBundle } from "./load-bundle.ts";
 import { imageType } from "../src/core/reviews/images.ts";
 import { loadPlaybook, resolvePlaybookDir } from "./playbook.ts";
@@ -25,12 +26,13 @@ export function devDataPlugin(): Plugin {
     configureServer(server) {
       const historyDir = resolveHistoryDir();
       const quotesFile = resolveQuotesFile();
+      const regimeFile = resolveRegimeFile();
       const playbookDir = resolvePlaybookDir();
       const url = `${server.config.base}${DEV_DATA_PATH}`;
       const imagePrefix = `${server.config.base}${DEV_PLAYBOOK_PATH}`;
 
-      // Reload the page when an import, `npm run quotes` or a Playbook review/chart changes the data.
-      const files = [`${historyDir}/derived/trades.json`, `${historyDir}/config.json`, `${historyDir}/symbols.json`, `${historyDir}/overrides.json`, quotesFile].map(norm);
+      // Reload the page when an import, `npm run quotes`/`npm run regime` or a Playbook review/chart changes the data.
+      const files = [`${historyDir}/derived/trades.json`, `${historyDir}/config.json`, `${historyDir}/symbols.json`, `${historyDir}/overrides.json`, quotesFile, regimeFile].map(norm);
       const dirs = [`${playbookDir}/Reviews/`, `${playbookDir}/Images/`].map(norm);
       server.watcher.add([...files, ...dirs]);
       const onChange = (file: string) => {
@@ -45,7 +47,7 @@ export function devDataPlugin(): Plugin {
         const path = req.url?.split("?")[0] ?? "";
         if (path === url) {
           try {
-            const body = JSON.stringify(loadBundle(historyDir, quotesFile, playbookDir));
+            const body = JSON.stringify(loadBundle(historyDir, quotesFile, playbookDir, regimeFile));
             res.setHeader("Content-Type", "application/json");
             res.setHeader("Cache-Control", "no-store");
             res.end(body);

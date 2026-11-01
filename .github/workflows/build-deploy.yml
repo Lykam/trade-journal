@@ -6,6 +6,11 @@ name: build-deploy
 
 on:
   workflow_call:
+    inputs:
+      # Daily bars don't need 15-minute refreshes; callers on a tighter cron pass false (SPEC §5.6).
+      regime:
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -91,6 +96,16 @@ jobs:
           key: quotes-${{ github.run_id }}
           restore-keys: quotes-
 
+      # regime.json holds no holdings (fixed public ETF basket, SPEC §5.6), so unlike quotes it's cached in plain
+      # text. Restored on every run (not just inputs.regime) so a 15-minute price-only deploy still carries the
+      # last computed regime into the bundle instead of leaving it null.
+      - name: Restore previous regime
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: _cache/regime.json
+          key: regime-${{ github.run_id }}
+          restore-keys: regime-
+
       - name: Build, price, encrypt, check
         env:
           # Public logs: scripts print outcomes only, no counts (Q35).
@@ -98,6 +113,8 @@ jobs:
           TRADE_HISTORY_DIR: ${{ github.workspace }}/_data/trade-history
           PLAYBOOK_DIR: ${{ github.workspace }}/_data/Playbook
           QUOTES_FILE: ${{ github.workspace }}/_data/quotes.json
+          REGIME_FILE: ${{ github.workspace }}/_cache/regime.json
+          REGIME: ${{ inputs.regime }}
           SITE_PASSPHRASE: ${{ secrets.SITE_PASSPHRASE }}
         run: |
           mkdir -p _cache
@@ -106,6 +123,7 @@ jobs:
           # A failed fetch keeps the previous quotes, marked stale; it never blocks the deploy.
           npm run quotes || echo "quotes: fetch failed; deploying without fresh prices"
           npm run quotes:cache -- save --cache _cache/quotes-cache.enc
+          if [ "$REGIME" = "true" ]; then npm run regime || echo "regime: fetch failed; deploying with previous regime"; fi
           npm run encrypt
           # The demo built before the private checkout; check:dist allows only its app shell under demo/.
           cp -r dist-demo dist/demo
@@ -118,6 +136,13 @@ jobs:
         with:
           path: _cache/quotes-cache.enc
           key: quotes-${{ github.run_id }}
+
+      - name: Save regime
+        if: inputs.regime && hashFiles('_cache/regime.json') != ''
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: _cache/regime.json
+          key: regime-${{ github.run_id }}
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 

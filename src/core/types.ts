@@ -1,4 +1,5 @@
 // Shared data types for the trade-history contract (docs/SPEC.md §3).
+import type { RegimeSnapshot } from "./regime/regime.ts";
 
 export type Broker = "schwab" | "webull";
 export type Side = "buy" | "sell";
@@ -190,6 +191,17 @@ export interface QuotesFile {
   quotes: Record<string, Quote>;
 }
 
+/** regime.json: written by build/fetch-regime.ts (SPEC §5.6), never committed. */
+export interface RegimeFile {
+  /** Time of the last successful computation. */
+  asOf: string;
+  /** Time of the last attempt, successful or not. */
+  attemptedAt?: string;
+  /** The last fetch failed; this snapshot was carried over from a previous run. */
+  stale?: true;
+  snapshot: RegimeSnapshot;
+}
+
 /** One Playbook review as read from disk (SPEC §6.7, §6.11). */
 export interface ReviewFile {
   /** Path relative to the Playbook root, e.g. "Reviews/2026-07-27-ABC.md". */
@@ -213,6 +225,7 @@ export interface DataBundle {
   fills: Fill[];
   overrides: Overrides;
   quotes: QuotesFile | null;
+  regime: RegimeFile | null;
   /** null when no Playbook checkout is available. */
   playbook: PlaybookData | null;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */

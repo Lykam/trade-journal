@@ -16,7 +16,7 @@ import { assignIds, type RawFill } from "../core/normalize/ids";
 import { compareFills } from "../core/normalize/dedupe";
 import { cents, etDate, etOffset, round } from "../core/normalize/util";
 import { buildTrades } from "../core/trades/grouping";
-import type { Config, DataBundle, Fill, Overrides, Quote, QuotesFile, Trade } from "../core/types";
+import type { Config, DataBundle, Fill, Overrides, Quote, QuotesFile, RegimeFile, Trade } from "../core/types";
 import { chartSvg, svgDataUrl, type Candle, type Marker } from "./charts";
 import { Rng, seedOf } from "./prng";
 import { demoReview } from "./reviews";
@@ -370,6 +370,25 @@ function quotesFor(trades: Trade[], swing: SwingPlan[], avgCost: Map<SwingPlan, 
   return { asOf, attemptedAt: asOf, quotes };
 }
 
+/** A plausible fixed risk-on snapshot (SPEC §5.6): the demo never calls Yahoo, so this is made up, not computed. */
+function regimeFor(asOf: string): RegimeFile {
+  return {
+    asOf,
+    attemptedAt: asOf,
+    snapshot: {
+      state: "risk-on",
+      score: 3,
+      indicators: [
+        { id: "trend", label: "Trend (SPY/QQQ vs 50/200dma)", score: 1, detail: "SPY above rising 50/200dma; QQQ above rising 50/200dma" },
+        { id: "breadth", label: "Breadth proxy (equal-weight vs cap-weight)", score: 1, detail: "RSP +2.1% vs SPY +1.4% over 20d" },
+        { id: "leadership", label: "Leadership (offensive vs defensive groups)", score: 1, detail: "offensive +3.8% vs defensive +0.6% over 20d" },
+        { id: "beta", label: "High-beta vs low-beta", score: 0, detail: "SPHB +2.9% vs SPLV +1.7% over 20d" },
+        { id: "distribution", label: "Distribution days (SPY+QQQ, 25d)", score: 0, detail: "4 combined in the last 25 sessions" },
+      ],
+    },
+  };
+}
+
 // ---------------------------------------------------------------- scripted gauges
 
 function grouped(fills: Fill[], overrides: Overrides = { trades: {}, openingPositions: [] }) {
@@ -554,6 +573,7 @@ export function generateDemo(now: string): DemoData {
     fills,
     overrides,
     quotes,
+    regime: regimeFor(quotesAsOf(nowMs)),
     playbook: { reviews, images: Object.keys(images).sort() },
     loadedAt: now,
     history: null,

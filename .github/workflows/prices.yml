@@ -44,6 +44,10 @@ jobs:
     needs: market
     if: needs.market.outputs.run == 'true'
     uses: ./.github/workflows/build-deploy.yml
+    # Daily bars don't need 15-minute refreshes (SPEC §5.6): only the ~16:20 ET post-close
+    # slot, or a manual run, recomputes the regime; the other scheduled runs just reuse it.
+    with:
+      regime: ${{ github.event_name != 'schedule' || github.event.schedule == '20 20,21 * * 1-5' }}
     secrets: inherit
     permissions:
       contents: read

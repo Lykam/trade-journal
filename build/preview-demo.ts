@@ -24,6 +24,15 @@ cpSync(join(fixtures, "expected", "fills-2025.json"), join(history, "fills", "20
 cpSync(join(fixtures, "expected", "trades.json"), join(history, "derived", "trades.json"));
 const quotesFile = join(dir, "quotes.json");
 writeFileSync(quotesFile, JSON.stringify({ asOf: "2025-03-20T19:45:00Z", quotes: { OPSW: { price: 12.5, time: "2025-03-20T19:45:00Z", marketState: "REGULAR" } } }));
+const regimeFile = join(dir, "regime.json");
+writeFileSync(
+  regimeFile,
+  JSON.stringify({
+    asOf: "2025-03-20T19:45:00Z",
+    attemptedAt: "2025-03-20T19:45:00Z",
+    snapshot: { state: "unsure", score: 1, indicators: [{ id: "trend", label: "Trend (SPY/QQQ vs 50/200dma)", score: 1, detail: "SPY above rising 50/200dma; QQQ mixed" }] },
+  }),
+);
 
 const outDir = join(dir, "dist");
 // Only this build gets the OPEN DEMO button: the passphrase is public and opens nothing but the fixture bundle.
@@ -34,7 +43,7 @@ await build({
   define: { __TJ_DEMO_PASSPHRASE__: JSON.stringify(DEMO_PASSPHRASE) },
   build: { outDir, emptyOutDir: true },
 });
-const { bundle, images } = bundleData({ historyDir: history, quotesFile, playbookDir: join(fixtures, "playbook") });
+const { bundle, images } = bundleData({ historyDir: history, quotesFile, regimeFile, playbookDir: join(fixtures, "playbook") });
 encryptBundle(bundle, images, DEMO_PASSPHRASE, outDir);
 const problems = checkEncrypted(outDir);
 if (problems.length) throw new Error(`encrypted dist problems:\n${problems.join("\n")}`);

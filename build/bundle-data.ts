@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { resolveHistoryDir } from "../cli/lib/history";
 import type { DataBundle } from "../src/core/types";
 import { resolveQuotesFile } from "./fetch-quotes";
+import { resolveRegimeFile } from "./fetch-regime";
 import { loadBundle } from "./load-bundle";
 import { resolvePlaybookDir } from "./playbook";
 
@@ -14,6 +15,7 @@ export interface BundleSources {
   historyDir: string;
   quotesFile: string;
   playbookDir: string;
+  regimeFile: string;
 }
 
 export interface BundleImage {
@@ -26,12 +28,13 @@ export function resolveSources(flags: Partial<BundleSources> = {}): BundleSource
     historyDir: resolveHistoryDir(flags.historyDir),
     quotesFile: resolveQuotesFile(flags.quotesFile),
     playbookDir: resolvePlaybookDir(flags.playbookDir),
+    regimeFile: resolveRegimeFile(flags.regimeFile),
   };
 }
 
 /** The plaintext bundle and the Playbook images it lists. A Playbook with no Reviews/ or Images/ gives empty lists. */
 export function bundleData(src: BundleSources): { bundle: DataBundle; images: BundleImage[] } {
-  const bundle = loadBundle(src.historyDir, src.quotesFile, src.playbookDir);
+  const bundle = loadBundle(src.historyDir, src.quotesFile, src.playbookDir, src.regimeFile);
   const images = (bundle.playbook?.images ?? []).map((path) => ({ path, bytes: new Uint8Array(readFileSync(join(src.playbookDir, path))) }));
   return { bundle, images };
 }

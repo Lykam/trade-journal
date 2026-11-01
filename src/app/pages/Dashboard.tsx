@@ -10,6 +10,7 @@ import type { DataBundle } from "../../core/types";
 import { GaugeCard } from "../components/Gauge";
 import { OpenQuick } from "../components/OpenPositions";
 import { RecentTen } from "../components/Recent";
+import { RegimeCard } from "../components/Regime";
 import { WeekStrip } from "../components/WeekStrip";
 import { AttentionBar, WidgetGrid } from "../components/Widgets";
 import { mmdd } from "../format";
@@ -75,6 +76,7 @@ export function Dashboard({ data, journal, now }: { data: DataBundle; journal: J
         <RefreshButton />
       </header>
 
+      <RegimeCard r={data.regime} />
       <div className="gauges">
         <GaugeCard g={gauges.day} config={data.config} />
         <GaugeCard g={gauges.swing} config={data.config} />

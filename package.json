@@ -16,6 +16,7 @@
     "verify": "tsx cli/verify.ts",
     "quotes": "tsx build/fetch-quotes.ts",
     "quotes:cache": "tsx build/quotes-cache.ts",
+    "regime": "tsx build/fetch-regime.ts",
     "market": "tsx build/market-open.ts",
     "pages-guard": "tsx build/pages-guard.ts",
     "encrypt": "tsx build/encrypt.ts",

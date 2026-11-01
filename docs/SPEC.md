@@ -785,6 +785,49 @@ fully static.
 - **Open swing positions table** under the swing gauge: symbol, open date,
   qty, avg entry, last price, unrealized $ / %, and days held.
 
+### 5.6 Risk regime gauge
+
+A third gauge, shown as a strip above the Day/Swing pair, that reads the
+*market's* environment instead of the trader's own recent results: **RISK-ON
+/ UNSURE / RISK-OFF**, modeled on the "risk-on versus risk-off" framework
+(five risk-on indicators, five risk-off indicators, a middle ground).
+Unlike the Day/Swing gauges, this needs no TradingView login or breadth data
+API: it's computed entirely from free daily bars for a fixed basket of public
+ETFs, so it piggybacks on the same no-keys Yahoo pipeline as §5.4.
+
+- **Five indicators**, each scored **−1 / 0 / +1** and summed to **−5…+5**:
+
+  | Indicator | Symbols | Rule |
+  |---|---|---|
+  | Trend | SPY, QQQ | +1 per index above a rising 50/200dma, −1 below a falling 50dma with 10<20dma both falling; summed and clamped |
+  | Breadth proxy | RSP vs SPY | equal-weight vs cap-weight 20-session return spread (no true breadth data for free, so this stands in for "% above 50dma") |
+  | Leadership | offensive {SMH, XLY, XLI, XLF, XLK} vs defensive {XLU, XLP, GLD} | 20-session return spread between the two baskets |
+  | High-beta vs low-beta | SPHB vs SPLV | 20-session return spread |
+  | Distribution days | SPY + QQQ, trailing 25 sessions | IBD-style count: closed down ≥0.2% on volume above the prior session's |
+
+  **Score ≥ +2 → RISK-ON, score ≤ −2 → RISK-OFF, otherwise UNSURE.** The
+  basket and thresholds are constants in `src/core/regime/regime.ts`, not
+  `config.json`-driven — the signal doesn't need to be precise, just broadly
+  right, and the data moves slowly enough that hand-tuned defaults are good
+  enough for v1.
+- **Computed once a day**, not every 15 minutes: `build/fetch-regime.ts`
+  (`npm run regime`) runs in the same `prices.yml` workflow as quotes, but
+  only on the ~16:20 ET post-close cron slot or a manual `workflow_dispatch`
+  — daily bars don't change intraday. An import-triggered `deploy.yml` run
+  also refreshes it, which is harmless.
+- **Carry-forward on failure:** if any basket symbol fails to fetch, the
+  previous `regime.json` is kept as-is (not partially recomputed from an
+  incomplete basket) with `stale: true`, the same spirit as quotes' stale
+  carryover.
+- **regime.json** is gitignored and never committed, like `quotes.json`, and
+  cached across workflow runs with `actions/cache` — **unencrypted**, unlike
+  the quotes cache, because it holds no holdings: just a fixed list of public
+  ETF tickers.
+- **Display:** a state pill (RISK-ON / UNSURE / RISK-OFF, colored like the
+  size bands), the score and "as of" timestamp, and a **CHECKLIST** toggle
+  revealing the five indicators with a ✓ / – / ✗ mark and a plain-language
+  detail (`SPY +0.8% vs SPY 50dma...`).
+
 ---
 
 ## 6. App features (v1)
@@ -868,7 +911,10 @@ the top, above everything else, in the same order at phone width.
 
 1. **Temperature gauges:** Day and Swing side by side (§5). This is the
    centerpiece, and it is not in Tradervue.
-1a. **Needs attention** (Q55): one line under the gauges, `! NEEDS ATTENTION
+1a. **Risk regime strip** (§5.6): RISK-ON / UNSURE / RISK-OFF, directly above
+   the temperature gauges — market context for both styles, not a third
+   column squeezed into that row.
+1b. **Needs attention** (Q55): one line under the gauges, `! NEEDS ATTENTION
    3 ITEMS ›`, that opens into the list; hidden when nothing needs
    attention. It lists unmatched fills, unpriced open positions, stale prices
    (with their stamp), day trades held overnight, today's unreviewed **swing** trades

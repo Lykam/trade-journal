@@ -1,4 +1,4 @@
-// npm run encrypt -- [--dist DIR] [--history-dir DIR] [--playbook-dir DIR] [--quotes FILE]
+// npm run encrypt -- [--dist DIR] [--history-dir DIR] [--playbook-dir DIR] [--quotes FILE] [--regime FILE]
 //
 // Encrypt the data bundle and Playbook images into dist/ (SPEC §2 Encryption,
 // §7 Deploy step 4, Q34) with Node `crypto`; the browser decrypts with
@@ -115,14 +115,16 @@ export function encryptBundle(
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
   const { values } = parseArgs({
     args: process.argv.slice(2),
-    options: { dist: { type: "string" }, "history-dir": { type: "string" }, "playbook-dir": { type: "string" }, quotes: { type: "string" } },
+    options: { dist: { type: "string" }, "history-dir": { type: "string" }, "playbook-dir": { type: "string" }, quotes: { type: "string" }, regime: { type: "string" } },
   });
   await runMain("encrypt", () => {
     const passphrase = process.env.SITE_PASSPHRASE ?? "";
     if (!passphrase) throw new PublicError("SITE_PASSPHRASE is not set");
     const dist = resolve(values.dist ?? join(REPO_ROOT, "dist"));
     if (!existsSync(join(dist, "index.html"))) throw new PublicError("the dist folder has no index.html (run vite build first)");
-    const { bundle, images } = bundleData(resolveSources({ historyDir: values["history-dir"], playbookDir: values["playbook-dir"], quotesFile: values.quotes }));
+    const { bundle, images } = bundleData(
+      resolveSources({ historyDir: values["history-dir"], playbookDir: values["playbook-dir"], quotesFile: values.quotes, regimeFile: values.regime }),
+    );
     const r = encryptBundle(bundle, images, passphrase, dist);
     // Public logs get no counts at all, not even the padded one (Q35).
     console.log(isPublicLog() ? "encrypt: wrote data.enc and img/*.enc (padded with decoys)" : `encrypt: wrote data.enc and ${r.imgFiles} img/*.enc files (padded with decoys)`);
