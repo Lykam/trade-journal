@@ -168,6 +168,10 @@ function PillPicker({ label, options, value, disabled, onChange }: {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const selected = (o: string) => o.toLowerCase() === value.toLowerCase();
+  // Pressed pills fill with their color and flip the text to the page background, so a selection
+  // reads at a glance instead of just a bolder outline; unpressed pills stay outlined.
+  const pillStyle = (o: string, pressed: boolean) =>
+    pressed ? { color: "var(--bg)", background: pillColor(o) } : { color: pillColor(o) };
   // A value just added via + NEW isn't in `options` yet (that list reflects committed trades, not
   // this staged edit) — show it as its own pressed pill so picking it has visible confirmation.
   const custom = value && !options.some(selected) ? value : null;
@@ -176,7 +180,7 @@ function PillPicker({ label, options, value, disabled, onChange }: {
       <span className="label small">{label}</span>
       {options.map((o) => (
         <button
-          key={o} type="button" className="pill" style={{ color: pillColor(o) }} disabled={disabled}
+          key={o} type="button" className="pill" style={pillStyle(o, selected(o))} disabled={disabled}
           aria-pressed={selected(o)} onClick={() => onChange(selected(o) ? "" : o)}
         >
           {o}
@@ -184,7 +188,7 @@ function PillPicker({ label, options, value, disabled, onChange }: {
       ))}
       {custom && (
         <button
-          type="button" className="pill" style={{ color: pillColor(custom) }} disabled={disabled}
+          type="button" className="pill" style={pillStyle(custom, true)} disabled={disabled}
           aria-pressed onClick={() => onChange("")}
         >
           {custom}
