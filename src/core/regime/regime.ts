@@ -117,17 +117,30 @@ function breadthIndicator(bars: Record<string, Bar[]>): RegimeIndicator {
   return { id: "breadth", label: "Breadth proxy (equal-weight vs cap-weight)", score, detail };
 }
 
+/** Each group's symbols with their 20d return, best performer first. */
+function rankedGroup(symbols: readonly string[], bars: Record<string, Bar[]>): [string, number][] {
+  return symbols
+    .map((s): [string, number] | null => {
+      const ret = bars[s] && returnPct(bars[s]!, 20);
+      return ret == null ? null : [s, ret];
+    })
+    .filter((x): x is [string, number] => x != null)
+    .sort((a, b) => b[1] - a[1]);
+}
+
+const fmtGroup = (ranked: [string, number][]) => ranked.map(([s, r]) => `${s} ${fmtPct(r)}`).join(", ");
+
 function leadershipIndicator(bars: Record<string, Bar[]>): RegimeIndicator {
-  const off = REGIME_SYMBOLS.offensive.map((s) => (bars[s] ? returnPct(bars[s]!, 20) : null)).filter((x): x is number => x != null);
-  const def = REGIME_SYMBOLS.defensive.map((s) => (bars[s] ? returnPct(bars[s]!, 20) : null)).filter((x): x is number => x != null);
+  const offRanked = rankedGroup(REGIME_SYMBOLS.offensive, bars);
+  const defRanked = rankedGroup(REGIME_SYMBOLS.defensive, bars);
   let score: -1 | 0 | 1 = 0;
   let detail = "insufficient data";
-  if (off.length && def.length) {
-    const offAvg = avg(off), defAvg = avg(def);
+  if (offRanked.length && defRanked.length) {
+    const offAvg = avg(offRanked.map(([, r]) => r)), defAvg = avg(defRanked.map(([, r]) => r));
     const spread = offAvg - defAvg;
     if (spread > 1.5) score = 1;
     else if (spread < -1.5) score = -1;
-    detail = `offensive ${fmtPct(offAvg)} vs defensive ${fmtPct(defAvg)} over 20d`;
+    detail = `offensive ${fmtPct(offAvg)} (${fmtGroup(offRanked)}) vs defensive ${fmtPct(defAvg)} (${fmtGroup(defRanked)}) over 20d`;
   }
   return { id: "leadership", label: "Leadership (offensive vs defensive groups)", score, detail };
 }
