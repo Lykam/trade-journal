@@ -68,8 +68,9 @@ export function FilterBar({
   const uid = useId();
   const f = view.filter;
   const active = activeFilterCount(dates ? f : { ...f, preset: null, from: null, to: null });
-  // Open on desktop only when something is filtered; otherwise one line with the active filters as chips (#21).
-  const [open, setOpen] = useState(() => defaultOpen ?? (active > 0 && (typeof window === "undefined" || window.matchMedia("(min-width: 760px)").matches)));
+  // Open on desktop by default so the controls are visible without an extra click; collapses to
+  // one line with the active filters as chips (#21), either manually or by default on narrow screens.
+  const [open, setOpen] = useState(() => defaultOpen ?? (typeof window === "undefined" || window.matchMedia("(min-width: 760px)").matches));
 
   const [symbol, setSymbol] = useState(f.symbols.join(", "));
   const symbolsKey = f.symbols.join(", ");
