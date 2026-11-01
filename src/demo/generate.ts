@@ -381,7 +381,12 @@ function regimeFor(asOf: string): RegimeFile {
       indicators: [
         { id: "trend", label: "Trend (SPY/QQQ vs 50/200dma)", score: 1, detail: "SPY above rising 50/200dma; QQQ above rising 50/200dma" },
         { id: "breadth", label: "Breadth proxy (equal-weight vs cap-weight)", score: 1, detail: "RSP +2.1% vs SPY +1.4% over 20d" },
-        { id: "leadership", label: "Leadership (offensive vs defensive groups)", score: 1, detail: "offensive +3.8% vs defensive +0.6% over 20d" },
+        {
+          id: "leadership",
+          label: "Leadership (offensive vs defensive groups)",
+          score: 1,
+          detail: "offensive +3.8% (XLK +7.1%, SMH +6.0%, XLY +2.9%, XLI +1.3%, XLF +1.8%) vs defensive +0.6% (GLD +1.9%, XLP +0.3%, XLU -0.5%) over 20d",
+        },
         { id: "beta", label: "High-beta vs low-beta", score: 0, detail: "SPHB +2.9% vs SPLV +1.7% over 20d" },
         { id: "distribution", label: "Distribution days (SPY+QQQ, 25d)", score: 0, detail: "4 combined in the last 25 sessions" },
       ],
