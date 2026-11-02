@@ -42,6 +42,46 @@ export async function commitChart(gh: GitHubClient, repo: RepoId, u: ChartUpload
   }
 }
 
+/** Commit several chart images to `repo`'s main in one commit, each keeping its own date/symbol/kind. */
+export async function commitCharts(gh: GitHubClient, repo: RepoId, uploads: ChartUpload[], attempts = 3): Promise<CommitResult & { paths: string[] }> {
+  const exts = uploads.map(checkUpload);
+  const message = uploads.length === 1 ? uploadMessage(uploads[0]!) : `Add ${uploads.length} charts (uploaded in the journal)`;
+  for (let i = 1; ; i++) {
+    try {
+      const state = await readState(gh, repo);
+      const taken = new Set(state.files.keys());
+      const paths: string[] = [];
+      const files = uploads.map((u, ui) => {
+        const p = uploadPath(taken, u.date, u.symbol, u.kind, exts[ui]!);
+        taken.add(p);
+        paths.push(p);
+        return { path: p, content: u.bytes };
+      });
+      const commit = await commitFiles(gh, state, files, message);
+      // A new path always changes the tree, so a commit is always made.
+      return { ...commit!, paths };
+    } catch (e) {
+      if (e instanceof RefMovedError && i < attempts) continue;
+      throw explain(e, repo);
+    }
+  }
+}
+
+export const deleteMessage = (path: string) => `Remove ${path} (deleted in the journal)`;
+
+/** Delete a chart image from `repo`'s main. Re-reads and retries if main moves meanwhile. */
+export async function deleteChart(gh: GitHubClient, repo: RepoId, path: string, attempts = 3): Promise<CommitResult | null> {
+  for (let i = 1; ; i++) {
+    try {
+      const state = await readState(gh, repo);
+      return await commitFiles(gh, state, [], deleteMessage(path), [path]);
+    } catch (e) {
+      if (e instanceof RefMovedError && i < attempts) continue;
+      throw explain(e, repo);
+    }
+  }
+}
+
 function explain(e: unknown, repo: RepoId): unknown {
   if (!(e instanceof GitHubError)) return e;
   if (e.kind === "not-found") {

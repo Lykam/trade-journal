@@ -15,7 +15,7 @@ import { importFingerprint, importMessage, importWrites, planImport } from "../s
 import { MissingTradesError, planOverrideCommit, type StagedAction } from "../src/core/journal/overrides";
 import { applySymbolChanges, mappingError, planSymbolCommit } from "../src/core/symbols/mapping";
 import { blankAnswers, commitReview } from "../src/core/reviews/draft";
-import { canWrite, checkUpload, commitChart } from "../src/core/reviews/upload";
+import { canWrite, checkUpload, commitChart, commitCharts, deleteChart } from "../src/core/reviews/upload";
 import type { Idea } from "../src/core/types";
 import { FakeGitHub, TOKEN } from "./fake-github";
 import { FIXTURES, IMPORTED_AT, SCHWAB_A, SCHWAB_B, WEBULL_A, WEBULL_B } from "./helpers";
@@ -510,6 +510,63 @@ describe("chart uploads to Playbook (Q78)", () => {
     expect(() => checkUpload({ type: "image/png", bytes: new Uint8Array(10 * 1024 * 1024 + 1) })).toThrow(/limit/);
     expect(checkUpload({ type: "image/jpeg", bytes: PNG })).toBe("jpg");
   });
+
+  it("commits several charts, each keeping its own date/symbol/kind, in one commit", async () => {
+    const fake = playbook();
+    const before = fake.commitCount();
+    const uploads = [
+      { date: "2026-10-13", symbol: "TSTU", kind: "daily" as const, type: "image/png", bytes: PNG },
+      { date: "2026-10-14", symbol: "TSTX", kind: "1m" as const, type: "image/png", bytes: new Uint8Array([2]) },
+    ];
+    const out = await commitCharts(new GitHubClient(TOKEN, fake.fetch), DATA, uploads);
+    expect(fake.commitCount()).toBe(before + 1);
+    expect(out.paths).toEqual(["Images/2026-10-13/TSTU-daily.png", "Images/2026-10-14/TSTX-intraday-1m.png"]);
+    expect(fake.files()[out.paths[0]!]).toEqual(PNG);
+    expect(fake.files()[out.paths[1]!]).toEqual(new Uint8Array([2]));
+    expect(fake.commits.get(fake.head)!.message).toBe("Add 2 charts (uploaded in the journal)");
+  });
+
+  it("avoids name collisions between charts committed together", async () => {
+    const fake = playbook();
+    const uploads = [
+      { date: "2026-10-13", symbol: "TSTU", kind: "5m" as const, type: "image/png", bytes: PNG },
+      { date: "2026-10-13", symbol: "TSTU", kind: "5m" as const, type: "image/png", bytes: new Uint8Array([3]) },
+    ];
+    const out = await commitCharts(new GitHubClient(TOKEN, fake.fetch), DATA, uploads);
+    expect(out.paths).toEqual(["Images/2026-10-13/TSTU-intraday-5m-2.png", "Images/2026-10-13/TSTU-intraday-5m-3.png"]);
+  });
+
+  it("deletes a chart image in one commit", async () => {
+    const fake = playbook();
+    const before = fake.commitCount();
+    const out = await deleteChart(new GitHubClient(TOKEN, fake.fetch), DATA, "Images/2026-10-13/TSTU-intraday-5m.png");
+    expect(fake.files()["Images/2026-10-13/TSTU-intraday-5m.png"]).toBeUndefined();
+    expect(fake.files()["Template.md"]).toBeDefined();
+    expect(fake.commitCount()).toBe(before + 1);
+    expect(out!.paths).toEqual(["Images/2026-10-13/TSTU-intraday-5m.png"]);
+  });
+
+  it("is a no-op when the image is already gone", async () => {
+    const fake = playbook();
+    const before = fake.commitCount();
+    const out = await deleteChart(new GitHubClient(TOKEN, fake.fetch), DATA, "Images/2026-10-13/does-not-exist.png");
+    expect(out).toBeNull();
+    expect(fake.commitCount()).toBe(before);
+  });
+
+  it("re-reads and retries a delete when main moved meanwhile", async () => {
+    let pushed = false;
+    const fake = new FakeGitHub({ "Template.md": "# T", "Images/2026-10-13/TSTU-intraday-5m.png": new Uint8Array([1]) }, {
+      beforePatch: (f) => {
+        if (!pushed) f.push({ "Images/2026-10-13/other.png": new Uint8Array([2]) }, "someone else's chart");
+        pushed = true;
+      },
+    });
+    const out = await deleteChart(new GitHubClient(TOKEN, fake.fetch), DATA, "Images/2026-10-13/TSTU-intraday-5m.png");
+    expect(fake.files()["Images/2026-10-13/TSTU-intraday-5m.png"]).toBeUndefined();
+    expect(fake.files()["Images/2026-10-13/other.png"]).toEqual(new Uint8Array([2]));
+    expect(out).not.toBeNull();
+  });
 });
 
 describe("in-app journal review (Q80)", () => {
@@ -534,6 +591,18 @@ describe("in-app journal review (Q80)", () => {
     expect(fake.text(out.path)).toContain("# Playbook Review — TSTU 2026-10-13");
     expect(fake.files()[out.chartPaths[0]!]).toEqual(PNG);
     expect(fake.files()[out.chartPaths[1]!]).toEqual(PNG);
+  });
+
+  it("embeds the picked charts as images in the review markdown, same as the skill writes them", async () => {
+    const fake = playbook();
+    const charts = [
+      { date: "2026-10-13", symbol: "TSTU", kind: "daily" as const, type: "image/png", bytes: PNG },
+      { date: "2026-10-13", symbol: "TSTU", kind: "5m" as const, type: "image/png", bytes: PNG },
+    ];
+    const out = await commitReview(new GitHubClient(TOKEN, fake.fetch), DATA, idea, blankAnswers, charts);
+    const text = fake.text(out.path);
+    expect(text).toContain("![TSTU daily chart](../Images/2026-10-13/TSTU-daily.png)");
+    expect(text).toContain("![TSTU intraday chart](../Images/2026-10-13/TSTU-intraday-5m.png)");
   });
 
   it("still commits review-only when no charts are picked", async () => {

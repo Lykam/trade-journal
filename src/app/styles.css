@@ -294,13 +294,17 @@ tr.current { background: var(--inset); }
 .notes-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 .start-review { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid var(--rule); }
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 10px; padding: 12px 14px; }
-.thumb { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid var(--border); background: var(--inset); color: var(--text-2); cursor: zoom-in; text-align: left; font: inherit; }
+.thumb { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid var(--border); background: var(--inset); }
 .thumb:hover { border-color: var(--accent); }
+.thumb-open { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; cursor: zoom-in; font: inherit; }
 .thumb img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; }
+.thumb-info { justify-content: space-between; align-items: center; }
 .chart-upload { display: flex; flex-direction: column; gap: 8px; margin: 0 14px 12px; padding: 10px; border: 1px dashed var(--border-strong); }
 .chart-upload.drag { border-color: var(--accent); background: var(--inset); }
 .chart-upload .row { flex-wrap: wrap; }
-.upload-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.upload-form { display: flex; flex-direction: column; gap: 12px; }
+.upload-item { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.upload-item + .upload-item { padding-top: 12px; border-top: 1px solid var(--rule); }
 .upload-preview { width: 220px; max-width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border: 1px solid var(--border); background: var(--inset); }
 .upload-fields { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1 1 220px; }
 .upload-fields .seg { align-self: flex-start; }
