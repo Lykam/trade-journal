@@ -1,9 +1,9 @@
 import type { SymbolInfo } from "../types";
 
-// Names of single-stock leveraged ETFs (SPEC §3.4). "2X"/"3X" (alone or glued
-// to BULL/BEAR, or to LONG/SHORT as in "2XLONG") is required, so names like
-// "BULLDOG TEST" don't match.
-const LEVERAGED = /(?:^|[\s-])(?:BULL|BEAR)?\s?([23])X(?=\s|$|LONG|SHORT)|\b(?:BULL|BEAR)([23])X\b/i;
+// Names of single-stock leveraged/inverse ETFs (SPEC §3.4). "1X"/"2X"/"3X"
+// (alone or glued to BULL/BEAR, or to LONG/SHORT as in "2XLONG") is required,
+// so names like "BULLDOG TEST" don't match.
+const LEVERAGED = /(?:^|[\s-])(?:BULL|BEAR)?\s?([123])X(?=\s|$|LONG|SHORT)|\b(?:BULL|BEAR)([123])X\b/i;
 
 const ISSUERS: Array<[RegExp, string]> = [
   [/DIREXION/i, "Direxion"],
@@ -27,12 +27,15 @@ export function guessLeveragedEtf(name: string): EtfGuess | null {
   const m = LEVERAGED.exec(name);
   if (!m) return null;
   const leverage = Number(m[1] ?? m[2]);
-  const inverse = /\bBEAR|\bSHORT\b|\bINVERSE\b/i.test(name);
+  // No trailing \b on BEAR/SHORT: some issuers glue the direction straight onto
+  // the leverage or ticker ("BEAR1X", "2X SHORTSPCX"), so a word boundary after
+  // would miss them.
+  const inverse = /\bBEAR|\bSHORT|\bINVERSE\b/i.test(name);
 
   const candidates = [
-    /DAILY\s+([A-Z.]{1,6})\s+(?:BULL|BEAR)/i, // DIREXION DAILY ABC BULL2X SHARES
-    /[23]X\s+(?:LONG|SHORT|INVERSE)\s+([A-Z.]{1,6})\s+DAILY/i, // GRANITESHARES 2X LONG ABC DAILY ETF
-    /[23]X\s*(?:LONG|SHORT)\s+([A-Z.]{1,6})\s+ETF\b/i, // DEFIANCE DAILY TARGET 2XLONG ABC ETF
+    /DAILY\s+([A-Z.]{1,6})\s+(?:BULL|BEAR)/i, // DIREXION DAILY ABC BULL2X SHARES / DAILY AMZN BEAR1X SHARES
+    /[23]X\s+(?:LONG|SHORT|INVERSE)\s*([A-Z.]{1,6})\s+DAILY/i, // GRANITESHARES 2X LONG ABC DAILY ETF / 2X SHORTSPCX DAILY ETF
+    /[23]X\s*(?:LONG|SHORT)\s*([A-Z.]{1,6})\s+ETF\b/i, // DEFIANCE DAILY TARGET 2XLONG ABC ETF
   ];
   let underlying: string | null = null;
   for (const re of candidates) {
