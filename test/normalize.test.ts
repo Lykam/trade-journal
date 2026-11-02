@@ -184,6 +184,11 @@ describe("leveraged ETF detection", () => {
     expect(guessLeveragedEtf("LEVERAGE SHARES 2X LONG ABC DAILY ETF")).toMatchObject({ underlying: "ABC", issuer: "Leverage Shares" });
   });
 
+  it("guesses 1x inverse ETFs, and direction/underlying even when glued to the ticker", () => {
+    expect(guessLeveragedEtf("DIREXION DAILY AMZN BEAR1X SHARES")).toMatchObject({ underlying: "AMZN", leverage: 1, direction: "inverse", issuer: "Direxion" });
+    expect(guessLeveragedEtf("LEVERAGE SHARES 2X SHORTSPCX DAILY ETF")).toMatchObject({ underlying: "SPCX", leverage: 2, direction: "inverse", issuer: "Leverage Shares" });
+  });
+
   it("flags ETFs whose name doesn't say the underlying, with no guess", () => {
     expect(guessLeveragedEtf("GRANITESHARES 2X LONG TEST FUND SHARES")).toMatchObject({ underlying: null, leverage: 2 });
   });
