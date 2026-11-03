@@ -24,6 +24,9 @@ import { Pnl } from "../components/Pnl";
 import { LazyReview } from "../components/LazyReview";
 import { useImageSrcs } from "../data";
 import { CopyCommand, reviewCommand } from "../components/ReviewCommand";
+import { GitHubClient } from "../../core/github/client";
+import { deleteChart } from "../../core/reviews/upload";
+import { ACTIONS_URL, PLAYBOOK_REPO, useToken, watchDeploy } from "../github";
 import { mmdd, money, pillColor, pnlClass, price, qty, realizedNote, signedPct, stamp, timeOf, whenOf } from "../format";
 import { AUTO_TAGS } from "../../core/journal/tags";
 import { EtfBadge, reviewLink, tradeLink } from "./TradesPage";
@@ -450,9 +453,11 @@ function Charts({ data, journal: j, t }: { data: DataBundle; journal: Journal; t
   const symbols = [...new Set([t.underlying, ...(idea?.symbolsTraded ?? [t.symbol])])];
   const charts = chartsFor(data.playbook?.images ?? [], dates, symbols);
   const srcs = useImageSrcs(charts.map((c) => c.path));
-  const images: Array<LightboxImage & { kind: string; date: string }> = charts.flatMap((c) => {
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  const images: Array<LightboxImage & { kind: string; date: string; path: string }> = charts.flatMap((c) => {
+    if (removed.has(c.path)) return [];
     const src = srcs.get(c.path);
-    return src === null ? [] : [{ src: src ?? "", caption: `${c.name} · ${c.date}`, kind: chartLabel(c), date: c.date }];
+    return src === null ? [] : [{ src: src ?? "", caption: `${c.name} · ${c.date}`, kind: chartLabel(c), date: c.date, path: c.path }];
   });
   const [open, setOpen] = useState<number | null>(null);
   return (
@@ -463,10 +468,15 @@ function Charts({ data, journal: j, t }: { data: DataBundle; journal: Journal; t
       ) : (
         <div className="gallery">
           {images.map((img, i) => (
-            <button type="button" key={img.caption} className="thumb" disabled={!img.src} onClick={() => setOpen(i)} aria-label={`Open ${img.caption}`}>
-              {img.src ? <img src={img.src} alt={img.caption} loading="lazy" /> : <span className="thumb-wait dim small">DECRYPTING…</span>}
-              <span className="small"><b>{img.kind}</b> <span className="muted">{img.date}</span></span>
-            </button>
+            <div key={img.caption} className="thumb">
+              <button type="button" className="thumb-open" disabled={!img.src} onClick={() => setOpen(i)} aria-label={`Open ${img.caption}`}>
+                {img.src ? <img src={img.src} alt={img.caption} loading="lazy" /> : <span className="thumb-wait dim small">DECRYPTING…</span>}
+              </button>
+              <div className="row thumb-info">
+                <span className="small"><b>{img.kind}</b> <span className="muted">{img.date}</span></span>
+                <RemoveChartButton path={img.path} onRemoved={() => setRemoved((s) => new Set(s).add(img.path))} />
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -479,5 +489,38 @@ function Charts({ data, journal: j, t }: { data: DataBundle; journal: Journal; t
       />
       <Lightbox images={images} index={open} onIndex={setOpen} />
     </section>
+  );
+}
+
+/** REMOVE, then a same-row CONFIRM? before the commit actually fires, so a stray click can't delete a chart. */
+function RemoveChartButton({ path, onRemoved }: { path: string; onRemoved: () => void }) {
+  // A compile-time constant, so the hook order never changes at runtime (and the
+  // demo build never references useToken/deleteChart's GitHub code at all, Q50).
+  const token = __TJ_DEMO__ ? null : useToken();
+  const [phase, setPhase] = useState<"idle" | "confirm" | "busy" | "error">("idle");
+  if (__TJ_DEMO__ || !token || token.status !== "ok") return null;
+  const remove = async () => {
+    setPhase("busy");
+    try {
+      const out = await deleteChart(new GitHubClient(token.record.token), PLAYBOOK_REPO, path);
+      if (out) watchDeploy({ label: "Chart removed", want: { date: out.date }, link: `${ACTIONS_URL}/workflows/deploy.yml`, commitUrl: out.url });
+      onRemoved();
+    } catch {
+      setPhase("error");
+    }
+  };
+  if (phase === "busy") return <span className="dim small">REMOVING…</span>;
+  if (phase === "confirm") {
+    return (
+      <span className="row">
+        <button type="button" className="btn ghost small" onClick={remove}>CONFIRM?</button>
+        <button type="button" className="btn ghost small" onClick={() => setPhase("idle")}>CANCEL</button>
+      </span>
+    );
+  }
+  return (
+    <button type="button" className="btn ghost small" aria-label={`Remove ${path}`} onClick={() => setPhase("confirm")}>
+      {phase === "error" ? "FAILED, RETRY?" : "REMOVE"}
+    </button>
   );
 }

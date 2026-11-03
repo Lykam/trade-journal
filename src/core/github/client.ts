@@ -200,19 +200,23 @@ export interface CommitResult {
 }
 
 /**
- * One commit on top of `state.headSha` with the files whose content changed.
- * Returns null when nothing changed. Throws RefMovedError if main moved since
- * `state` was read; the ref is never forced.
+ * One commit on top of `state.headSha` with the files whose content changed,
+ * plus any `remove` paths that currently exist (already-gone paths are
+ * ignored, so a retry after a concurrent delete doesn't fail). Returns null
+ * when nothing changed. Throws RefMovedError if main moved since `state` was
+ * read; the ref is never forced.
  */
-export async function commitFiles(gh: GitHubClient, state: RepoState, files: FileWrite[], message: string): Promise<CommitResult | null> {
+export async function commitFiles(gh: GitHubClient, state: RepoState, files: FileWrite[], message: string, remove: string[] = []): Promise<CommitResult | null> {
   const changed = files.filter((f) => state.files.get(f.path)?.sha !== gitBlobSha(f.content));
-  if (!changed.length) return null;
+  const removed = remove.filter((p) => state.files.has(p));
+  if (!changed.length && !removed.length) return null;
   const base = repoPath(state.repo);
   const entries = [];
   for (const f of changed) {
     const blob = await gh.request<{ sha: string }>("POST", `${base}/git/blobs`, { content: toBase64(bytesOf(f.content)), encoding: "base64" });
     entries.push({ path: f.path, mode: "100644", type: "blob", sha: blob.sha });
   }
+  for (const p of removed) entries.push({ path: p, mode: "100644", type: "blob", sha: null });
   const tree = await gh.request<{ sha: string }>("POST", `${base}/git/trees`, { base_tree: state.treeSha, tree: entries });
   const commit = await gh.request<{ sha: string; html_url: string; committer: { date: string } }>("POST", `${base}/git/commits`, {
     message,
@@ -226,7 +230,7 @@ export async function commitFiles(gh: GitHubClient, state: RepoState, files: Fil
     if (e instanceof GitHubError && e.kind === "invalid") throw new RefMovedError();
     throw e;
   }
-  return { sha: commit.sha, date: commit.committer.date, url: commit.html_url, paths: changed.map((f) => f.path) };
+  return { sha: commit.sha, date: commit.committer.date, url: commit.html_url, paths: [...changed.map((f) => f.path), ...removed] };
 }
 
 /** A retry after main moved would commit something other than what was previewed. */

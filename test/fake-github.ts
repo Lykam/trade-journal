@@ -148,9 +148,12 @@ export class FakeGitHub {
       const base = this.trees.get(body.base_tree);
       if (!base) return json(422, { message: "base_tree not found" });
       const tree = new Map(base);
-      for (const e of body.tree as Array<{ path: string; sha: string }>) {
-        if (!this.blobs.has(e.sha)) return json(422, { message: "blob not found" });
-        tree.set(e.path, e.sha);
+      for (const e of body.tree as Array<{ path: string; sha: string | null }>) {
+        if (e.sha === null) tree.delete(e.path);
+        else {
+          if (!this.blobs.has(e.sha)) return json(422, { message: "blob not found" });
+          tree.set(e.path, e.sha);
+        }
       }
       const sha = `tree${++counter}`.padEnd(40, "0");
       this.trees.set(sha, tree);

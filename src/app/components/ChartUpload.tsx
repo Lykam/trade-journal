@@ -1,32 +1,37 @@
-// Add a chart screenshot from Trade detail (Q78): paste (Ctrl+V anywhere on the
-// page), drop or pick an image, choose 1m / 5m / daily and the date, preview the
-// file name, then commit it to Playbook. Playbook's notify-journal redeploys
-// the site, and the image joins the gallery like any other Playbook chart.
+// Add chart screenshots from Trade detail (Q78): paste (Ctrl+V anywhere on the
+// page), drop or pick one or more images, choose each one's 1m / 5m / daily and
+// date, preview the file name, then commit them to Playbook together. Playbook's
+// notify-journal redeploys the site, and each image joins the gallery like any
+// other Playbook chart.
 import { useEffect, useRef, useState } from "react";
 import { UPLOAD_KINDS, UPLOAD_TYPES, UploadError, uploadPath, type UploadKind } from "../../core/reviews/images";
 import { DEMO_COMMIT_NOTE } from "../demo-text";
-import { commitChart, type ChartUpload as Upload } from "../../core/reviews/upload";
+import { commitCharts, type ChartUpload as Upload } from "../../core/reviews/upload";
 import { GitHubClient } from "../../core/github/client";
 import { ACTIONS_URL, PLAYBOOK_REPO, useToken, watchDeploy } from "../github";
 
-interface Picked {
+interface Item {
+  id: number;
   blob: Blob;
   type: string;
   url: string;
   bytes: Uint8Array;
+  kind: UploadKind;
+  date: string;
+  symbol: string;
 }
 
 type Phase =
   | { kind: "idle" }
   | { kind: "committing" }
   | { kind: "error"; message: string }
-  | { kind: "done"; path: string; url: string };
+  | { kind: "done"; paths: string[]; url: string };
 
 const KIND_LABEL: Record<UploadKind, string> = { "1m": "1M", "5m": "5M", daily: "DAILY" };
 
-/** The first image among pasted or dropped items, or null. */
-function imageOf(files: FileList | null | undefined): File | null {
-  return [...(files ?? [])].find((f) => f.type.startsWith("image/")) ?? null;
+/** Every image among pasted, dropped or picked items. */
+function imagesOf(files: FileList | File[] | null | undefined): File[] {
+  return [...(files ?? [])].filter((f) => f.type.startsWith("image/"));
 }
 
 /**
@@ -43,6 +48,8 @@ const mounted = new Set<symbol>();
 const onMountChange = new Set<() => void>();
 const notifyMountChange = () => onMountChange.forEach((f) => f());
 
+let nextId = 1;
+
 export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing, deferred, onPicked }: {
   dates: string[];
   defaultDate: string;
@@ -54,14 +61,12 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
    * The journal form's charts aren't committed on their own: they're held here and
    * handed to the caller (via onPicked) so the whole review — text and charts — commits
    * together on one SAVE. No own commit button, so there's nothing to forget to click.
+   * Deferred boxes hold at most one image at a time (one daily, one intraday).
    */
   deferred?: boolean;
   onPicked?: (upload: Upload | null) => void;
 }) {
-  const [picked, setPicked] = useState<Picked | null>(null);
-  const [kind, setKind] = useState<UploadKind>(defaultKind);
-  const [date, setDate] = useState(defaultDate);
-  const [symbol, setSymbol] = useState(symbols[0]!);
+  const [items, setItems] = useState<Item[]>([]);
   const [drag, setDrag] = useState(false);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const busy = phase.kind === "committing";
@@ -69,17 +74,31 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
   const box = useRef<HTMLDivElement>(null);
   const [, rerender] = useState(0);
 
-  const take = async (f: Blob | null) => {
-    if (!f || busy) return;
-    if (!UPLOAD_TYPES[f.type]) return setPhase({ kind: "error", message: `Not an image this app stores (${f.type || "unknown type"}). Use PNG, JPEG, GIF, WebP or BMP.` });
-    setPicked({ blob: f, type: f.type, url: URL.createObjectURL(f), bytes: new Uint8Array(await f.arrayBuffer()) });
+  const take = async (files: File[]) => {
+    const images = imagesOf(files);
+    if (!images.length || busy) return;
+    const bad = images.find((f) => !UPLOAD_TYPES[f.type]);
+    if (bad) return setPhase({ kind: "error", message: `Not an image this app stores (${bad.type || "unknown type"}). Use PNG, JPEG, GIF, WebP or BMP.` });
+    const made = await Promise.all(images.map(async (f): Promise<Item> => ({
+      id: nextId++, blob: f, type: f.type, url: URL.createObjectURL(f), bytes: new Uint8Array(await f.arrayBuffer()),
+      kind: defaultKind, date: defaultDate, symbol: symbols[0]!,
+    })));
+    setItems((prev) => {
+      // A deferred box (one daily, one intraday) holds a single image; the old preview's URL goes.
+      if (deferred) {
+        prev.forEach((p) => URL.revokeObjectURL(p.url));
+        return [made.at(-1)!];
+      }
+      return [...prev, ...made];
+    });
     setPhase({ kind: "idle" });
   };
 
   useEffect(() => {
     if (!deferred) return;
-    onPicked?.(picked ? { date, symbol, kind, type: picked.type, bytes: picked.bytes } : null);
-  }, [deferred, picked, date, symbol, kind]);
+    const it = items[0];
+    onPicked?.(it ? { date: it.date, symbol: it.symbol, kind: it.kind, type: it.type, bytes: it.bytes } : null);
+  }, [deferred, items]);
 
   // Register with every other box currently on screen, so paste can tell whether it's alone.
   useEffect(() => {
@@ -100,29 +119,44 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
   // currently holds focus. Text pastes are left alone.
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
-      const f = imageOf(e.clipboardData?.files);
-      if (!f) return;
+      const images = imagesOf(e.clipboardData?.files);
+      if (!images.length) return;
       if (!solo && !box.current?.contains(document.activeElement)) return;
       e.preventDefault();
-      take(f);
+      take(images);
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
   });
-  // The old preview's blob URL goes when a new image replaces it, or on leaving.
-  useEffect(() => () => void (picked && URL.revokeObjectURL(picked.url)), [picked]);
+  // Every still-picked item's blob URL goes on leaving (removing/clearing/replacing
+  // revoke their own URL immediately, so this only ever sees what's left at unmount).
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  useEffect(() => () => itemsRef.current.forEach((it) => URL.revokeObjectURL(it.url)), []);
 
+  const update = (itemId: number, patch: Partial<Pick<Item, "kind" | "date" | "symbol">>) =>
+    setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, ...patch } : it)));
+  const remove = (itemId: number) => {
+    setItems((prev) => {
+      const gone = prev.find((it) => it.id === itemId);
+      if (gone) URL.revokeObjectURL(gone.url);
+      return prev.filter((it) => it.id !== itemId);
+    });
+    setPhase({ kind: "idle" });
+  };
   const clear = () => {
-    setPicked(null);
+    items.forEach((it) => URL.revokeObjectURL(it.url));
+    setItems([]);
     setPhase({ kind: "idle" });
   };
 
-  let preview: string;
-  try {
-    preview = picked ? uploadPath(existing, date, symbol, kind, UPLOAD_TYPES[picked.type]!) : "";
-  } catch (e) {
-    preview = (e as Error).message;
-  }
+  const previewOf = (it: Item) => {
+    try {
+      return uploadPath(existing, it.date, it.symbol, it.kind, UPLOAD_TYPES[it.type]!);
+    } catch (e) {
+      return (e as Error).message;
+    }
+  };
 
   return (
     <div
@@ -131,64 +165,79 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
       className={`chart-upload ${drag ? "drag" : ""}`}
       onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
       onDragLeave={() => setDrag(false)}
-      onDrop={(e) => { e.preventDefault(); setDrag(false); take(imageOf(e.dataTransfer.files)); }}
+      onDrop={(e) => { e.preventDefault(); setDrag(false); take([...e.dataTransfer.files]); }}
     >
-      {!picked ? (
+      {items.length === 0 ? (
         <div className="row">
           <span className="label small">ADD CHART</span>
-          <span className="muted small">{solo ? "Paste a screenshot (Ctrl+V), drop an image here, or" : "Click here, then paste a screenshot (Ctrl+V), drop an image here, or"}</span>
+          <span className="muted small">{solo ? "Paste a screenshot (Ctrl+V), drop one or more images here, or" : "Click here, then paste a screenshot (Ctrl+V), drop one or more images here, or"}</span>
           <label className="btn">
             CHOOSE FILE
-            <input type="file" accept={Object.keys(UPLOAD_TYPES).join(",")} hidden onChange={(e) => { take(imageOf(e.target.files)); e.target.value = ""; }} />
+            <input
+              type="file"
+              accept={Object.keys(UPLOAD_TYPES).join(",")}
+              multiple={!deferred}
+              hidden
+              onChange={(e) => { take([...(e.target.files ?? [])]); e.target.value = ""; }}
+            />
           </label>
         </div>
       ) : (
         <fieldset className="plain upload-form" disabled={busy}>
-          <img className="upload-preview" src={picked.url} alt="Chart to upload" />
-          <div className="upload-fields">
-            <div className="seg" role="group" aria-label="Timeframe">
-              {UPLOAD_KINDS.map((k) => (
-                <button type="button" key={k} aria-pressed={kind === k} onClick={() => setKind(k)}>{KIND_LABEL[k]}</button>
-              ))}
+          {items.map((it, i) => (
+            <div key={it.id} className="upload-item">
+              <img className="upload-preview" src={it.url} alt="Chart to upload" />
+              <div className="upload-fields">
+                {items.length > 1 && <span className="dim small">Chart {i + 1} of {items.length}</span>}
+                <div className="seg" role="group" aria-label="Timeframe">
+                  {UPLOAD_KINDS.map((k) => (
+                    <button type="button" key={k} aria-pressed={it.kind === k} onClick={() => update(it.id, { kind: k })}>{KIND_LABEL[k]}</button>
+                  ))}
+                </div>
+                <div className="row">
+                  <select className="input" aria-label="Chart date" value={it.date} onChange={(e) => update(it.id, { date: e.target.value })}>
+                    {dates.map((d) => <option key={d} value={d}>{d}{d === defaultDate ? " (idea)" : ""}</option>)}
+                  </select>
+                  {symbols.length > 1 && (
+                    <select className="input" aria-label="Chart symbol" value={it.symbol} onChange={(e) => update(it.id, { symbol: e.target.value })}>
+                      {symbols.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  )}
+                </div>
+                <div className="muted small">
+                  {deferred ? <>Saves as <code>{previewOf(it)}</code> with the review, on SAVE REVIEW below</> : <>Saves as <code>{previewOf(it)}</code> in {PLAYBOOK_REPO.repo}</>}
+                </div>
+                <div className="row">
+                  <button type="button" className="btn ghost small" onClick={() => remove(it.id)}>REMOVE</button>
+                </div>
+              </div>
             </div>
-            <div className="row">
-              <select className="input" aria-label="Chart date" value={date} onChange={(e) => setDate(e.target.value)}>
-                {dates.map((d) => <option key={d} value={d}>{d}{d === defaultDate ? " (idea)" : ""}</option>)}
-              </select>
-              {symbols.length > 1 && (
-                <select className="input" aria-label="Chart symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)}>
-                  {symbols.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              )}
-            </div>
-            <div className="muted small">
-              {deferred ? <>Saves as <code>{preview}</code> with the review, on SAVE REVIEW below</> : <>Saves as <code>{preview}</code> in {PLAYBOOK_REPO.repo}</>}
-            </div>
-            <div className="row">
-              {deferred ? null : __TJ_DEMO__ ? (
-                <>
-                  <button type="button" className="btn primary" disabled>COMMIT…</button>
-                  <span className="note-line">{DEMO_COMMIT_NOTE}</span>
-                </>
-              ) : (
-                <CommitButton
-                  busy={busy}
-                  upload={async () => ({ date, symbol, kind, type: picked.type, bytes: picked.bytes })}
-                  onPhase={(next) => {
-                    if (next.kind === "done") setPicked(null);
-                    setPhase(next);
-                  }}
-                />
-              )}
-              <button type="button" className="btn" onClick={clear}>DISCARD</button>
-            </div>
+          ))}
+          <div className="row">
+            {deferred ? null : __TJ_DEMO__ ? (
+              <>
+                <button type="button" className="btn primary" disabled>COMMIT…</button>
+                <span className="note-line">{DEMO_COMMIT_NOTE}</span>
+              </>
+            ) : (
+              <CommitButton
+                busy={busy}
+                count={items.length}
+                upload={async () => items.map((it) => ({ date: it.date, symbol: it.symbol, kind: it.kind, type: it.type, bytes: it.bytes }))}
+                onPhase={(next) => {
+                  if (next.kind === "done") { items.forEach((it) => URL.revokeObjectURL(it.url)); setItems([]); }
+                  setPhase(next);
+                }}
+              />
+            )}
+            {!deferred && <button type="button" className="btn" onClick={clear}>DISCARD {items.length > 1 ? "ALL" : ""}</button>}
           </div>
         </fieldset>
       )}
       {phase.kind === "error" && <div className="loss small" role="alert">{phase.message}</div>}
       {phase.kind === "done" && (
         <div className="row" role="status">
-          <span className="gain small">COMMITTED <code>{phase.path}</code> · <a href={phase.url} target="_blank" rel="noopener noreferrer">VIEW COMMIT ↗</a></span>
+          <span className="gain small">COMMITTED {phase.paths.length > 1 ? `${phase.paths.length} CHARTS` : <code>{phase.paths[0]}</code>} · <a href={phase.url} target="_blank" rel="noopener noreferrer">VIEW COMMIT ↗</a></span>
           <span className="dim small">It shows here after the redeploy.</span>
           <button type="button" className="btn ghost" onClick={() => setPhase({ kind: "idle" })}>OK</button>
         </div>
@@ -198,7 +247,7 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
 }
 
 /** Real build only: the demo build never renders it, so it has no token or GitHub code (Q50). */
-function CommitButton({ busy, upload, onPhase }: { busy: boolean; upload: () => Promise<Upload>; onPhase: (p: Phase) => void }) {
+function CommitButton({ busy, count, upload, onPhase }: { busy: boolean; count: number; upload: () => Promise<Upload[]>; onPhase: (p: Phase) => void }) {
   const token = useToken();
   if (token.status !== "ok") {
     return <span className="dim small">{token.status === "loading" ? "…" : <>To commit, add a GitHub token in <a href="#/settings">SETTINGS</a>.</>}</span>;
@@ -206,13 +255,13 @@ function CommitButton({ busy, upload, onPhase }: { busy: boolean; upload: () => 
   const commit = async () => {
     onPhase({ kind: "committing" });
     try {
-      const out = await commitChart(new GitHubClient(token.record.token), PLAYBOOK_REPO, await upload());
-      watchDeploy({ label: "Chart committed", want: { date: out.date }, link: `${ACTIONS_URL}/workflows/deploy.yml`, commitUrl: out.url });
-      onPhase({ kind: "done", path: out.path, url: out.url });
+      const out = await commitCharts(new GitHubClient(token.record.token), PLAYBOOK_REPO, await upload());
+      watchDeploy({ label: count > 1 ? `${count} charts committed` : "Chart committed", want: { date: out.date }, link: `${ACTIONS_URL}/workflows/deploy.yml`, commitUrl: out.url });
+      onPhase({ kind: "done", paths: out.paths, url: out.url });
     } catch (e) {
       const err = e as Error;
       onPhase({ kind: "error", message: e instanceof UploadError || err.name === "GitHubError" ? err.message : `Upload failed: ${err.message}` });
     }
   };
-  return <button type="button" className="btn primary" onClick={commit}>{busy ? "COMMITTING…" : `COMMIT TO ${PLAYBOOK_REPO.repo.toUpperCase()}`}</button>;
+  return <button type="button" className="btn primary" onClick={commit}>{busy ? "COMMITTING…" : `COMMIT ${count > 1 ? `${count} CHARTS` : ""} TO ${PLAYBOOK_REPO.repo.toUpperCase()}`}</button>;
 }

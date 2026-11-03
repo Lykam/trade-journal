@@ -7,7 +7,7 @@
 import { commitFiles, GitHubError, readState, RefMovedError, repoName, type CommitResult, type GitHubClient, type RepoId } from "../github/client";
 import type { FileWrite } from "../history/files";
 import type { Idea } from "../types";
-import { uploadPath } from "./images";
+import { uploadPath, type UploadKind } from "./images";
 import { checkUpload, type ChartUpload } from "./upload";
 
 export interface ReviewAnswers {
@@ -40,12 +40,29 @@ export function reviewPath(existing: Iterable<string>, date: string, ticker: str
   return path;
 }
 
+/** A chart committed alongside the review, already at its final Playbook path. */
+export interface ReviewChart {
+  kind: UploadKind;
+  path: string;
+}
+
+/**
+ * Markdown image lines for the charts of one section ("daily" for Daily Chart,
+ * "1m"/"5m" for Intraday Chart), in the same `![TICKER kind chart](../path)`
+ * form the playbook-review skill writes, so the review page renders them the
+ * same way whichever route wrote the review.
+ */
+function imageLines(idea: Idea, charts: ReviewChart[], kinds: UploadKind[], label: string): string[] {
+  const lines = charts.filter((c) => kinds.includes(c.kind)).flatMap((c) => [`![${idea.underlying} ${label} chart](../${c.path})`, ""]);
+  return lines;
+}
+
 /**
  * The review markdown, in Template.md's section order. Entry-phase only (Status
  * stays OPEN) for a swing idea still open; otherwise every section, with The
  * Error auto-answered "not applicable" for a non-losing trade (Q77).
  */
-export function buildReviewMarkdown(idea: Idea, a: ReviewAnswers): string {
+export function buildReviewMarkdown(idea: Idea, a: ReviewAnswers, charts: ReviewChart[] = []): string {
   const closed = idea.status === "closed";
   const day = idea.style === "day";
   const pnl = closed ? money(idea.netPnl) : "open";
@@ -69,10 +86,12 @@ export function buildReviewMarkdown(idea: Idea, a: ReviewAnswers): string {
     "",
     "## Daily Chart",
     "",
+    ...(day ? [] : imageLines(idea, charts, ["daily"], "daily")),
     day ? "Not applicable to this trade — day trades don't use the daily chart." : a.dailyChart.trim() || "(not answered)",
     "",
     "## Intraday Chart",
     "",
+    ...imageLines(idea, charts, ["1m", "5m"], "intraday"),
     a.intradayChart.trim() || "(not answered)",
     "",
     "## Level 2 (if relevant)",
@@ -128,7 +147,6 @@ export async function commitReview(
   charts: ChartUpload[] = [],
   attempts = 3,
 ): Promise<CommitResult & { path: string; chartPaths: string[] }> {
-  const markdown = buildReviewMarkdown(idea, answers);
   const exts = charts.map(checkUpload);
   const base = reviewMessage(idea, idea.status === "closed" ? "closed" : "entry phase, open");
   const message = charts.length ? `${base} with ${charts.length} chart${charts.length === 1 ? "" : "s"}` : base;
@@ -139,13 +157,14 @@ export async function commitReview(
       const path = reviewPath(taken, idea.date, idea.underlying);
       taken.add(path);
       const chartPaths: string[] = [];
-      const files: FileWrite[] = [{ path, content: markdown }];
-      charts.forEach((c, ci) => {
+      const reviewCharts: ReviewChart[] = charts.map((c, ci) => {
         const p = uploadPath(taken, c.date, c.symbol, c.kind, exts[ci]!);
         taken.add(p);
         chartPaths.push(p);
-        files.push({ path: p, content: c.bytes });
+        return { kind: c.kind, path: p };
       });
+      const markdown = buildReviewMarkdown(idea, answers, reviewCharts);
+      const files: FileWrite[] = [{ path, content: markdown }, ...charts.map((c, ci) => ({ path: chartPaths[ci]!, content: c.bytes }))];
       const commit = await commitFiles(gh, state, files, message);
       // A new review path always changes the tree, so a commit is always made.
       return { ...commit!, path, chartPaths };
