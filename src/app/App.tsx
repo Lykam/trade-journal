@@ -16,6 +16,7 @@ import { ErrorsPage } from "./pages/ErrorsPage";
 import { ImportPage } from "./pages/ImportPage";
 import { JournalPage, ReviewPage } from "./pages/JournalPage";
 import { LockScreen } from "./pages/LockScreen";
+import { LookupsPage } from "./pages/LookupsPage";
 import { OpenPage } from "./pages/OpenPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -32,6 +33,7 @@ const NAV = [
   { path: "/journal", label: "JOURNAL" },
   { path: "/errors", label: "ERRORS" },
   { path: "/calc", label: "CALC" },
+  { path: "/lookups", label: "LOOKUPS" },
   { path: "/settings", label: "SETTINGS" },
 ];
 
@@ -78,12 +80,13 @@ export function App() {
   const pinned = new URLSearchParams(window.location.search).has("now");
 
   // The encrypted site shows nothing but the passphrase screen until unlocked (the demo never
-  // locks), except the calculator: it needs no trade data, so it stays reachable for quick
-  // access (e.g. a phone home-screen shortcut) without unlocking first.
-  if (load.status === "locked" && path !== "/calc") return __TJ_DEMO__ ? null : <LockScreen notice={load.notice} unlock={load.unlock} />;
+  // locks), except the calculator and lookups: neither needs trade data, so they stay reachable
+  // for quick access (e.g. a phone home-screen shortcut) without unlocking first.
+  if (load.status === "locked" && path !== "/calc" && path !== "/lookups") return __TJ_DEMO__ ? null : <LockScreen notice={load.notice} unlock={load.unlock} />;
 
   let page: React.ReactNode;
   if (path === "/calc") page = <CalculatorPage />;
+  else if (path === "/lookups") page = <LookupsPage />;
   else if (load.status === "loading") page = <div className="center-msg">LOADING…</div>;
   else if (load.status === "error")
     page = (

@@ -452,6 +452,13 @@ pre.report { margin: 0; padding: 10px 14px; font-size: 11px; overflow: auto; max
 .panel-pad { padding: 10px 14px 0; }
 table.grid tr.selected { background: var(--inset); }
 table.grid tr.sub td { border-top-color: var(--rule-faint); }
+/* Lookups groups several ETFs under one underlying: shade alternating groups so rows
+   sharing an underlying read as one block. The near-black --inset tone used elsewhere for
+   hover/selected states was too close to --panel to read as banding, so this uses a visible
+   amber tint instead (and raises the row divider to --border-strong so bands stay readable
+   next to each other at a glance, not just on close inspection). */
+table.grid.lookups tr.band td { background: rgba(245, 165, 36, 0.1); }
+table.grid.lookups tbody tr { border-top-color: var(--border-strong); }
 @media (max-width: 640px) {
   /* Side-by-side stat columns wrap instead of pushing B off screen. */
   table.grid.cols td { white-space: normal; overflow-wrap: break-word; }
