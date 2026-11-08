@@ -15,8 +15,10 @@ export function CalculatorPage() {
   const [excludeAmount, setExcludeAmount] = usePersistedText("tj.calc.excludeAmount", "2000");
   const [riskPct, setRiskPct] = usePersistedText("tj.calc.riskPct", "1");
   const [capPct, setCapPct] = usePersistedText("tj.calc.capPct", "3");
+  const [baselineDays, setBaselineDays] = usePersistedText("tj.calc.baselineDays", "");
   const [entry, setEntry] = useState("");
   const [stop, setStop] = useState("");
+  const [recentDays, setRecentDays] = useState("");
 
   const accountNum = Number(account);
   const effective = clamp0(excludeOn === "1" ? accountNum - Number(excludeAmount || "0") : accountNum);
@@ -31,13 +33,15 @@ export function CalculatorPage() {
           account: effective,
           riskPct: Number(riskPct) / 100,
           capPct: Number(capPct) / 100,
+          recentAvgDaysHeld: Number(recentDays || "0"),
+          baselineAvgDaysHeld: Number(baselineDays || "0"),
         }),
         error: null as string | null,
       };
     } catch (e) {
       return { value: null, error: (e as Error).message };
     }
-  }, [account, entry, stop, effective, riskPct, capPct]);
+  }, [account, entry, stop, effective, riskPct, capPct, recentDays, baselineDays]);
 
   return (
     <main className="page">
@@ -98,6 +102,24 @@ export function CalculatorPage() {
           </div>
         </section>
 
+        <section className="panel" aria-label="Turnover">
+          <div className="panel-head"><h2>Turnover</h2></div>
+          <div className="body">
+            <label className="field">
+              <span className="label small">Typical avg days held</span>
+              <input className="input tiny" inputMode="decimal" value={baselineDays} onChange={(e) => setBaselineDays(e.target.value)} placeholder="5" />
+            </label>
+            <label className="field">
+              <span className="label small">Recent avg days held</span>
+              <input className="input tiny" inputMode="decimal" value={recentDays} onChange={(e) => setRecentDays(e.target.value)} placeholder="2" />
+            </label>
+            <p className="dim small">
+              If your recent trades are closing faster than typical, the market's probably choppier — size down.
+              Leave either blank to skip this.
+            </p>
+          </div>
+        </section>
+
         <section className="panel" aria-label="Result">
           <div className="panel-head"><h2>Result</h2></div>
           <div className="body">
@@ -115,6 +137,14 @@ export function CalculatorPage() {
                     <dd>{r.sharesByCapital.toFixed(1)} sh (cap {money(r.maxCapitalDollars, { sign: false })} ÷ {money(Number(entry), { sign: false })}/sh)</dd>
                     <dt>Limited by</dt>
                     <dd>{r.limitedBy === "risk" ? "Risk" : r.limitedBy === "capital" ? "Capital" : "Both (tie)"}</dd>
+                    {r.turnoverMultiplier < 1 && (
+                      <>
+                        <dt>Before turnover</dt>
+                        <dd>{r.sharesBeforeTurnover.toFixed(1)} sh</dd>
+                        <dt>Turnover adjustment</dt>
+                        <dd>&times;{r.turnoverMultiplier.toFixed(2)} (choppier than typical)</dd>
+                      </>
+                    )}
                     <dt>Position cost</dt>
                     <dd>{money(r.positionCost, { sign: false })} ({pct(r.pctOfAccountUsed, 1)} of account)</dd>
                     <dt>Risk if stopped</dt>

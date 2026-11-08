@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeSizing, floorToTenth } from "../src/core/calc/sizing";
+import { computeSizing, floorToTenth, turnoverMultiplier } from "../src/core/calc/sizing";
 
 describe("floorToTenth", () => {
   it("floors to a tenth of a share", () => {
@@ -66,5 +66,45 @@ describe("computeSizing", () => {
     expect(() => computeSizing({ entry: 10, stop: 9, account: 0, riskPct: 0.01, capPct: 0.03 })).toThrow(/account/i);
     expect(() => computeSizing({ entry: 10, stop: 9, account: 500, riskPct: 0, capPct: 0.03 })).toThrow(/risk/i);
     expect(() => computeSizing({ entry: 10, stop: 9, account: 500, riskPct: 0.01, capPct: 0 })).toThrow(/capital/i);
+  });
+
+  it("skips the turnover adjustment when fields are omitted", () => {
+    const r = computeSizing({ entry: 10, stop: 5, account: 1000, riskPct: 0.01, capPct: 0.02 });
+    expect(r.turnoverMultiplier).toBe(1);
+    expect(r.sharesBeforeTurnover).toBe(2);
+    expect(r.shares).toBe(2);
+  });
+
+  it("sizes down when recent holds are shorter than typical", () => {
+    // recent 2d vs typical 8d -> sqrt(2/8) = 0.5
+    const r = computeSizing({ entry: 10, stop: 5, account: 1000, riskPct: 0.01, capPct: 0.02, recentAvgDaysHeld: 2, baselineAvgDaysHeld: 8 });
+    expect(r.sharesBeforeTurnover).toBe(2);
+    expect(r.turnoverMultiplier).toBeCloseTo(0.5, 6);
+    expect(r.shares).toBe(1);
+  });
+
+  it("never sizes up when recent holds are longer than typical", () => {
+    const r = computeSizing({ entry: 10, stop: 5, account: 1000, riskPct: 0.01, capPct: 0.02, recentAvgDaysHeld: 10, baselineAvgDaysHeld: 3 });
+    expect(r.turnoverMultiplier).toBe(1);
+    expect(r.shares).toBe(r.sharesBeforeTurnover);
+  });
+});
+
+describe("turnoverMultiplier", () => {
+  it("is 1 when either input is missing or non-positive", () => {
+    expect(turnoverMultiplier(undefined, 8)).toBe(1);
+    expect(turnoverMultiplier(2, undefined)).toBe(1);
+    expect(turnoverMultiplier(0, 8)).toBe(1);
+    expect(turnoverMultiplier(2, 0)).toBe(1);
+  });
+
+  it("is 1 when recent holds are at or above typical", () => {
+    expect(turnoverMultiplier(8, 8)).toBe(1);
+    expect(turnoverMultiplier(10, 8)).toBe(1);
+  });
+
+  it("is sqrt(recent/baseline) when recent is shorter than typical", () => {
+    expect(turnoverMultiplier(2, 8)).toBeCloseTo(0.5, 6);
+    expect(turnoverMultiplier(1, 4)).toBeCloseTo(0.5, 6);
   });
 });
