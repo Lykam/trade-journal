@@ -202,6 +202,54 @@ export interface RegimeFile {
   snapshot: RegimeSnapshot;
 }
 
+/** How strongly a row's entry tactic is currently confirmed (watchlist-scan skill). */
+export type WatchlistScanTier = "high" | "watching" | "suppressed" | "not_graded";
+
+/** One ticker's grade from the watchlist-scan skill (undercut & reclaim, oops reversal, ugly-close + gap-up, or regime-gated CANSLIM breakout). */
+export interface WatchlistScanRow {
+  ticker: string;
+  /** Exchange-qualified TradingView symbol (e.g. "NYSE:SPOT") for the chart widget — a bare
+      ticker can be ambiguous (multiple listings/instruments share it) and the widget then falls
+      back to a consolidated tape feed that doesn't render daily history properly. Falls back to
+      `ticker` when absent (suppressed/not_graded rows don't get a chart, so don't need this). */
+  tvSymbol?: string;
+  /** The watchlist's own section tag the ticker was under (e.g. "LONG", "TRACKING"). */
+  section: string;
+  tactic: string;
+  /** Free-text confidence as graded (e.g. "HIGH", "WATCHING (weak)") — tier below is what the UI groups/colors by. */
+  confidence: string;
+  tier: WatchlistScanTier;
+  keyLevel: string;
+  stop: string;
+  relStrength: string;
+  earnings: string;
+  rationale: string;
+}
+
+/** The index-level read (EMA posture, rotation tell) that gates which tactics are favored (watchlist-scan skill). Distinct from the quantitative RegimeSnapshot above — not to be confused with it in the UI. */
+export interface WatchlistScanTapeRead {
+  state: string;
+  evidence: string;
+  rotationTell: string;
+  favoredTactics: string;
+  suppressedTactics: string;
+  excludedTactic: string;
+  sourceWatchlist: string;
+}
+
+/**
+ * watchlist-scan.json: written by the Claude "watchlist-scan" skill and committed into the
+ * trade-history checkout (unlike quotes/regime, it can't be regenerated at build time — it
+ * depends on a live TradingView MCP session, not a public API CI can call). Read directly by
+ * build/load-bundle.ts, no schema validation.
+ */
+export interface WatchlistScanFile {
+  /** When the skill ran this scan. */
+  asOf: string;
+  tapeRead: WatchlistScanTapeRead;
+  rows: WatchlistScanRow[];
+}
+
 /** One Playbook review as read from disk (SPEC §6.7, §6.11). */
 export interface ReviewFile {
   /** Path relative to the Playbook root, e.g. "Reviews/2026-07-27-ABC.md". */
@@ -226,6 +274,8 @@ export interface DataBundle {
   overrides: Overrides;
   quotes: QuotesFile | null;
   regime: RegimeFile | null;
+  /** null until the watchlist-scan skill has been run at least once and committed to trade-history. */
+  watchlistScan: WatchlistScanFile | null;
   /** null when no Playbook checkout is available. */
   playbook: PlaybookData | null;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */

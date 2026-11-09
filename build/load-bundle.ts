@@ -2,14 +2,25 @@
 // checkout and the local quotes.json. Used by the dev server now and by
 // bundle-data.ts (milestone 4).
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadHistory, validate } from "../cli/lib/history.ts";
 import { lastImports } from "../src/core/imports.ts";
-import type { DataBundle } from "../src/core/types.ts";
+import type { DataBundle, WatchlistScanFile } from "../src/core/types.ts";
 import { readQuotes } from "./fetch-quotes.ts";
 import { readRegime } from "./fetch-regime.ts";
 import { loadPlaybook } from "./playbook.ts";
+
+/** watchlist-scan.json lives in the trade-history checkout (committed by the Claude skill, not generated here) and has no schema validation yet — read it best-effort. */
+function readWatchlistScan(historyDir: string): WatchlistScanFile | null {
+  const path = join(historyDir, "watchlist-scan.json");
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as WatchlistScanFile;
+  } catch {
+    return null;
+  }
+}
 
 export function loadBundle(historyDir: string, quotesFile: string, playbookDir: string, regimeFile: string): DataBundle {
   if (!existsSync(join(historyDir, "config.json"))) throw new Error(`no config.json in ${historyDir} (set TRADE_HISTORY_DIR)`);
@@ -26,6 +37,7 @@ export function loadBundle(historyDir: string, quotesFile: string, playbookDir: 
     overrides: h.overrides,
     quotes: readQuotes(quotesFile),
     regime: readRegime(regimeFile),
+    watchlistScan: readWatchlistScan(historyDir),
     playbook: loadPlaybook(playbookDir),
     loadedAt: new Date().toISOString(),
     history: headCommit(historyDir),

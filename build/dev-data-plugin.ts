@@ -31,8 +31,8 @@ export function devDataPlugin(): Plugin {
       const url = `${server.config.base}${DEV_DATA_PATH}`;
       const imagePrefix = `${server.config.base}${DEV_PLAYBOOK_PATH}`;
 
-      // Reload the page when an import, `npm run quotes`/`npm run regime` or a Playbook review/chart changes the data.
-      const files = [`${historyDir}/derived/trades.json`, `${historyDir}/config.json`, `${historyDir}/symbols.json`, `${historyDir}/overrides.json`, quotesFile, regimeFile].map(norm);
+      // Reload the page when an import, `npm run quotes`/`npm run regime`, a watchlist-scan commit or a Playbook review/chart changes the data.
+      const files = [`${historyDir}/derived/trades.json`, `${historyDir}/config.json`, `${historyDir}/symbols.json`, `${historyDir}/overrides.json`, `${historyDir}/watchlist-scan.json`, quotesFile, regimeFile].map(norm);
       const dirs = [`${playbookDir}/Reviews/`, `${playbookDir}/Images/`].map(norm);
       server.watcher.add([...files, ...dirs]);
       const onChange = (file: string) => {
