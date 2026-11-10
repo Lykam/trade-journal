@@ -22,11 +22,10 @@ import { parseArgs } from "node:util";
 import { gzipSync } from "node:zlib";
 import { REPO_ROOT } from "../cli/lib/history";
 import {
-  aadFor, DATA_BUCKET, encodeHeader, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, IV_BYTES, KIND_DATA, KIND_IMAGE, KIND_SCAN, pad, PBKDF2_ITERATIONS,
-  SALT_BYTES, SCAN_BUCKET, SCAN_COUNT_BUCKET,
+  aadFor, DATA_BUCKET, encodeHeader, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, IV_BYTES, KIND_DATA, KIND_IMAGE, pad, PBKDF2_ITERATIONS, SALT_BYTES,
 } from "../src/core/crypto";
 import type { DataBundle } from "../src/core/types";
-import { type BundleImage, type BundleScanDay, bundleData, resolveSources } from "./bundle-data";
+import { type BundleImage, bundleData, resolveSources } from "./bundle-data";
 import { isPublicLog, PublicError, runMain } from "./public-log";
 
 export const MIN_PASSPHRASE = 16;
@@ -70,38 +69,15 @@ export function imageNamer(key: Uint8Array): (img: BundleImage) => string {
   };
 }
 
-/** Scan-day file names: same construction as imageNamer, its own HKDF info string so the two name spaces never collide. */
-export function scanNamer(key: Uint8Array): (s: BundleScanDay) => string {
-  const nameKey = Buffer.from(hkdfSync("sha256", key, new Uint8Array(0), "trade-journal scan names v1", 32));
-  return (s) => {
-    const digest = createHash("sha256").update(s.bytes).digest("hex");
-    return createHmac("sha256", nameKey).update(`${s.date}\0${digest}`).digest("hex").slice(0, 32);
-  };
-}
-
 export interface EncryptResult {
   /** Files written to img/, decoys included (the only count that is public anyway). */
   imgFiles: number;
-  /** Files written to scans/, decoys included. */
-  scanFiles: number;
 }
 
-/** Decoys of random size, encrypted like the real files in dir, up to the next multiple of countBucket — so the real count never shows. */
-function writeDecoys(dir: string, key: Uint8Array, kdf: KdfParams, kind: number, bucket: number, countBucket: number, written: Set<string>) {
-  const total = Math.max(1, Math.ceil(written.size / countBucket)) * countBucket;
-  while (written.size < total) {
-    const n = randomBytes(16).toString("hex");
-    if (written.has(n)) continue;
-    written.add(n);
-    writeFileSync(join(dir, `${n}.enc`), encryptPayload(key, kdf, kind, new Uint8Array(randomInt(1, 8) * bucket - 4), bucket, n));
-  }
-}
-
-/** Writes data.enc, img/*.enc and scans/*.enc into distDir, replacing any previous img/ and scans/. */
+/** Writes data.enc and img/*.enc into distDir, replacing any previous img/. */
 export function encryptBundle(
   bundle: DataBundle,
   images: BundleImage[],
-  scanDays: BundleScanDay[],
   passphrase: string,
   distDir: string,
   kdf: KdfParams = readKdfParams(),
@@ -114,35 +90,26 @@ export function encryptBundle(
   mkdirSync(imgDir, { recursive: true });
 
   const imageFiles: Record<string, string> = {};
-  const writtenImages = new Set<string>();
+  const written = new Set<string>();
   for (const img of images) {
     const n = name(img);
     imageFiles[img.path] = n;
-    if (writtenImages.has(n)) continue;
-    writtenImages.add(n);
+    if (written.has(n)) continue;
+    written.add(n);
     writeFileSync(join(imgDir, `${n}.enc`), encryptPayload(key, kdf, KIND_IMAGE, img.bytes, IMAGE_BUCKET, n));
   }
-  writeDecoys(imgDir, key, kdf, KIND_IMAGE, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, writtenImages);
-
-  const scanName = scanNamer(key);
-  const scanDir = join(distDir, "scans");
-  rmSync(scanDir, { recursive: true, force: true });
-  mkdirSync(scanDir, { recursive: true });
-
-  const watchlistScanHistoryFiles: Record<string, string> = {};
-  const writtenScans = new Set<string>();
-  for (const s of scanDays) {
-    const n = scanName(s);
-    watchlistScanHistoryFiles[s.date] = n;
-    if (writtenScans.has(n)) continue;
-    writtenScans.add(n);
-    writeFileSync(join(scanDir, `${n}.enc`), encryptPayload(key, kdf, KIND_SCAN, new Uint8Array(gzipSync(s.bytes, { level: 9 })), SCAN_BUCKET, n));
+  // Decoys: random names and sizes, encrypted like real images, up to the next multiple of the count bucket.
+  const total = Math.max(1, Math.ceil(written.size / IMAGE_COUNT_BUCKET)) * IMAGE_COUNT_BUCKET;
+  while (written.size < total) {
+    const n = randomBytes(16).toString("hex");
+    if (written.has(n)) continue;
+    written.add(n);
+    writeFileSync(join(imgDir, `${n}.enc`), encryptPayload(key, kdf, KIND_IMAGE, new Uint8Array(randomInt(1, 8) * IMAGE_BUCKET - 4), IMAGE_BUCKET, n));
   }
-  writeDecoys(scanDir, key, kdf, KIND_SCAN, SCAN_BUCKET, SCAN_COUNT_BUCKET, writtenScans);
 
-  const json = JSON.stringify({ ...bundle, imageFiles, watchlistScanHistoryFiles } satisfies DataBundle);
+  const json = JSON.stringify({ ...bundle, imageFiles } satisfies DataBundle);
   writeFileSync(join(distDir, "data.enc"), encryptPayload(key, kdf, KIND_DATA, new Uint8Array(gzipSync(json, { level: 9 })), DATA_BUCKET));
-  return { imgFiles: writtenImages.size, scanFiles: writtenScans.size };
+  return { imgFiles: written.size };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
@@ -155,15 +122,11 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename
     if (!passphrase) throw new PublicError("SITE_PASSPHRASE is not set");
     const dist = resolve(values.dist ?? join(REPO_ROOT, "dist"));
     if (!existsSync(join(dist, "index.html"))) throw new PublicError("the dist folder has no index.html (run vite build first)");
-    const { bundle, images, scanDays } = bundleData(
+    const { bundle, images } = bundleData(
       resolveSources({ historyDir: values["history-dir"], playbookDir: values["playbook-dir"], quotesFile: values.quotes, regimeFile: values.regime }),
     );
-    const r = encryptBundle(bundle, images, scanDays, passphrase, dist);
+    const r = encryptBundle(bundle, images, passphrase, dist);
     // Public logs get no counts at all, not even the padded one (Q35).
-    console.log(
-      isPublicLog()
-        ? "encrypt: wrote data.enc, img/*.enc and scans/*.enc (padded with decoys)"
-        : `encrypt: wrote data.enc, ${r.imgFiles} img/*.enc and ${r.scanFiles} scans/*.enc files (padded with decoys)`,
-    );
+    console.log(isPublicLog() ? "encrypt: wrote data.enc and img/*.enc (padded with decoys)" : `encrypt: wrote data.enc and ${r.imgFiles} img/*.enc files (padded with decoys)`);
   });
 }

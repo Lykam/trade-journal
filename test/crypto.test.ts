@@ -30,7 +30,7 @@ let key: CryptoKey;
 
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), "tj-crypto-"));
-  encryptBundle(bundle, images, [], PASS, dir, kdf);
+  encryptBundle(bundle, images, PASS, dir, kdf);
   key = await importAesKey(await deriveKeyBytes(PASS, kdf.salt, kdf.iterations));
 }, 60_000);
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -94,7 +94,7 @@ describe("encryptBundle → WebCrypto", () => {
   });
 
   it("refuses a short passphrase", () => {
-    expect(() => encryptBundle(bundle, [], [], "x".repeat(MIN_PASSPHRASE - 1), dir, kdf)).toThrow(/at least/);
+    expect(() => encryptBundle(bundle, [], "x".repeat(MIN_PASSPHRASE - 1), dir, kdf)).toThrow(/at least/);
   });
 });
 

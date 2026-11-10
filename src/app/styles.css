@@ -131,16 +131,6 @@ a.sym:hover { color: var(--accent); }
 .regime-head .state.half { color: var(--half); }
 .regime-head .state.quarter { color: var(--loss); }
 .regime-checklist { display: flex; flex-direction: column; gap: 4px; list-style: none; padding: 0; margin: 0; font-size: 13px; }
-/* Rows of three, same breakpoints as .sgrid (#Reports): two, then one, on narrower screens. */
-.scan-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
-@media (max-width: 1100px) { .scan-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 640px) { .scan-cards { grid-template-columns: minmax(0, 1fr); } }
-.scan-card { display: flex; flex-direction: column; gap: 4px; padding: 10px; }
-.scan-card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 13px; }
-.scan-card-rationale { margin: 0; }
-/* Watchlist-scan rows: ticker/tactic/stop at a glance, rationale tucked behind the native <details> toggle. */
-.scan-summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
-.scan-detail { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 6px 18px; }
 .dial .value { fill: var(--text); font: 700 22px var(--font); }
 .dial .scale { fill: var(--dim); font: 9px var(--font); }
 .s-gain { stroke: var(--gain); }

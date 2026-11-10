@@ -202,65 +202,6 @@ export interface RegimeFile {
   snapshot: RegimeSnapshot;
 }
 
-/** How strongly a row's entry tactic is currently confirmed (watchlist-scan skill). */
-export type WatchlistScanTier = "high" | "watching" | "suppressed" | "not_graded";
-
-/** One ticker's grade from the watchlist-scan skill (undercut & reclaim, oops reversal, ugly-close + gap-up, or regime-gated CANSLIM breakout). */
-export interface WatchlistScanRow {
-  ticker: string;
-  /** Exchange-qualified TradingView symbol (e.g. "NYSE:SPOT") for the chart widget — a bare
-      ticker can be ambiguous (multiple listings/instruments share it) and the widget then falls
-      back to a consolidated tape feed that doesn't render daily history properly. Falls back to
-      `ticker` when absent (suppressed/not_graded rows don't get a chart, so don't need this). */
-  tvSymbol?: string;
-  /** The watchlist's own section tag the ticker was under (e.g. "LONG", "TRACKING"). */
-  section: string;
-  tactic: string;
-  /** Free-text confidence as graded (e.g. "HIGH", "WATCHING (weak)") — tier below is what the UI groups/colors by. */
-  confidence: string;
-  tier: WatchlistScanTier;
-  keyLevel: string;
-  stop: string;
-  relStrength: string;
-  earnings: string;
-  rationale: string;
-}
-
-/** The index-level read (EMA posture, rotation tell) that gates which tactics are favored (watchlist-scan skill). Distinct from the quantitative RegimeSnapshot above — not to be confused with it in the UI. */
-export interface WatchlistScanTapeRead {
-  state: string;
-  evidence: string;
-  rotationTell: string;
-  favoredTactics: string;
-  suppressedTactics: string;
-  excludedTactic: string;
-  sourceWatchlist: string;
-}
-
-/**
- * watchlist-scan.json: written by the Claude "watchlist-scan" skill and committed into the
- * trade-history checkout (unlike quotes/regime, it can't be regenerated at build time — it
- * depends on a live TradingView MCP session, not a public API CI can call). Read directly by
- * build/load-bundle.ts, no schema validation.
- */
-export interface WatchlistScanFile {
-  /** When the skill ran this scan. */
-  asOf: string;
-  tapeRead: WatchlistScanTapeRead;
-  rows: WatchlistScanRow[];
-}
-
-/**
- * <date>-pm-thesis.json: the evening-thesis cloud routine's forward-looking read for the next
- * trading day, written the night before. Same shape as WatchlistScanFile plus `thesisFor`. Shown
- * as an unconfirmed preview only until the morning routine finalizes that day (see
- * build/load-bundle.ts's readWatchlistScanThesis) — never a substitute for `watchlistScan`.
- */
-export interface WatchlistScanThesisFile extends WatchlistScanFile {
-  /** The trading day (YYYY-MM-DD, America/New_York) this thesis is forecasting. */
-  thesisFor: string;
-}
-
 /** One Playbook review as read from disk (SPEC §6.7, §6.11). */
 export interface ReviewFile {
   /** Path relative to the Playbook root, e.g. "Reviews/2026-07-27-ABC.md". */
@@ -285,18 +226,6 @@ export interface DataBundle {
   overrides: Overrides;
   quotes: QuotesFile | null;
   regime: RegimeFile | null;
-  /** null until the watchlist-scan skill has been run at least once and committed to trade-history. */
-  watchlistScan: WatchlistScanFile | null;
-  /** The evening-thesis routine's draft for the next trading day, while it's still unconfirmed —
-      null once the morning routine finalizes that day (its archive file exists) or no thesis has
-      been written yet. */
-  watchlistScanThesis: WatchlistScanThesisFile | null;
-  /** Dated archives available in watchlist-scans/ (YYYY-MM-DD), newest first — the Setups history
-      picker fetches one on demand (build/load-bundle.ts dev, img/-style encrypted blobs in prod),
-      never bundled eagerly. Empty when no archives exist yet. */
-  watchlistScanHistory: string[];
-  /** Production only: watchlist-scan history date → its encrypted file name in scans/ (an HMAC, like imageFiles). Absent in dev. */
-  watchlistScanHistoryFiles?: Record<string, string>;
   /** null when no Playbook checkout is available. */
   playbook: PlaybookData | null;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */

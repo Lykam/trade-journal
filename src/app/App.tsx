@@ -20,7 +20,6 @@ import { LookupsPage } from "./pages/LookupsPage";
 import { OpenPage } from "./pages/OpenPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { SetupsPage } from "./pages/SetupsPage";
 import { Stub } from "./pages/Stub";
 import { TradeDetail } from "./pages/TradeDetail";
 import { TradesPage } from "./pages/TradesPage";
@@ -31,7 +30,6 @@ const NAV = [
   { path: "/cal", label: "CAL" },
   { path: "/trades", label: "TRADES" },
   { path: "/reports", label: "REPORTS" },
-  { path: "/setups", label: "SETUPS" },
   { path: "/journal", label: "JOURNAL" },
   { path: "/errors", label: "ERRORS" },
   { path: "/calc", label: "CALC" },
@@ -110,7 +108,6 @@ export function App() {
     else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
     else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
     else if (path === "/reports") page = <ReportsPage journal={journal!} view={view} params={params} />;
-    else if (path === "/setups") page = <SetupsPage data={data} />;
     else if (path === "/settings") page = <SettingsPage data={data} />;
     else if (path === "/import") page = <ImportPage data={data} />;
     else page = <Stub title="NOT FOUND" />;

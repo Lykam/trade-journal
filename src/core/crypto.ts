@@ -14,21 +14,17 @@ export const KIND_DATA = 1;
 export const KIND_IMAGE = 2;
 /** The prices workflow's cached quotes.json (actions/cache is readable by other workflows, so it is stored encrypted). */
 export const KIND_CACHE = 3;
-/** One day's watchlist-scan history (gzipped JSON, like data.enc), fetched on demand from the Setups history picker. */
-export const KIND_SCAN = 4;
 export const SALT_BYTES = 16;
 export const IV_BYTES = 12;
 export const TAG_BYTES = 16;
 export const HEADER_BYTES = MAGIC.length + 1 + 4 + SALT_BYTES + IV_BYTES;
 export const PBKDF2_ITERATIONS = 600_000;
-/** Plaintext size buckets: data.enc pads to 64 KiB, each image to 32 KiB, each scan day to 16 KiB (gzipped JSON, much smaller than an image). */
+/** Plaintext size buckets: data.enc pads to 64 KiB, each image to 32 KiB. */
 export const DATA_BUCKET = 64 * 1024;
 export const IMAGE_BUCKET = 32 * 1024;
-export const SCAN_BUCKET = 16 * 1024;
-/** Image/scan files are padded with decoys to a multiple of this, so the file count is not the real count. */
+/** Image files are padded with decoys to a multiple of this, so the file count is not the image count. */
 export const IMAGE_COUNT_BUCKET = 16;
-export const SCAN_COUNT_BUCKET = 16;
-/** Image/scan file names: 32 hex chars (128 bits of an HMAC), never derived from anything guessable. */
+/** Image file names: 32 hex chars (128 bits of an HMAC), never derived from anything guessable. */
 export const IMAGE_NAME_RE = /^[0-9a-f]{32}$/;
 
 export interface Header {
@@ -53,7 +49,7 @@ export function encodeHeader(h: Header): Uint8Array {
 export function decodeHeader(file: Uint8Array): Header {
   if (file.length < HEADER_BYTES + TAG_BYTES || MAGIC.some((b, i) => file[i] !== b)) throw new Error("not an encrypted journal file");
   const kind = file[4]!;
-  if (kind !== KIND_DATA && kind !== KIND_IMAGE && kind !== KIND_CACHE && kind !== KIND_SCAN) throw new Error("unknown encrypted file kind");
+  if (kind !== KIND_DATA && kind !== KIND_IMAGE && kind !== KIND_CACHE) throw new Error("unknown encrypted file kind");
   const iterations = new DataView(file.buffer, file.byteOffset, file.byteLength).getUint32(5);
   return { kind, iterations, salt: file.slice(9, 9 + SALT_BYTES), iv: file.slice(9 + SALT_BYTES, HEADER_BYTES) };
 }

@@ -1,29 +1,12 @@
-// TradingView's free Advanced Chart widget (symbol chart on Trade detail, Setups cards). It
-// renders inside a sandboxed iframe TradingView controls, so there's no way to draw buy/sell
-// markers on it. Confirmed directly against tradingview-widget.com (outside this app) that the
-// widget picks its own candle size from `range` and largely ignores whatever `interval` we pass
-// — range="1M" renders 30-minute bars, "3M" renders 1-hour, "6M" renders 2-hour, no matter what
-// `interval` says. Only range="12M"+ reliably gets genuine daily candles (what tvRange in
-// TradeDetail relies on) — there's no way to get a short, e.g. 1-month, visible window at daily
-// granularity through these params. The small "D" badge in the widget's legend is unrelated to
-// any of this — it flags delayed (non-realtime) quotes, not the interval. `hideTopToolbar` is
-// separate: at the card's narrow 3-per-row width the toolbar doesn't have room for every
-// interval preset, so Setups cards pass it to drop the toolbar rather than show it crowded.
+// TradingView's free Advanced Chart widget (symbol chart on Trade detail). It renders
+// inside a sandboxed iframe TradingView controls, so there's no way to draw buy/sell
+// markers on it — `range` just gets the trade's open date into view. Requests the 5-minute
+// interval, the one more often grabbed for the journal's Intraday Chart; the widget only
+// honors that on a narrow enough `range` (see tvRange in TradeDetail), falling back to
+// daily candles on a wider one regardless of what's requested here.
 import { useEffect, useRef } from "react";
 
-export function TradingViewChart({
-  symbol,
-  range,
-  interval = "5",
-  height = 440,
-  hideTopToolbar = false,
-}: {
-  symbol: string;
-  range: string;
-  interval?: string;
-  height?: number;
-  hideTopToolbar?: boolean;
-}) {
+export function TradingViewChart({ symbol, range, height = 440 }: { symbol: string; range: string; height?: number }) {
   const hostRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const host = hostRef.current;
@@ -46,14 +29,14 @@ export function TradingViewChart({
     script.text = JSON.stringify({
       autosize: true,
       symbol,
-      interval,
+      interval: "5",
       range,
       timezone: "America/New_York",
       theme: "dark",
       backgroundColor: "rgba(18, 18, 18, 1)",
       style: "1",
       locale: "en",
-      hide_top_toolbar: hideTopToolbar,
+      hide_top_toolbar: false,
       hide_legend: false,
       save_image: false,
       calendar: false,
@@ -62,6 +45,6 @@ export function TradingViewChart({
     container.appendChild(widget);
     container.appendChild(script);
     host.appendChild(container);
-  }, [symbol, range, interval, hideTopToolbar]);
+  }, [symbol, range]);
   return <div ref={hostRef} style={{ height, width: "100%" }} />;
 }

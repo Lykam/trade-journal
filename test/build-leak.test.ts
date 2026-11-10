@@ -86,8 +86,8 @@ ${REVIEW_TEXT}
   sources = { historyDir: history, quotesFile: join(tmp, "quotes.json"), regimeFile: join(tmp, "regime.json"), playbookDir: playbook };
   encDir = join(tmp, "dist-enc");
   cpSync(outDir, encDir, { recursive: true });
-  const { bundle, images, scanDays } = bundleData(sources);
-  encryptBundle(bundle, images, scanDays, PASS, encDir);
+  const { bundle, images } = bundleData(sources);
+  encryptBundle(bundle, images, PASS, encDir);
 }, 120_000);
 
 afterAll(() => {
@@ -201,13 +201,13 @@ describe("encrypted dist (canary bundle)", () => {
   it("handles a Playbook with no Reviews/ or Images/", () => {
     const empty = join(tmp, "empty-playbook");
     mkdirSync(empty);
-    const { bundle, images, scanDays } = bundleData({ ...sources, playbookDir: empty });
+    const { bundle, images } = bundleData({ ...sources, playbookDir: empty });
     expect(bundle.playbook).toEqual({ reviews: [], images: [] });
     expect(images).toEqual([]);
     const dir = join(tmp, "dist-empty");
     cpSync(outDir, dir, { recursive: true });
     rmSync(join(dir, "planted.js"), { force: true });
-    encryptBundle(bundle, images, scanDays, PASS, dir);
+    encryptBundle(bundle, images, PASS, dir);
     expect(checkEncrypted(dir)).toEqual([]);
   });
 });

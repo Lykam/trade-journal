@@ -579,11 +579,6 @@ export function generateDemo(now: string): DemoData {
     overrides,
     quotes,
     regime: regimeFor(quotesAsOf(nowMs)),
-    // No synthetic generator yet (unlike trades/quotes/regime): the Setups page shows its
-    // empty state in the demo until one is written.
-    watchlistScan: null,
-    watchlistScanThesis: null,
-    watchlistScanHistory: [],
     playbook: { reviews, images: Object.keys(images).sort() },
     loadedAt: now,
     history: null,

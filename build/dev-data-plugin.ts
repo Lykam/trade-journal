@@ -4,7 +4,7 @@
 // it out of `vite build` entirely, and the app only fetches these behind
 // import.meta.env.DEV, so neither the data nor the loader reaches dist/
 // (checked by test/build-leak.test.ts and build/check-dist.ts).
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Plugin } from "vite";
 import { resolveHistoryDir } from "../cli/lib/history.ts";
@@ -16,8 +16,6 @@ import { loadPlaybook, resolvePlaybookDir } from "./playbook.ts";
 
 export const DEV_DATA_PATH = "__data/bundle.json";
 export const DEV_PLAYBOOK_PATH = "__data/playbook/";
-export const DEV_SCAN_HISTORY_PATH = "__data/watchlist-scans/";
-const SCAN_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const norm = (p: string) => p.replace(/\\/g, "/");
 
@@ -32,11 +30,10 @@ export function devDataPlugin(): Plugin {
       const playbookDir = resolvePlaybookDir();
       const url = `${server.config.base}${DEV_DATA_PATH}`;
       const imagePrefix = `${server.config.base}${DEV_PLAYBOOK_PATH}`;
-      const scanPrefix = `${server.config.base}${DEV_SCAN_HISTORY_PATH}`;
 
-      // Reload the page when an import, `npm run quotes`/`npm run regime`, a watchlist-scan commit or a Playbook review/chart changes the data.
-      const files = [`${historyDir}/derived/trades.json`, `${historyDir}/config.json`, `${historyDir}/symbols.json`, `${historyDir}/overrides.json`, `${historyDir}/watchlist-scan.json`, quotesFile, regimeFile].map(norm);
-      const dirs = [`${playbookDir}/Reviews/`, `${playbookDir}/Images/`, `${historyDir}/watchlist-scans/`].map(norm);
+      // Reload the page when an import, `npm run quotes`/`npm run regime` or a Playbook review/chart changes the data.
+      const files = [`${historyDir}/derived/trades.json`, `${historyDir}/config.json`, `${historyDir}/symbols.json`, `${historyDir}/overrides.json`, quotesFile, regimeFile].map(norm);
+      const dirs = [`${playbookDir}/Reviews/`, `${playbookDir}/Images/`].map(norm);
       server.watcher.add([...files, ...dirs]);
       const onChange = (file: string) => {
         const f = norm(file);
@@ -59,21 +56,6 @@ export function devDataPlugin(): Plugin {
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify({ error: (e as Error).message }));
           }
-          return;
-        }
-        if (path.startsWith(scanPrefix)) {
-          // Only a plain YYYY-MM-DD.json can be requested, so no path can escape watchlist-scans/.
-          const rest = path.slice(scanPrefix.length);
-          const date = rest.replace(/\.json$/, "");
-          const file = join(historyDir, "watchlist-scans", `${date}.json`);
-          if (!rest.endsWith(".json") || !SCAN_DATE_RE.test(date) || !existsSync(file)) {
-            res.statusCode = 404;
-            res.end();
-            return;
-          }
-          res.setHeader("Content-Type", "application/json");
-          res.setHeader("Cache-Control", "no-store");
-          res.end(readFileSync(file));
           return;
         }
         if (path.startsWith(imagePrefix)) {
