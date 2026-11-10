@@ -1,7 +1,7 @@
 // Setups (watchlist-scan skill): entry-tactic grades for the TradingView "Ready" watchlist,
 // committed into trade-history by Claude since the scan needs a live TradingView MCP session.
 import type { DataBundle } from "../../core/types";
-import { WatchlistScanCard, WatchlistScanThesisPreview } from "../components/WatchlistScan";
+import { WatchlistScanCard, WatchlistScanHistory, WatchlistScanThesisPreview } from "../components/WatchlistScan";
 
 export function SetupsPage({ data }: { data: DataBundle }) {
   return (
@@ -11,6 +11,7 @@ export function SetupsPage({ data }: { data: DataBundle }) {
       </header>
       <WatchlistScanThesisPreview thesis={data.watchlistScanThesis} />
       <WatchlistScanCard w={data.watchlistScan} />
+      <WatchlistScanHistory dates={data.watchlistScanHistory} />
     </main>
   );
 }

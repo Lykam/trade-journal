@@ -43,8 +43,8 @@ await build({
   define: { __TJ_DEMO_PASSPHRASE__: JSON.stringify(DEMO_PASSPHRASE) },
   build: { outDir, emptyOutDir: true },
 });
-const { bundle, images } = bundleData({ historyDir: history, quotesFile, regimeFile, playbookDir: join(fixtures, "playbook") });
-encryptBundle(bundle, images, DEMO_PASSPHRASE, outDir);
+const { bundle, images, scanDays } = bundleData({ historyDir: history, quotesFile, regimeFile, playbookDir: join(fixtures, "playbook") });
+encryptBundle(bundle, images, scanDays, DEMO_PASSPHRASE, outDir);
 const problems = checkEncrypted(outDir);
 if (problems.length) throw new Error(`encrypted dist problems:\n${problems.join("\n")}`);
 

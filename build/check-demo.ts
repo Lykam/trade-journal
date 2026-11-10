@@ -1,7 +1,7 @@
 // npm run build:demo runs this after `vite build --mode demo` (SPEC §7, Q50).
 //
 // The demo build must be an app shell only, with nothing that can reach the
-// real site's vault: no data.enc or img/ fetch, no tj.key / tj.gh storage, no
+// real site's vault: no data.enc, img/ or scans/ fetch, no tj.key / tj.gh storage, no
 // dev data loader, no OPEN DEMO passphrase, no GitHub API in its CSP. With a
 // trade-history checkout next to this repo, the plaintext leak guard also runs
 // on it, so a generator ticker that is really traded fails the build.

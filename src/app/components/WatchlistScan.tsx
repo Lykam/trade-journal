@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { WatchlistScanFile, WatchlistScanRow, WatchlistScanThesisFile, WatchlistScanTier } from "../../core/types";
-import { stamp } from "../format";
+import { useWatchlistScanDay } from "../data";
+import { DOW, stamp } from "../format";
 import { TradingViewChart } from "./TradingViewChart";
 
 const CARD_TIERS: WatchlistScanTier[] = ["high", "watching"];
@@ -19,10 +21,13 @@ function groupByTier(rows: WatchlistScanRow[]): Partial<Record<WatchlistScanTier
   return out;
 }
 
-function Row({ r }: { r: WatchlistScanRow }) {
+/** `chart`: load the TradingView widget only once this row is expanded (and only for high/watching
+    tiers) — used by the history picker so picking a day never loads more than the rows you open. */
+function Row({ r, chart = false }: { r: WatchlistScanRow; chart?: boolean }) {
+  const [open, setOpen] = useState(false);
   return (
     <li>
-      <details>
+      <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary className="scan-summary">
           <span className={TIER_CLASS[r.tier]}>▌{r.ticker}</span> <b>{r.tactic}</b> <span className="chip">{r.confidence}</span>
           <span className="text-2">{r.keyLevel} · stop {r.stop}</span>
@@ -30,6 +35,9 @@ function Row({ r }: { r: WatchlistScanRow }) {
         <div className="scan-detail text-2">
           <div>{r.section} · rel strength {r.relStrength} · {r.earnings}</div>
           <div>{r.rationale}</div>
+          {chart && open && (r.tier === "high" || r.tier === "watching") && (
+            <TradingViewChart symbol={r.tvSymbol ?? r.ticker} range="12M" height={300} hideTopToolbar />
+          )}
         </div>
       </details>
     </li>
@@ -49,17 +57,6 @@ function Card({ r }: { r: WatchlistScanRow }) {
       <p className="text-2 small scan-card-rationale">{r.rationale}</p>
       <TradingViewChart symbol={r.tvSymbol ?? r.ticker} range="12M" height={300} hideTopToolbar />
     </div>
-  );
-}
-
-/** A single preview row for the unconfirmed evening thesis — a plain line, not the live Card,
-    since this hasn't been checked against tomorrow's fresh premarket data yet. */
-function ThesisRow({ r }: { r: WatchlistScanRow }) {
-  return (
-    <li>
-      <span className={TIER_CLASS[r.tier]}>▌{r.ticker}</span> <b>{r.tactic}</b> <span className="chip">{r.confidence}</span>{" "}
-      <span className="text-2">{r.keyLevel} · stop {r.stop}</span>
-    </li>
   );
 }
 
@@ -84,12 +81,80 @@ export function WatchlistScanThesisPreview({ thesis }: { thesis: WatchlistScanTh
       </p>
       <p className="text-2">{t.state}</p>
       {liveRows.length > 0 && (
-        <ul className="regime-checklist">
-          {liveRows.map((r) => <ThesisRow key={r.ticker} r={r} />)}
-        </ul>
+        <div className="scan-cards">
+          {liveRows.map((r) => <Card key={r.ticker} r={r} />)}
+        </div>
       )}
       {liveRows.length === 0 && <p className="text-2 small">No live/watching setups in tonight's thesis.</p>}
     </section>
+  );
+}
+
+const ALL_TIER_ORDER: WatchlistScanTier[] = ["high", "watching", "suppressed", "not_graded"];
+
+/** "2026-11-09" -> "Mon 11/9/26" — DOW is Sun-first all-caps 3-letter codes (src/app/format.ts). */
+function dayLabel(date: string): string {
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
+  const dow = DOW[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]!;
+  return `${dow[0]}${dow.slice(1).toLowerCase()} ${m}/${d}/${String(y).slice(2)}`;
+}
+
+/** One foldable day in the history list — collapsed to just its date; opening it is what triggers
+    the fetch (useWatchlistScanDay gets null until then), and each row's own chart stays behind its
+    own fold (Row's `chart` prop), so opening a day never pulls in more than its text. */
+function HistoryDay({ date }: { date: string }) {
+  const [open, setOpen] = useState(false);
+  const day = useWatchlistScanDay(open ? date : null);
+  const grouped = day ? groupByTier(day.rows) : null;
+  return (
+    <li>
+      <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+        <summary className="scan-summary">{dayLabel(date)}</summary>
+        <div className="scan-detail text-2">
+          {day === undefined && <p className="text-2 small">Loading…</p>}
+          {day === null && <p className="text-2 small">Couldn't load this day — it may not be in this deploy yet.</p>}
+          {day && (
+            <>
+              <div className="row">
+                <b>{day.tapeRead.state}</b>
+                <span className="muted">AS OF {stamp(day.asOf)}</span>
+              </div>
+              {ALL_TIER_ORDER.map((tier) => {
+                const rows = grouped?.[tier];
+                if (!rows?.length) return null;
+                return (
+                  <div key={tier}>
+                    <div className="label small">{TIER_LABEL[tier]} ({rows.length})</div>
+                    <ul className="regime-checklist">
+                      {rows.map((r) => <Row key={r.ticker} r={r} chart />)}
+                    </ul>
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      </details>
+    </li>
+  );
+}
+
+/**
+ * Past finalized days from watchlist-scans/, newest first — collapsed to just a date list;
+ * opening a day is what fetches it (HistoryDay), so browsing years of history never costs more
+ * than the one day, and the one row, you actually open.
+ */
+export function WatchlistScanHistory({ dates }: { dates: string[] }) {
+  if (!dates.length) return null;
+  return (
+    <details className="panel" aria-label="Watchlist scan history">
+      <summary className="panel-head">
+        <h2>HISTORY ({dates.length} day{dates.length === 1 ? "" : "s"}) ▸</h2>
+      </summary>
+      <ul className="panel-pad regime-checklist">
+        {dates.map((d) => <HistoryDay key={d} date={d} />)}
+      </ul>
+    </details>
   );
 }
 

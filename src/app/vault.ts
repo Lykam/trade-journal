@@ -3,11 +3,11 @@
 // derived key, never the passphrase, in sessionStorage, or in localStorage
 // when "remember on this device" is on. Images decrypt to blob URLs on demand.
 import {
-  decodeHeader, decryptData, decryptFile, deriveKeyBytes, fromBase64, importAesKey, KIND_IMAGE, toBase64, WrongKeyError,
+  decodeHeader, decryptData, decryptFile, deriveKeyBytes, fromBase64, gunzip, importAesKey, KIND_IMAGE, KIND_SCAN, toBase64, WrongKeyError,
 } from "../core/crypto";
 import { tokenKey } from "../core/github/token-store";
 import { imageType } from "../core/reviews/images";
-import type { DataBundle } from "../core/types";
+import type { DataBundle, WatchlistScanFile } from "../core/types";
 
 const STORAGE_KEY = "tj.key";
 
@@ -80,6 +80,8 @@ let secrets: CryptoKey | null = null;
 let loadedDigest: string | null = null;
 let imageFiles: Record<string, string> = {};
 const imageUrls = new Map<string, Promise<string>>();
+let scanFiles: Record<string, string> = {};
+const scans = new Map<string, Promise<WatchlistScanFile>>();
 
 export class FetchError extends Error {
   override name = "FetchError";
@@ -108,6 +110,7 @@ async function open(file: Uint8Array, raw: Uint8Array): Promise<DataBundle> {
   secrets = await tokenKey(raw);
   loadedDigest = await digest(file);
   imageFiles = bundle.imageFiles ?? {};
+  scanFiles = bundle.watchlistScanHistoryFiles ?? {};
   return bundle;
 }
 
@@ -165,6 +168,7 @@ export function lock() {
   secrets = null;
   for (const p of imageUrls.values()) p.then(URL.revokeObjectURL, () => {});
   imageUrls.clear();
+  scans.clear();
   window.location.reload();
 }
 
@@ -185,6 +189,27 @@ export function encryptedImageUrl(path: string): Promise<string> | null {
     })();
     p.catch(() => imageUrls.delete(name));
     imageUrls.set(name, p);
+  }
+  return p;
+}
+
+export const hasEncryptedScan = (date: string) => current !== null && date in scanFiles;
+
+/** One day's watchlist-scan archive, decrypted and parsed on first use. null when that date isn't in this deploy. */
+export function encryptedScan(date: string): Promise<WatchlistScanFile> | null {
+  const name = scanFiles[date];
+  if (!name || !current) return null;
+  let p = scans.get(name);
+  if (!p) {
+    const key = current;
+    p = (async () => {
+      const res = await fetch(`${import.meta.env.BASE_URL}scans/${name}.enc`);
+      if (!res.ok) throw new FetchError(`HTTP ${res.status}`);
+      const bytes = await decryptFile(key, new Uint8Array(await res.arrayBuffer()), KIND_SCAN, name);
+      return JSON.parse(new TextDecoder().decode(await gunzip(bytes))) as WatchlistScanFile;
+    })();
+    p.catch(() => scans.delete(name));
+    scans.set(name, p);
   }
   return p;
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { WrongKeyError } from "../core/crypto";
-import type { DataBundle } from "../core/types";
-import { encryptedImageUrl, fetchEncrypted, hasEncryptedImage, unlockWithPassphrase, unlockWithStored } from "./vault";
+import type { DataBundle, WatchlistScanFile } from "../core/types";
+import { encryptedImageUrl, encryptedScan, fetchEncrypted, hasEncryptedImage, unlockWithPassphrase, unlockWithStored } from "./vault";
 
 /** Unlocks with a passphrase; resolves to an error message, or null on success. */
 export type Unlock = (passphrase: string, remember: boolean) => Promise<string | null>;
@@ -186,6 +186,43 @@ export function useImageSrcs(paths: string[]): Map<string, string | null | undef
 function devImageUrl(path: string): string | null {
   if (import.meta.env.DEV) return `${import.meta.env.BASE_URL}__data/playbook/${path.split("/").map(encodeURIComponent).join("/")}`;
   return null;
+}
+
+/**
+ * One day's watchlist-scan archive, fetched only once `date` is picked (the Setups history
+ * picker) — undefined while it's loading, null once loaded if that date has no archive in this
+ * deploy (or isn't picked yet). Dev serves the file directly (build/dev-data-plugin.ts);
+ * production decrypts scans/<hash>.enc on demand. No synthetic history in the demo build yet.
+ */
+export function useWatchlistScanDay(date: string | null): WatchlistScanFile | null | undefined {
+  const [data, setData] = useState<WatchlistScanFile | null | undefined>(undefined);
+  useEffect(() => {
+    setData(undefined);
+    if (!date) return;
+    let live = true;
+    (async () => {
+      if (__TJ_DEMO__) {
+        if (live) setData(null);
+        return;
+      }
+      try {
+        if (import.meta.env.DEV) {
+          const res = await fetch(`${import.meta.env.BASE_URL}__data/watchlist-scans/${date}.json`, { cache: "no-store" });
+          if (live) setData(res.ok ? ((await res.json()) as WatchlistScanFile) : null);
+          return;
+        }
+        const p = encryptedScan(date);
+        const json = p ? await p : null;
+        if (live) setData(json);
+      } catch {
+        if (live) setData(null);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [date]);
+  return data;
 }
 
 export function go(hash: string) {

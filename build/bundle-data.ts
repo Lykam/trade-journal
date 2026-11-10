@@ -11,6 +11,11 @@ import { resolveRegimeFile } from "./fetch-regime";
 import { loadBundle } from "./load-bundle";
 import { resolvePlaybookDir } from "./playbook";
 
+export interface BundleScanDay {
+  date: string;
+  bytes: Uint8Array;
+}
+
 export interface BundleSources {
   historyDir: string;
   quotesFile: string;
@@ -32,9 +37,10 @@ export function resolveSources(flags: Partial<BundleSources> = {}): BundleSource
   };
 }
 
-/** The plaintext bundle and the Playbook images it lists. A Playbook with no Reviews/ or Images/ gives empty lists. */
-export function bundleData(src: BundleSources): { bundle: DataBundle; images: BundleImage[] } {
+/** The plaintext bundle, the Playbook images it lists, and the watchlist-scan history days it lists — each encrypted into its own file (build/encrypt.ts), never bundled eagerly. A Playbook with no Reviews/ or Images/, or no watchlist-scans/, gives empty lists. */
+export function bundleData(src: BundleSources): { bundle: DataBundle; images: BundleImage[]; scanDays: BundleScanDay[] } {
   const bundle = loadBundle(src.historyDir, src.quotesFile, src.playbookDir, src.regimeFile);
   const images = (bundle.playbook?.images ?? []).map((path) => ({ path, bytes: new Uint8Array(readFileSync(join(src.playbookDir, path))) }));
-  return { bundle, images };
+  const scanDays = bundle.watchlistScanHistory.map((date) => ({ date, bytes: new Uint8Array(readFileSync(join(src.historyDir, "watchlist-scans", `${date}.json`))) }));
+  return { bundle, images, scanDays };
 }

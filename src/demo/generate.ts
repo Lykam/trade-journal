@@ -583,6 +583,7 @@ export function generateDemo(now: string): DemoData {
     // empty state in the demo until one is written.
     watchlistScan: null,
     watchlistScanThesis: null,
+    watchlistScanHistory: [],
     playbook: { reviews, images: Object.keys(images).sort() },
     loadedAt: now,
     history: null,

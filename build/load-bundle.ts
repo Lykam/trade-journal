@@ -45,6 +45,36 @@ function readWatchlistScanThesis(historyDir: string): WatchlistScanThesisFile | 
   return parsed;
 }
 
+const SCAN_DATE_RE = /^\d{4}-\d{2}-\d{2}\.json$/;
+const THESIS_DATE_RE = /^(\d{4}-\d{2}-\d{2})-pm-thesis\.json$/;
+
+/**
+ * Dated archives in watchlist-scans/ (not the -pm-thesis drafts), newest first. The single most
+ * recent one is dropped — it's identical to `watchlistScan` (the morning routine writes both from
+ * the same run) — *unless* a -pm-thesis.json already exists for a later day than it: once there's
+ * a forward-looking thesis for the next trading day, the most recent finalized day has been
+ * narratively superseded (the DRAFT panel above is now "current"), so it's folded into history
+ * too rather than staying hidden. Folding costs nothing — nothing in a history day loads until
+ * it's opened — so this is never the "too many charts" problem the exclusion was for.
+ */
+function readWatchlistScanHistory(historyDir: string): string[] {
+  const dir = join(historyDir, "watchlist-scans");
+  if (!existsSync(dir)) return [];
+  const files = readdirSync(dir);
+  const dates = files
+    .filter((f) => SCAN_DATE_RE.test(f))
+    .map((f) => f.slice(0, -".json".length))
+    .sort()
+    .reverse();
+  const mostRecent = dates[0];
+  if (!mostRecent) return [];
+  const supersededByThesis = files.some((f) => {
+    const m = THESIS_DATE_RE.exec(f);
+    return m && m[1]! > mostRecent;
+  });
+  return supersededByThesis ? dates : dates.slice(1);
+}
+
 export function loadBundle(historyDir: string, quotesFile: string, playbookDir: string, regimeFile: string): DataBundle {
   if (!existsSync(join(historyDir, "config.json"))) throw new Error(`no config.json in ${historyDir} (set TRADE_HISTORY_DIR)`);
   const h = loadHistory(historyDir);
@@ -62,6 +92,7 @@ export function loadBundle(historyDir: string, quotesFile: string, playbookDir: 
     regime: readRegime(regimeFile),
     watchlistScan: readWatchlistScan(historyDir),
     watchlistScanThesis: readWatchlistScanThesis(historyDir),
+    watchlistScanHistory: readWatchlistScanHistory(historyDir),
     playbook: loadPlaybook(playbookDir),
     loadedAt: new Date().toISOString(),
     history: headCommit(historyDir),

@@ -291,6 +291,12 @@ export interface DataBundle {
       null once the morning routine finalizes that day (its archive file exists) or no thesis has
       been written yet. */
   watchlistScanThesis: WatchlistScanThesisFile | null;
+  /** Dated archives available in watchlist-scans/ (YYYY-MM-DD), newest first — the Setups history
+      picker fetches one on demand (build/load-bundle.ts dev, img/-style encrypted blobs in prod),
+      never bundled eagerly. Empty when no archives exist yet. */
+  watchlistScanHistory: string[];
+  /** Production only: watchlist-scan history date → its encrypted file name in scans/ (an HMAC, like imageFiles). Absent in dev. */
+  watchlistScanHistoryFiles?: Record<string, string>;
   /** null when no Playbook checkout is available. */
   playbook: PlaybookData | null;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */

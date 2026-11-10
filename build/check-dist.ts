@@ -8,7 +8,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { REPO_ROOT, resolveHistoryDir } from "../cli/lib/history";
 import {
-  DATA_BUCKET, decodeHeader, HEADER_BYTES, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, IMAGE_NAME_RE, KIND_DATA, KIND_IMAGE, TAG_BYTES,
+  DATA_BUCKET, decodeHeader, HEADER_BYTES, IMAGE_BUCKET, IMAGE_COUNT_BUCKET, IMAGE_NAME_RE, KIND_DATA, KIND_IMAGE, KIND_SCAN, SCAN_BUCKET,
+  SCAN_COUNT_BUCKET, TAG_BYTES,
 } from "../src/core/crypto";
 import { resolveQuotesFile } from "./fetch-quotes";
 import { checkDemoDist, DEMO_SHELL_RE } from "./demo-dist.ts";
@@ -53,7 +54,7 @@ export function checkEncFile(bytes: Uint8Array, kind: number): string[] {
   try {
     const h = decodeHeader(bytes);
     const body = bytes.length - HEADER_BYTES - TAG_BYTES;
-    const bucket = kind === KIND_DATA ? DATA_BUCKET : IMAGE_BUCKET;
+    const bucket = kind === KIND_DATA ? DATA_BUCKET : kind === KIND_SCAN ? SCAN_BUCKET : IMAGE_BUCKET;
     const out: string[] = [];
     if (h.kind !== kind) out.push("wrong kind");
     if (body <= 0 || body % bucket !== 0) out.push("not padded to its size bucket");
@@ -76,6 +77,7 @@ export function checkEncrypted(distDir: string): string[] {
   const problems: string[] = [];
   if (!existsSync(join(distDir, "data.enc"))) problems.push("data.enc: missing (run npm run encrypt)");
   let imgs = 0;
+  let scans = 0;
   for (const f of files(distDir)) {
     const rel = relative(distDir, f).replace(/\\/g, "/");
     if (rel === "data.enc") {
@@ -85,6 +87,11 @@ export function checkEncrypted(distDir: string): string[] {
       const name = rel.slice(4).replace(/\.enc$/, "");
       if (!rel.endsWith(".enc") || !IMAGE_NAME_RE.test(name)) problems.push(`${rel}: image file not named <32 hex>.enc`);
       problems.push(...checkEncFile(readFileSync(f), KIND_IMAGE).map((p) => `${rel}: ${p}`));
+    } else if (rel.startsWith("scans/")) {
+      scans++;
+      const name = rel.slice(6).replace(/\.enc$/, "");
+      if (!rel.endsWith(".enc") || !IMAGE_NAME_RE.test(name)) problems.push(`${rel}: scan file not named <32 hex>.enc`);
+      problems.push(...checkEncFile(readFileSync(f), KIND_SCAN).map((p) => `${rel}: ${p}`));
     } else if (rel.startsWith("demo/")) {
       if (!DEMO_SHELL_RE.test(rel.slice(5))) problems.push(`${rel}: unexpected file in the demo`);
     } else if (!SHELL_RE.test(rel)) {
@@ -93,6 +100,7 @@ export function checkEncrypted(distDir: string): string[] {
   }
   if (existsSync(join(distDir, "demo"))) problems.push(...checkDemoDist(join(distDir, "demo")).map((p) => `demo/${p}`));
   if (imgs % IMAGE_COUNT_BUCKET !== 0 || imgs === 0) problems.push(`img/: file count not padded to a multiple of ${IMAGE_COUNT_BUCKET}`);
+  if (scans % SCAN_COUNT_BUCKET !== 0 || scans === 0) problems.push(`scans/: file count not padded to a multiple of ${SCAN_COUNT_BUCKET}`);
   return problems;
 }
 

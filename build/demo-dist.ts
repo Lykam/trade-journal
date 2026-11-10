@@ -9,9 +9,9 @@ export const DEMO_DIR = "dist-demo";
 export const DEMO_BASE = "/trade-journal/demo/";
 
 /** Strings that would mean the demo touches the vault, the dev data or the encrypted files. */
-export const FORBIDDEN = ["data.enc", "img/", "tj.key", "tj.gh", "__data", "OPEN DEMO", DEMO_PASSPHRASE, "api.github.com"];
+export const FORBIDDEN = ["data.enc", "img/", "scans/", "tj.key", "tj.gh", "__data", "OPEN DEMO", DEMO_PASSPHRASE, "api.github.com"];
 
-/** App-shell files only (the same rule as an encrypted dist, minus data.enc and img/). */
+/** App-shell files only (the same rule as an encrypted dist, minus data.enc, img/ and scans/). */
 export const DEMO_SHELL_RE = /^(index\.html|favicon\.(ico|svg)|assets\/[\w.-]+\.(js|css|svg|woff2?))$/;
 
 function files(dir: string): string[] {
