@@ -2,11 +2,11 @@
 // checkout and the local quotes.json. Used by the dev server now and by
 // bundle-data.ts (milestone 4).
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadHistory, validate } from "../cli/lib/history.ts";
 import { lastImports } from "../src/core/imports.ts";
-import type { DataBundle, WatchlistScanFile } from "../src/core/types.ts";
+import type { DataBundle, WatchlistScanFile, WatchlistScanThesisFile } from "../src/core/types.ts";
 import { readQuotes } from "./fetch-quotes.ts";
 import { readRegime } from "./fetch-regime.ts";
 import { loadPlaybook } from "./playbook.ts";
@@ -20,6 +20,29 @@ function readWatchlistScan(historyDir: string): WatchlistScanFile | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * The most recent <date>-pm-thesis.json in watchlist-scans/, unless the morning routine has
+ * already finalized the day it forecasts (its <date>.json archive exists) — at that point the
+ * live `watchlist-scan.json` is the authoritative version and the thesis is stale, so this
+ * returns null rather than show a superseded preview.
+ */
+function readWatchlistScanThesis(historyDir: string): WatchlistScanThesisFile | null {
+  const dir = join(historyDir, "watchlist-scans");
+  if (!existsSync(dir)) return null;
+  const theses = readdirSync(dir).filter((f) => f.endsWith("-pm-thesis.json")).sort();
+  const latest = theses.at(-1);
+  if (!latest) return null;
+  let parsed: WatchlistScanThesisFile;
+  try {
+    parsed = JSON.parse(readFileSync(join(dir, latest), "utf8")) as WatchlistScanThesisFile;
+  } catch {
+    return null;
+  }
+  if (!parsed.thesisFor) return null;
+  if (existsSync(join(dir, `${parsed.thesisFor}.json`))) return null;
+  return parsed;
 }
 
 export function loadBundle(historyDir: string, quotesFile: string, playbookDir: string, regimeFile: string): DataBundle {
@@ -38,6 +61,7 @@ export function loadBundle(historyDir: string, quotesFile: string, playbookDir: 
     quotes: readQuotes(quotesFile),
     regime: readRegime(regimeFile),
     watchlistScan: readWatchlistScan(historyDir),
+    watchlistScanThesis: readWatchlistScanThesis(historyDir),
     playbook: loadPlaybook(playbookDir),
     loadedAt: new Date().toISOString(),
     history: headCommit(historyDir),

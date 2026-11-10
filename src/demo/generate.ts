@@ -582,6 +582,7 @@ export function generateDemo(now: string): DemoData {
     // No synthetic generator yet (unlike trades/quotes/regime): the Setups page shows its
     // empty state in the demo until one is written.
     watchlistScan: null,
+    watchlistScanThesis: null,
     playbook: { reviews, images: Object.keys(images).sort() },
     loadedAt: now,
     history: null,

@@ -1,4 +1,4 @@
-import type { WatchlistScanFile, WatchlistScanRow, WatchlistScanTier } from "../../core/types";
+import type { WatchlistScanFile, WatchlistScanRow, WatchlistScanThesisFile, WatchlistScanTier } from "../../core/types";
 import { stamp } from "../format";
 import { TradingViewChart } from "./TradingViewChart";
 
@@ -49,6 +49,47 @@ function Card({ r }: { r: WatchlistScanRow }) {
       <p className="text-2 small scan-card-rationale">{r.rationale}</p>
       <TradingViewChart symbol={r.tvSymbol ?? r.ticker} range="12M" height={300} hideTopToolbar />
     </div>
+  );
+}
+
+/** A single preview row for the unconfirmed evening thesis — a plain line, not the live Card,
+    since this hasn't been checked against tomorrow's fresh premarket data yet. */
+function ThesisRow({ r }: { r: WatchlistScanRow }) {
+  return (
+    <li>
+      <span className={TIER_CLASS[r.tier]}>▌{r.ticker}</span> <b>{r.tactic}</b> <span className="chip">{r.confidence}</span>{" "}
+      <span className="text-2">{r.keyLevel} · stop {r.stop}</span>
+    </li>
+  );
+}
+
+/**
+ * Tonight's evening-thesis routine's forward-looking read for the next trading day, shown as a
+ * draft preview — the morning routine re-pulls fresh premarket data, compares it against this,
+ * and may confirm or revise every row before it ever reaches `watchlistScan`. Only rendered while
+ * that comparison hasn't happened yet (load-bundle.ts hides it once the day is finalized).
+ */
+export function WatchlistScanThesisPreview({ thesis }: { thesis: WatchlistScanThesisFile | null }) {
+  if (!thesis) return null;
+  const t = thesis.tapeRead;
+  const liveRows = thesis.rows.filter((r) => r.tier === "high" || r.tier === "watching");
+  return (
+    <section className="panel muted" aria-label="Evening thesis preview">
+      <div className="row">
+        <b>DRAFT — thesis for {thesis.thesisFor}</b>
+        <span className="muted">AS OF {stamp(thesis.asOf)}</span>
+      </div>
+      <p className="text-2 small">
+        Unconfirmed — written off last night's close. Tomorrow's 9am scan re-pulls fresh premarket data and will confirm or revise this before it's live.
+      </p>
+      <p className="text-2">{t.state}</p>
+      {liveRows.length > 0 && (
+        <ul className="regime-checklist">
+          {liveRows.map((r) => <ThesisRow key={r.ticker} r={r} />)}
+        </ul>
+      )}
+      {liveRows.length === 0 && <p className="text-2 small">No live/watching setups in tonight's thesis.</p>}
+    </section>
   );
 }
 

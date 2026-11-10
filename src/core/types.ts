@@ -250,6 +250,17 @@ export interface WatchlistScanFile {
   rows: WatchlistScanRow[];
 }
 
+/**
+ * <date>-pm-thesis.json: the evening-thesis cloud routine's forward-looking read for the next
+ * trading day, written the night before. Same shape as WatchlistScanFile plus `thesisFor`. Shown
+ * as an unconfirmed preview only until the morning routine finalizes that day (see
+ * build/load-bundle.ts's readWatchlistScanThesis) — never a substitute for `watchlistScan`.
+ */
+export interface WatchlistScanThesisFile extends WatchlistScanFile {
+  /** The trading day (YYYY-MM-DD, America/New_York) this thesis is forecasting. */
+  thesisFor: string;
+}
+
 /** One Playbook review as read from disk (SPEC §6.7, §6.11). */
 export interface ReviewFile {
   /** Path relative to the Playbook root, e.g. "Reviews/2026-07-27-ABC.md". */
@@ -276,6 +287,10 @@ export interface DataBundle {
   regime: RegimeFile | null;
   /** null until the watchlist-scan skill has been run at least once and committed to trade-history. */
   watchlistScan: WatchlistScanFile | null;
+  /** The evening-thesis routine's draft for the next trading day, while it's still unconfirmed —
+      null once the morning routine finalizes that day (its archive file exists) or no thesis has
+      been written yet. */
+  watchlistScanThesis: WatchlistScanThesisFile | null;
   /** null when no Playbook checkout is available. */
   playbook: PlaybookData | null;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */
