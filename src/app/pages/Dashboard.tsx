@@ -7,6 +7,7 @@ import { emptyFilter } from "../../core/journal/filter";
 import { filterTrades, reviewAttention, reviewDates, type Journal } from "../../core/journal/journal";
 import { etDate } from "../../core/normalize/util";
 import type { DataBundle } from "../../core/types";
+import { CotCard } from "../components/Cot";
 import { GaugeCard } from "../components/Gauge";
 import { OpenQuick } from "../components/OpenPositions";
 import { RecentTen } from "../components/Recent";
@@ -77,9 +78,10 @@ export function Dashboard({ data, journal, now }: { data: DataBundle; journal: J
       </header>
 
       <RegimeCard r={data.regime} />
+      <CotCard c={data.cot} />
       <div className="gauges">
         <GaugeCard g={gauges.day} config={data.config} />
-        <GaugeCard g={gauges.swing} config={data.config} />
+        <GaugeCard g={gauges.swing} config={data.config} cot={data.cot} />
       </div>
       <AttentionBar a={attention} reviews={reviews.attention} journal={journal} quotes={quotes} unreviewedToday={unreviewedToday} />
       <OpenQuick rows={rows} totals={totals} accounts={accounts} />

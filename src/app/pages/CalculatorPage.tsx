@@ -3,12 +3,21 @@
 // phone access) — see the App.tsx route guard.
 import { useMemo, useState } from "react";
 import { computeSizing } from "../../core/calc/sizing";
+import type { CotFile } from "../../core/types";
+import { brakeLabel, brakeReason } from "../components/Cot";
 import { usePersistedText } from "../data";
 import { money, pct } from "../format";
 
 const clamp0 = (n: number) => (n > 0 ? n : 0);
+const SIDES = [
+  { value: "day", label: "DAY" },
+  { value: "long", label: "SWING LONG" },
+  { value: "short", label: "SWING SHORT (INVERSE ETF)" },
+] as const;
+type CalcSide = (typeof SIDES)[number]["value"];
 
-export function CalculatorPage() {
+/** `cot` is the unlocked bundle's COT file; while locked it's null and no brake applies (SPEC §5.7). */
+export function CalculatorPage({ cot = null }: { cot?: CotFile | null }) {
   // Settings-like fields persist across visits; entry/stop are per-calculation and start blank.
   const [account, setAccount] = usePersistedText("tj.calc.account", "");
   const [excludeOn, setExcludeOn] = usePersistedText("tj.calc.excludeOn", "");
@@ -19,6 +28,10 @@ export function CalculatorPage() {
   const [entry, setEntry] = useState("");
   const [stop, setStop] = useState("");
   const [recentDays, setRecentDays] = useState("");
+  const [sideText, setSide] = usePersistedText("tj.calc.side", "long");
+  const side: CalcSide = SIDES.some((s) => s.value === sideText) ? (sideText as CalcSide) : "long";
+  // Day trades are long only and not braked: COT is weekly positioning, a swing-horizon input.
+  const brake = side === "day" || !cot ? null : cot.snapshot.brake[side];
 
   const accountNum = Number(account);
   const effective = clamp0(excludeOn === "1" ? accountNum - Number(excludeAmount || "0") : accountNum);
@@ -35,13 +48,14 @@ export function CalculatorPage() {
           capPct: Number(capPct) / 100,
           recentAvgDaysHeld: Number(recentDays || "0"),
           baselineAvgDaysHeld: Number(baselineDays || "0"),
+          cotMultiplier: brake?.multiplier ?? 1,
         }),
         error: null as string | null,
       };
     } catch (e) {
       return { value: null, error: (e as Error).message };
     }
-  }, [account, entry, stop, effective, riskPct, capPct, recentDays, baselineDays]);
+  }, [account, entry, stop, effective, riskPct, capPct, recentDays, baselineDays, brake]);
 
   return (
     <main className="page">
@@ -120,6 +134,30 @@ export function CalculatorPage() {
           </div>
         </section>
 
+        <section className="panel" aria-label="Positioning">
+          <div className="panel-head"><h2>Positioning (COT)</h2></div>
+          <div className="body">
+            <div className="seg" role="group" aria-label="Trade type">
+              {SIDES.map((s) => (
+                <button key={s.value} type="button" aria-pressed={side === s.value} onClick={() => setSide(s.value)}>{s.label}</button>
+              ))}
+            </div>
+            {side === "day" ? (
+              <p className="dim small">Day trades aren&apos;t braked: COT is weekly positioning, a swing-horizon input.</p>
+            ) : !cot ? (
+              <p className="dim small">COT data loads once the site is unlocked; until then no brake applies.</p>
+            ) : (
+              <>
+                <p className={brake!.multiplier < 1 ? "half b" : "gain b"}>{brakeLabel(brake!)}</p>
+                <p className="dim small">
+                  {brakeReason(side, brake!)} Report {cot.snapshot.markets.map((m) => m.report).sort().at(-1)}
+                  {cot.stale ? " (stale)" : ""}.
+                </p>
+              </>
+            )}
+          </div>
+        </section>
+
         <section className="panel" aria-label="Result">
           <div className="panel-head"><h2>Result</h2></div>
           <div className="body">
@@ -143,6 +181,14 @@ export function CalculatorPage() {
                         <dd>{r.sharesBeforeTurnover.toFixed(1)} sh</dd>
                         <dt>Turnover adjustment</dt>
                         <dd>&times;{r.turnoverMultiplier.toFixed(2)} (choppier than typical)</dd>
+                      </>
+                    )}
+                    {r.cotMultiplier < 1 && (
+                      <>
+                        <dt>Before COT</dt>
+                        <dd>{r.sharesBeforeCot.toFixed(1)} sh</dd>
+                        <dt>COT brake</dt>
+                        <dd>&times;{r.cotMultiplier.toFixed(2)} ({brake?.against.join(", ")} positioned against this side)</dd>
                       </>
                     )}
                     <dt>Position cost</dt>

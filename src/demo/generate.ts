@@ -10,13 +10,14 @@
 // - The current week is scripted: a small search over the outcomes of the
 //   trades the gauges look at makes Day show ½ (or ¼) size and Swing Full size.
 import { addDays, dayOfWeek, etInstant, weekStart } from "../core/calendar";
+import { cotBrake, type CotMarketSnapshot } from "../core/cot/cot";
 import { computeGauge } from "../core/gauge/gauge";
 import { lastSessionDate } from "../core/market";
 import { assignIds, type RawFill } from "../core/normalize/ids";
 import { compareFills } from "../core/normalize/dedupe";
 import { cents, etDate, etOffset, round } from "../core/normalize/util";
 import { buildTrades } from "../core/trades/grouping";
-import type { Config, DataBundle, Fill, Overrides, Quote, QuotesFile, RegimeFile, Trade } from "../core/types";
+import type { Config, CotFile, DataBundle, Fill, Overrides, Quote, QuotesFile, RegimeFile, Trade } from "../core/types";
 import { chartSvg, svgDataUrl, type Candle, type Marker } from "./charts";
 import { Rng, seedOf } from "./prng";
 import { demoReview } from "./reviews";
@@ -394,6 +395,35 @@ function regimeFor(asOf: string): RegimeFile {
   };
 }
 
+/** A plausible fixed COT snapshot (SPEC §5.7): made up, not fetched. One index in each zone and one confirmed signal, so every state shows. */
+function cotFor(asOf: string): CotFile {
+  const report = addDays(etDate(asOf), -((dayOfWeek(etDate(asOf)) + 5) % 7) - 7); // the Tuesday before last
+  const released = addDays(report, 3);
+  const wave = (from: number, to: number) => Array.from({ length: 52 }, (_, i) => Math.round(from + ((to - from) * i) / 51 + 8 * Math.sin(i / 4)));
+  const none = { state: "neutral", side: null, since: null, entry: null, stop: null, last: null } as const;
+  const markets: CotMarketSnapshot[] = [
+    {
+      id: "ES", name: "S&P 500", etf: "SPY", report, released, stale: false, osc: 86, zone: "buy", osc4w: 69, osc1y: 45,
+      net: { commercial: 4.1, largeSpec: -9.2, small: 5.1 }, net1y: { commercial: -1.2, largeSpec: 2.4, small: -1.2 },
+      smallRank: 84, specRank: 12, divergence: "small-long-large-short", spark: [...wave(45, 82).slice(0, 51), 86],
+      signal: { state: "confirmed", side: "long", since: addDays(released, 4), entry: 101.42, stop: 98.87, last: { kind: "stopped", side: "long", date: addDays(released, 2), ret: -1.3 } },
+    },
+    {
+      id: "NQ", name: "Nasdaq-100", etf: "QQQ", report, released, stale: false, osc: 14, zone: "sell", osc4w: 8, osc1y: 30,
+      net: { commercial: -18.4, largeSpec: 13.1, small: 5.3 }, net1y: { commercial: -12, largeSpec: 8.2, small: 3.8 },
+      smallRank: 77, specRank: 88, divergence: null, spark: [...wave(30, 10).slice(0, 51), 14],
+      signal: { ...none, state: "armed", side: "short", since: addDays(released, 1) },
+    },
+    {
+      id: "YM", name: "Dow", etf: "DIA", report, released, stale: false, osc: 53, zone: "neutral", osc4w: 48, osc1y: 62,
+      net: { commercial: -3.3, largeSpec: 1.9, small: 1.4 }, net1y: { commercial: 2.2, largeSpec: -3, small: 0.8 },
+      smallRank: 51, specRank: 45, divergence: null, spark: [...wave(62, 50).slice(0, 51), 53],
+      signal: { ...none, last: { kind: "exited", side: "long", date: addDays(report, -40), ret: 6.8 } },
+    },
+  ];
+  return { asOf, attemptedAt: asOf, snapshot: { markets, brake: cotBrake(markets) } };
+}
+
 // ---------------------------------------------------------------- scripted gauges
 
 function grouped(fills: Fill[], overrides: Overrides = { trades: {}, openingPositions: [] }) {
@@ -579,6 +609,7 @@ export function generateDemo(now: string): DemoData {
     overrides,
     quotes,
     regime: regimeFor(quotesAsOf(nowMs)),
+    cot: cotFor(quotesAsOf(nowMs)),
     playbook: { reviews, images: Object.keys(images).sort() },
     loadedAt: now,
     history: null,

@@ -828,6 +828,76 @@ ETFs, so it piggybacks on the same no-keys Yahoo pipeline as §5.4.
   revealing the five indicators with a ✓ / – / ✗ mark and a plain-language
   detail (`SPY +0.8% vs SPY 50dma...`).
 
+### 5.7 COT positioning gauge
+
+A fourth gauge, after Jason Shapiro's use of the CFTC **Commitments of
+Traders** report: the **commercials** are the better-informed side and tend
+to be right, so the gauge follows them, ranked within their own history the
+way a COT chart's "3yr range" band shows it. Shapiro never said what his
+oscillator contains; it follows commercials because that's the side his
+interview keeps coming back to (the trader's choice, 2026-11-12). Like §5.6 it needs no keys: the CFTC's public Socrata API
+(legacy futures-only, dataset `6dca-aqww`) plus Yahoo daily bars.
+
+- **Markets:** E-mini S&P 500 (`13874A`, bars from SPY), Nasdaq-100
+  (`209742`, QQQ) and Dow (`124603`, DIA). Contract codes are stable across
+  the CFTC's renames. Russell was tested and left out: its readings didn't
+  separate outcomes, and CME RTY has no reports 2008–2017.
+- **Oscillator (0–100):** commercials' net position as % of open interest,
+  ranked within its own last **156 weekly reports** (3 years): position
+  *levels* relative to history, not weekly changes. 0 = the most short they've
+  been, 100 = the most long. **≥ 80 buy zone, ≤ 20 sell zone, 50 neutral.**
+  Relative, not absolute: where commercials are structurally short (gold,
+  crude), a buy is a short that's small for them.
+- **Timing:** a Tuesday report is released Friday 15:30 ET and is used from
+  the session after; a reading released more than 14 days earlier is ignored
+  (holiday delays, data gaps).
+- **Signal (per market):** a zone only *arms* a signal. A **reversal day**
+  confirms it: for a long, the day's low undercuts the prior 10 sessions' lows
+  and it closes up on the day, in the upper half of its range (mirror for a
+  short). The stop is that day's low (high). It exits on the stop or once the
+  oscillator is back to 50 (Shapiro: "when it goes back to 50, I'm out"). An
+  armed zone that ends before confirming **expires** (his heating-oil case).
+  After a stop it re-arms while the zone holds. States: NEUTRAL / ARMED /
+  CONFIRMED, plus how the previous signal ended.
+- **Swing sizing brake:** direction-aware and never sizes up. Swing **longs**
+  are halved (×0.5) while any tracked index is in the **sell zone**; swing
+  **shorts, which are inverse ETFs,** are halved while any is in the **buy
+  zone**. Stale markets are left out. Day trades (long only) are not braked:
+  COT is weekly, a swing-horizon input. The brake shows as a line on the swing
+  gauge card and applies in the share calculator (DAY / SWING LONG / SWING
+  SHORT selector), after the turnover multiplier. It is kept out of the swing
+  gauge's own full/½/¼ call, which stays about the trader's results only.
+- **Backtest (2006–2026, the full rules above, by group ranked):**
+
+  | Longs | Commercials (used) | Large specs | Small traders, faded |
+  |---|---|---|---|
+  | Dow | 8 trades, PF 7.0, +39% | 10, PF 10.3, +60% | 5, PF 62, +46% |
+  | S&P | 17, PF 3.4, +55% | 14, PF 4.5, +55% | 20, PF 4.0, +86% |
+  | Nasdaq | 5, PF 0.8, −1% | 10, PF 2.9, +26% | 12, PF 2.2, +18% |
+
+  Shorts lost in every market for every group, which is why the short side
+  only brakes inverse ETFs. Russell failed for every group. Samples are 5–20
+  trades: directional evidence, not proof. In index futures the legacy
+  "commercial" group is mostly dealers and asset managers, not the informed
+  producers of commodity markets, which may be why commercials are weakest on
+  the Nasdaq. Thresholds are constants in `src/core/cot/cot.ts`, like the
+  regime's.
+- **Also shown:** 4-week and year-over-year change in the oscillator; net %
+  of OI for commercials, large specs and small traders now and a year ago;
+  large specs' and small traders' ranks; a flag when small traders and large
+  specs are crowded on opposite sides (the 1999 setup: small traders long,
+  large specs short, the top once the specs are squeezed out); a 52-week
+  sparkline; the rules in plain terms.
+- **Pipeline:** `build/fetch-cot.ts` (`npm run cot`) runs with the regime on
+  the ~16:20 ET post-close slot or a manual run: weekly reports, but the
+  reversal check needs daily bars. On any missing market or bars the previous
+  `cot.json` is carried forward with `stale: true`. `cot.json` is gitignored
+  and cached unencrypted with `actions/cache`, like `regime.json`: it holds
+  only public data. `src/core/cot/cot.ts` has no runtime imports because the
+  Vite config chain loads it natively.
+- **Not built:** Shapiro's seasonal adjustment (little use for index futures)
+  and his "human COT" (TV consensus), which has no data feed.
+
 ---
 
 ## 6. App features (v1)
@@ -914,6 +984,9 @@ the top, above everything else, in the same order at phone width.
 1a. **Risk regime strip** (§5.6): RISK-ON / UNSURE / RISK-OFF, directly above
    the temperature gauges — market context for both styles, not a third
    column squeezed into that row.
+1b. **COT positioning** (§5.7): below the regime strip, the swing brake per
+   direction and one row per index (oscillator, zone, 4W / 1Y change,
+   signal), with a **DETAILS** toggle.
 1b. **Needs attention** (Q55): one line under the gauges, `! NEEDS ATTENTION
    3 ITEMS ›`, that opens into the list; hidden when nothing needs
    attention. It lists unmatched fills, unpriced open positions, stale prices
