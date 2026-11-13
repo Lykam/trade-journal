@@ -20,6 +20,11 @@ export interface SizingInput {
    */
   recentAvgDaysHeld?: number;
   baselineAvgDaysHeld?: number;
+  /**
+   * COT positioning brake for this trade's direction (SPEC §5.7): 0.5 while the crowd is
+   * positioned against it, else 1. Omitted = 1. Clamped to (0, 1]: it never sizes up.
+   */
+  cotMultiplier?: number;
 }
 
 export interface SizingResult {
@@ -37,7 +42,11 @@ export interface SizingResult {
    * Never sizes up — it's a brake on choppy stretches, not a boost on slow ones.
    */
   turnoverMultiplier: number;
-  /** floorToTenth(sharesBeforeTurnover * turnoverMultiplier): the answer. */
+  /** floorToTenth(sharesBeforeTurnover * turnoverMultiplier), before the COT brake. */
+  sharesBeforeCot: number;
+  /** The COT brake applied, 1 when none. */
+  cotMultiplier: number;
+  /** floorToTenth(sharesBeforeCot * cotMultiplier): the answer. */
   shares: number;
   limitedBy: "risk" | "capital" | "tie";
   positionCost: number;
@@ -52,13 +61,18 @@ export function turnoverMultiplier(recentAvgDaysHeld?: number, baselineAvgDaysHe
   return Math.sqrt(recentAvgDaysHeld! / baselineAvgDaysHeld!);
 }
 
+/** A brake multiplier in (0, 1]; anything missing, non-positive or above 1 means no brake. */
+export function clampBrake(m?: number): number {
+  return m !== undefined && m > 0 && m < 1 ? m : 1;
+}
+
 /** Floors to the nearest tenth of a share, so the position never exceeds either cap. */
 export function floorToTenth(n: number): number {
   if (n <= 0) return 0;
   return Math.floor(n * 10 + 1e-9) / 10;
 }
 
-export function computeSizing({ entry, stop, account, riskPct, capPct, recentAvgDaysHeld, baselineAvgDaysHeld }: SizingInput): SizingResult {
+export function computeSizing({ entry, stop, account, riskPct, capPct, recentAvgDaysHeld, baselineAvgDaysHeld, cotMultiplier }: SizingInput): SizingResult {
   if (!(entry > 0)) throw new Error("Entry price must be greater than 0.");
   if (!(stop > 0)) throw new Error("Stop price must be greater than 0.");
   if (stop >= entry) throw new Error("Stop price must be below entry price.");
@@ -76,7 +90,9 @@ export function computeSizing({ entry, stop, account, riskPct, capPct, recentAvg
   const limitedBy = sharesByRisk === sharesByCapital ? "tie" : sharesByRisk < sharesByCapital ? "risk" : "capital";
 
   const turnover = turnoverMultiplier(recentAvgDaysHeld, baselineAvgDaysHeld);
-  const shares = floorToTenth(sharesBeforeTurnover * turnover);
+  const sharesBeforeCot = floorToTenth(sharesBeforeTurnover * turnover);
+  const cot = clampBrake(cotMultiplier);
+  const shares = floorToTenth(sharesBeforeCot * cot);
 
   return {
     riskPerShare,
@@ -86,6 +102,8 @@ export function computeSizing({ entry, stop, account, riskPct, capPct, recentAvg
     sharesByCapital,
     sharesBeforeTurnover,
     turnoverMultiplier: turnover,
+    sharesBeforeCot,
+    cotMultiplier: cot,
     shares,
     limitedBy,
     positionCost: cents(shares * entry),

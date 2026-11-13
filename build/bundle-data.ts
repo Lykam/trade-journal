@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { resolveHistoryDir } from "../cli/lib/history";
 import type { DataBundle } from "../src/core/types";
 import { resolveQuotesFile } from "./fetch-quotes";
+import { resolveCotFile } from "./fetch-cot";
 import { resolveRegimeFile } from "./fetch-regime";
 import { loadBundle } from "./load-bundle";
 import { resolvePlaybookDir } from "./playbook";
@@ -16,6 +17,8 @@ export interface BundleSources {
   quotesFile: string;
   playbookDir: string;
   regimeFile: string;
+  /** Optional: callers built before the COT gauge pass none and bundle no COT data. */
+  cotFile?: string;
 }
 
 export interface BundleImage {
@@ -29,12 +32,13 @@ export function resolveSources(flags: Partial<BundleSources> = {}): BundleSource
     quotesFile: resolveQuotesFile(flags.quotesFile),
     playbookDir: resolvePlaybookDir(flags.playbookDir),
     regimeFile: resolveRegimeFile(flags.regimeFile),
+    cotFile: resolveCotFile(flags.cotFile),
   };
 }
 
 /** The plaintext bundle and the Playbook images it lists. A Playbook with no Reviews/ or Images/ gives empty lists. */
 export function bundleData(src: BundleSources): { bundle: DataBundle; images: BundleImage[] } {
-  const bundle = loadBundle(src.historyDir, src.quotesFile, src.playbookDir, src.regimeFile);
+  const bundle = loadBundle(src.historyDir, src.quotesFile, src.playbookDir, src.regimeFile, src.cotFile);
   const images = (bundle.playbook?.images ?? []).map((path) => ({ path, bytes: new Uint8Array(readFileSync(join(src.playbookDir, path))) }));
   return { bundle, images };
 }

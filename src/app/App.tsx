@@ -85,7 +85,7 @@ export function App() {
   if (load.status === "locked" && path !== "/calc" && path !== "/lookups") return __TJ_DEMO__ ? null : <LockScreen notice={load.notice} unlock={load.unlock} />;
 
   let page: React.ReactNode;
-  if (path === "/calc") page = <CalculatorPage />;
+  if (path === "/calc") page = <CalculatorPage cot={load.status === "ready" ? load.data.cot : null} />;
   else if (path === "/lookups") page = <LookupsPage />;
   else if (load.status === "loading") page = <div className="center-msg">LOADING…</div>;
   else if (load.status === "error")

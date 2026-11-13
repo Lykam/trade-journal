@@ -1,4 +1,4 @@
-// npm run encrypt -- [--dist DIR] [--history-dir DIR] [--playbook-dir DIR] [--quotes FILE] [--regime FILE]
+// npm run encrypt -- [--dist DIR] [--history-dir DIR] [--playbook-dir DIR] [--quotes FILE] [--regime FILE] [--cot FILE]
 //
 // Encrypt the data bundle and Playbook images into dist/ (SPEC §2 Encryption,
 // §7 Deploy step 4, Q34) with Node `crypto`; the browser decrypts with
@@ -115,7 +115,7 @@ export function encryptBundle(
 if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename)) {
   const { values } = parseArgs({
     args: process.argv.slice(2),
-    options: { dist: { type: "string" }, "history-dir": { type: "string" }, "playbook-dir": { type: "string" }, quotes: { type: "string" }, regime: { type: "string" } },
+    options: { dist: { type: "string" }, "history-dir": { type: "string" }, "playbook-dir": { type: "string" }, quotes: { type: "string" }, regime: { type: "string" }, cot: { type: "string" } },
   });
   await runMain("encrypt", () => {
     const passphrase = process.env.SITE_PASSPHRASE ?? "";
@@ -123,7 +123,7 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(import.meta.filename
     const dist = resolve(values.dist ?? join(REPO_ROOT, "dist"));
     if (!existsSync(join(dist, "index.html"))) throw new PublicError("the dist folder has no index.html (run vite build first)");
     const { bundle, images } = bundleData(
-      resolveSources({ historyDir: values["history-dir"], playbookDir: values["playbook-dir"], quotesFile: values.quotes, regimeFile: values.regime }),
+      resolveSources({ historyDir: values["history-dir"], playbookDir: values["playbook-dir"], quotesFile: values.quotes, regimeFile: values.regime, cotFile: values.cot }),
     );
     const r = encryptBundle(bundle, images, passphrase, dist);
     // Public logs get no counts at all, not even the padded one (Q35).

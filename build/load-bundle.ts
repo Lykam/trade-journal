@@ -8,10 +8,11 @@ import { loadHistory, validate } from "../cli/lib/history.ts";
 import { lastImports } from "../src/core/imports.ts";
 import type { DataBundle } from "../src/core/types.ts";
 import { readQuotes } from "./fetch-quotes.ts";
+import { readCot } from "./fetch-cot.ts";
 import { readRegime } from "./fetch-regime.ts";
 import { loadPlaybook } from "./playbook.ts";
 
-export function loadBundle(historyDir: string, quotesFile: string, playbookDir: string, regimeFile: string): DataBundle {
+export function loadBundle(historyDir: string, quotesFile: string, playbookDir: string, regimeFile: string, cotFile?: string): DataBundle {
   if (!existsSync(join(historyDir, "config.json"))) throw new Error(`no config.json in ${historyDir} (set TRADE_HISTORY_DIR)`);
   const h = loadHistory(historyDir);
   if (!h.derived) throw new Error(`no derived/trades.json in ${historyDir} (run npm run import)`);
@@ -26,6 +27,7 @@ export function loadBundle(historyDir: string, quotesFile: string, playbookDir: 
     overrides: h.overrides,
     quotes: readQuotes(quotesFile),
     regime: readRegime(regimeFile),
+    cot: cotFile ? readCot(cotFile) : null,
     playbook: loadPlaybook(playbookDir),
     loadedAt: new Date().toISOString(),
     history: headCommit(historyDir),

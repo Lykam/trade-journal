@@ -131,6 +131,18 @@ a.sym:hover { color: var(--accent); }
 .regime-head .state.half { color: var(--half); }
 .regime-head .state.quarter { color: var(--loss); }
 .regime-checklist { display: flex; flex-direction: column; gap: 4px; list-style: none; padding: 0; margin: 0; font-size: 13px; }
+/* ---- COT positioning (SPEC §5.7) */
+.cot-rows { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.cot-main { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.cot-name { width: 2.2em; }
+.cot-osc { width: 2em; text-align: right; }
+.cot-meter { width: 120px; height: 14px; flex: 0 0 120px; }
+.cot-needle { fill: var(--text); }
+.cot-detail { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 16px; padding: 6px 0 4px 2.2em; }
+.cot-spark { width: 156px; height: 30px; flex: 0 0 156px; }
+.cot-line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.cot-rules { margin-top: 10px; color: var(--text-2); }
+.cot-rules ul { margin: 4px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 2px; }
 .dial .value { fill: var(--text); font: 700 22px var(--font); }
 .dial .scale { fill: var(--dim); font: 9px var(--font); }
 .s-gain { stroke: var(--gain); }

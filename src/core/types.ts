@@ -1,4 +1,5 @@
 // Shared data types for the trade-history contract (docs/SPEC.md §3).
+import type { CotSnapshot } from "./cot/cot.ts";
 import type { RegimeSnapshot } from "./regime/regime.ts";
 
 export type Broker = "schwab" | "webull";
@@ -202,6 +203,17 @@ export interface RegimeFile {
   snapshot: RegimeSnapshot;
 }
 
+/** cot.json: written by build/fetch-cot.ts (SPEC §5.7), never committed. */
+export interface CotFile {
+  /** Time of the last successful computation. */
+  asOf: string;
+  /** Time of the last attempt, successful or not. */
+  attemptedAt?: string;
+  /** The last fetch failed; this snapshot was carried over from a previous run. */
+  stale?: true;
+  snapshot: CotSnapshot;
+}
+
 /** One Playbook review as read from disk (SPEC §6.7, §6.11). */
 export interface ReviewFile {
   /** Path relative to the Playbook root, e.g. "Reviews/2026-07-27-ABC.md". */
@@ -226,6 +238,8 @@ export interface DataBundle {
   overrides: Overrides;
   quotes: QuotesFile | null;
   regime: RegimeFile | null;
+  /** COT positioning (SPEC §5.7); absent in bundles built before it existed. */
+  cot?: CotFile | null;
   /** null when no Playbook checkout is available. */
   playbook: PlaybookData | null;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */

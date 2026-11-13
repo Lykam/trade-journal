@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { baselineSpan, winsToFull, type Gauge as GaugeData, type SizeState } from "../../core/gauge/gauge";
-import type { Config } from "../../core/types";
+import type { Config, CotFile } from "../../core/types";
+import { CotGaugeNote } from "./Cot";
 import { money, pct, pnlClass, pts, stamp } from "../format";
 
 const CX = 100, CY = 100, R = 80;
@@ -93,7 +94,7 @@ function windowText(g: GaugeData, swingOpen: boolean): string {
 
 const wl = (w: number, l: number, be = 0) => `${w}W ${l}L${be ? ` ${be}BE` : ""}`;
 
-export function GaugeCard({ g, config }: { g: GaugeData; config: Config }) {
+export function GaugeCard({ g, config, cot }: { g: GaugeData; config: Config; cot?: CotFile | null }) {
   const s = g.stats;
   const b = g.baseline;
   const swing = g.style === "swing";
@@ -118,6 +119,7 @@ export function GaugeCard({ g, config }: { g: GaugeData; config: Config }) {
             FULL SIZE AT <b className="text-1">{wl(target.w, target.l)}</b> (+{target.wins} WIN{target.wins === 1 ? "" : "S"})
           </div>
         )}
+        {swing && <CotGaugeNote c={cot} />}
         <button type="button" className="btn ghost small more-toggle" aria-expanded={more} onClick={() => setMore(!more)}>
           {more ? "▾ LESS" : "▸ STATS"}
         </button>

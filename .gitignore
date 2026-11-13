@@ -12,6 +12,7 @@ _data/
 *.csv
 quotes.json
 regime.json
+cot.json
 data.enc
 
 # Synthetic test fixtures are the only CSVs allowed in this repo
