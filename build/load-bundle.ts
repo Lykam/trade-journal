@@ -29,6 +29,7 @@ export function loadBundle(historyDir: string, quotesFile: string, playbookDir: 
     regime: readRegime(regimeFile),
     cot: cotFile ? readCot(cotFile) : null,
     playbook: loadPlaybook(playbookDir),
+    sayings: h.sayings,
     loadedAt: new Date().toISOString(),
     history: headCommit(historyDir),
   };

@@ -171,14 +171,15 @@ export async function readHistory(gh: GitHubClient, repo: RepoId, validate: Vali
   const optional = (path: string) => (state.files.has(path) ? text(path) : Promise.resolve(undefined));
   if (!state.files.has("config.json")) throw new GitHubError("not-found", 404, `${repoName(repo)} has no config.json; is it a trade-history repo?`);
   const fillPaths = [...state.files.keys()].filter((p) => /^fills\/\d{4}\.json$/.test(p));
-  const [config, symbols, overrides, derived, fills] = await Promise.all([
+  const [config, symbols, overrides, derived, sayings, fills] = await Promise.all([
     text("config.json"),
     optional("symbols.json"),
     optional("overrides.json"),
     optional("derived/trades.json"),
+    optional("sayings.json"),
     Promise.all(fillPaths.map(async (p) => ({ name: p.slice("fills/".length), text: await text(p) }))),
   ]);
-  const texts: HistoryTexts = { config, symbols, overrides, derived, fills };
+  const texts: HistoryTexts = { config, symbols, overrides, derived, sayings, fills };
   const raw = [...state.files.values()].filter((e) => e.path.startsWith("imports/raw/"));
   return {
     state,

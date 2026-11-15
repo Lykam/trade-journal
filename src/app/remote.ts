@@ -5,17 +5,19 @@ import { planBalanceCommit, type BalanceCommitPlan } from "../core/account/commi
 import { commitPlan, readHistory, type GitHubClient, type RemoteHistory } from "../core/github/client";
 import { importFingerprint, importMessage, importWrites, planImport, type ImportInput, type ImportPlan } from "../core/import/plan";
 import { planOverrideCommit, type OverrideCommitPlan, type StagedAction } from "../core/journal/overrides";
+import { planSayingCommit, type SayingChange, type SayingCommitPlan } from "../core/sayings/sayings";
 import { validatorFrom, type SchemaTexts } from "../core/schema-names";
 import { planSymbolCommit, type SymbolChange, type SymbolCommitPlan } from "../core/symbols/mapping";
 import type { AccountBalance, SymbolsMap } from "../core/types";
 import config from "../../schema/config.schema.json?raw";
 import fills from "../../schema/fills.schema.json?raw";
 import overrides from "../../schema/overrides.schema.json?raw";
+import sayings from "../../schema/sayings.schema.json?raw";
 import symbols from "../../schema/symbols.schema.json?raw";
 import trades from "../../schema/trades.schema.json?raw";
 import * as compiled from "virtual:tj-validators";
 
-export const schemas: SchemaTexts = { config, fills, overrides, symbols, trades };
+export const schemas: SchemaTexts = { config, fills, overrides, symbols, trades, sayings };
 // Precompiled at build time from the same schema files (no `new Function` under the CSP, Q46).
 export const validate = validatorFrom((name) => compiled[name]);
 /** The derived/trades.json generator, as the CLI writes it. */
@@ -76,3 +78,12 @@ export const computeBalance = (remote: RemoteHistory, account: string, next: Acc
 
 export const commitBalance = (gh: GitHubClient, remote: RemoteHistory, plan: BalanceCommitPlan, account: string, next: AccountBalance | null) =>
   commitPlan(gh, validate, remote, plan, (r) => computeBalance(r, account, next));
+
+// ---------------------------------------------------------------------------
+// Quotes (sayings.json, Q81)
+
+export const computeSaying = (remote: RemoteHistory, change: SayingChange): SayingCommitPlan =>
+  planSayingCommit(remote.snap, change, { schemas }, validate);
+
+export const commitSaying = (gh: GitHubClient, remote: RemoteHistory, plan: SayingCommitPlan, change: SayingChange) =>
+  commitPlan(gh, validate, remote, plan, (r) => computeSaying(r, change));

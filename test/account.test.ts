@@ -99,6 +99,7 @@ describe("account value", () => {
 describe("balance commit", () => {
   const snap = (balances?: Record<string, AccountBalance>): HistorySnapshot => ({
     config: balances ? { ...config, balances } : config, symbols: {}, overrides: { trades: {}, openingPositions: [] }, fills: [], derived: null,
+    sayings: { schemaVersion: 1, sayings: [] },
   });
   const ctx = { schemas: schemaTexts() };
 

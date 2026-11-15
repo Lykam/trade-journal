@@ -74,7 +74,7 @@ describe("GitHub client: read and commit", () => {
     const res = await commitFiles(gh, remote.state, c.files, c.message);
     expect(fake.commitCount()).toBe(before + 1);
     expect(res!.paths.sort()).toEqual(
-      ["derived/trades.json", "fills/2025.json", ...["config", "fills", "overrides", "symbols", "trades"].map((n) => `schema/${n}.schema.json`),
+      ["derived/trades.json", "fills/2025.json", ...["config", "fills", "overrides", "symbols", "trades", "sayings"].map((n) => `schema/${n}.schema.json`),
         ...CSVS.map((r) => `imports/raw/2025-03-20-${r.split("/").pop()}`)].sort(),
     );
     expect(fake.commits.get(fake.head)!.message).toBe("Import Webull + Schwab 2025-03-20: +44 fills");

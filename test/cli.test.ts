@@ -40,7 +40,7 @@ describe("cli/import", () => {
     validate("trades", derived, "trades");
     expect(fills.fills).toHaveLength(44);
     expect(derived).toMatchObject({ generated: true, generator: expect.stringMatching(/^trade-journal@/) });
-    expect(readdirSync(join(dir, "schema"))).toHaveLength(5);
+    expect(readdirSync(join(dir, "schema"))).toHaveLength(6);
     expect(readdirSync(join(dir, "imports/raw"))).toHaveLength(4);
   });
 

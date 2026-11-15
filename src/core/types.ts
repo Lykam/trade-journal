@@ -173,6 +173,27 @@ export interface DerivedTrades {
   ideas: Idea[];
 }
 
+/** One quote kept on the QUOTES page (SPEC §3.6, §6.7b, Q81). */
+export interface Saying {
+  /** "q-" + 12 random hex chars, made when the quote is added. */
+  id: string;
+  text: string;
+  /** Who said or wrote it ("Nick Drendel"), or where it came from. */
+  source?: string;
+  /** http(s) link to the video, post or page. */
+  link?: string;
+  /** Lowercase, hyphenated categories ("relative-strength"). */
+  tags?: string[];
+  /** When it was added, ISO 8601. */
+  addedAt: string;
+}
+
+/** sayings.json in trade-history. Named so to keep apart from quotes.json (prices). */
+export interface SayingsFile {
+  schemaVersion: 1;
+  sayings: Saying[];
+}
+
 /** One price for a held symbol (SPEC §5.4). */
 export interface Quote {
   price: number;
@@ -242,6 +263,8 @@ export interface DataBundle {
   cot?: CotFile | null;
   /** null when no Playbook checkout is available. */
   playbook: PlaybookData | null;
+  /** The QUOTES page (sayings.json); absent in bundles built before it existed. */
+  sayings?: SayingsFile;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */
   imageFiles?: Record<string, string>;
   loadedAt: string;

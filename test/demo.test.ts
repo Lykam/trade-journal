@@ -31,6 +31,7 @@ describe.each(NOWS)("demo data as of %s", (now) => {
     for (const q of Object.values(bundle.quotes!.quotes)) expect(Date.parse(q.time)).toBeLessThanOrEqual(t);
     expect(Date.parse(bundle.quotes!.asOf)).toBeLessThanOrEqual(t);
     for (const r of bundle.playbook!.reviews) expect(r.path.slice(8, 18) <= etDate(now)).toBe(true);
+    for (const s of bundle.sayings!.sayings) expect(Date.parse(s.addedAt)).toBeLessThanOrEqual(t);
   });
 
   it("validates against the trade-history schemas", () => {
@@ -39,6 +40,7 @@ describe.each(NOWS)("demo data as of %s", (now) => {
     validate("overrides", bundle.overrides, "overrides");
     validate("fills", { schemaVersion: 1, fills: bundle.fills }, "fills");
     validate("trades", bundle.derived, "trades");
+    validate("sayings", bundle.sayings, "sayings");
   });
 
   it("is about six months of day and swing trading with 6–8 open positions", () => {

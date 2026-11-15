@@ -593,3 +593,32 @@ rect.bar-on { stroke: var(--accent); stroke-width: 1; vector-effect: non-scaling
 .json-pair { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
 .nav a.btn.active { background: var(--accent); color: var(--on-accent); }
 table.grid td.error-text { white-space: normal; min-width: 220px; width: 55%; color: var(--text-2); }
+
+/* ---- quotes (SPEC §6.7b) */
+.quotes-filter { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+.quotes-search { flex: 1 1 220px; max-width: 420px; }
+.sayings { display: flex; flex-direction: column; gap: 10px; max-width: 980px; }
+.saying-add { max-width: 980px; }
+.saying { padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 10px; }
+.saying.editing { padding: 0; border-color: var(--accent); }
+.saying blockquote, .saying-form blockquote {
+  margin: 0; padding-left: 12px; border-left: 2px solid var(--accent); color: var(--text); font-size: 14px; line-height: 1.55;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.saying-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.saying-meta .spacer { flex: 1 1 0; }
+.saying-meta .chip { margin: 0; }
+.saying-form .row { column-gap: 16px; align-items: flex-start; }
+.saying-form .field.grow { flex: 1 1 240px; }
+button.linkish {
+  border: 0; background: none; padding: 0; font: inherit; color: var(--text-2); cursor: pointer; text-align: left;
+}
+button.linkish.small { font-size: 11px; }
+button.linkish.muted { color: var(--muted); }
+button.linkish.accent { color: var(--accent); }
+button.linkish:hover { color: var(--accent); }
+@media (max-width: 640px) {
+  .saying { padding: 12px 12px 8px; }
+  .saying blockquote { font-size: 13px; }
+}
+.saying-add .body, .saying.editing .body { padding: 8px 14px; }
