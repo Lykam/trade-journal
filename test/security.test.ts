@@ -98,6 +98,8 @@ describe("precompiled validators (S4)", () => {
       ["fills", JSON.parse(readFileSync(join(FIXTURES, "expected", "fills-2025.json"), "utf8"))],
       ["trades", JSON.parse(readFileSync(join(FIXTURES, "expected", "trades.json"), "utf8"))],
       ["overrides", { trades: { x: { style: "both" } } }],
+      ["sayings", { schemaVersion: 1, sayings: [{ id: "q-0123456789ab", text: "Cut losers.", link: "https://example.com/v", tags: ["exits"], addedAt: "2026-11-15T14:00:00.000Z" }] }],
+      ["sayings", { schemaVersion: 1, sayings: [{ id: "q-1", text: "", link: "javascript:alert(1)", tags: ["Bad Tag"], addedAt: "x" }] }],
     ];
     for (const [name, data] of cases) expect(outcome(pre, name, data)).toBe(outcome(run, name, data));
     expect(outcome(pre, "symbols", cases[2]![1])).toContain("does not match symbols.schema.json");

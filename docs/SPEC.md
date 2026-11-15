@@ -165,10 +165,12 @@ trade-history/
     config.schema.json
     symbols.schema.json
     trades.schema.json        JSON Schema for derived/trades.json
+    sayings.schema.json
   fills/2026.json             SOURCE OF TRUTH (append-only via importer)
   overrides.json              manual edits (style, tags, exclude, opening positions)
   symbols.json                single-stock ETF → underlying map (§3.4)
   config.json                 grouping + gauge settings
+  sayings.json                trading quotes for the QUOTES page (§3.6)
   derived/trades.json         GENERATED: fills + overrides → round-trip trades
   imports/raw/                archive of every original broker CSV (always kept)
   .github/workflows/
@@ -363,6 +365,36 @@ in the browser (§5.4).
 
 Review links are **not** stored here. `trade-history` doesn't know about
 `Playbook`; the journal joins the two at build time (§6).
+
+### 3.6 `sayings.json`: quotes (Q81)
+
+Trading quotes the owner hears or thinks of, for the QUOTES page (§6.7b).
+Named `sayings` so it can't be mixed up with `quotes.json`, the prices (§5.4).
+Optional: a repo without it has no quotes.
+
+```json
+{
+  "schemaVersion": 1,
+  "sayings": [
+    {
+      "id": "q-1a2b3c4d5e6f",
+      "text": "Relative strength is good to see, but look for volatility compressing too.",
+      "source": "Some trader",
+      "link": "https://www.youtube.com/watch?v=…",
+      "tags": ["relative-strength", "volatility"],
+      "addedAt": "2026-11-15T20:31:00.000Z"
+    }
+  ]
+}
+```
+
+- `id` is `q-` plus 12 random hex characters, made when the quote is added.
+  `source`, `link` and `tags` are optional and left out when empty.
+- `link` must be `http(s)://`; the app also refuses any other scheme when it
+  renders a link. Tags are lowercase and hyphenated (`Relative Strength` →
+  `relative-strength`), with no repeats.
+- New quotes go on the end, so the file only grows at the bottom; an edit
+  replaces the entry in place, keeping its `id` and `addedAt`.
 
 ---
 
@@ -922,7 +954,7 @@ candlestick charts in v1 (see §11).
   - **Green `#22c55e` gains / red `#ef4444` losses.** Yellow `#facc15` is used
     only for the "½ size" state.
   - **Top navigation bar** instead of a sidebar: DASH · OPEN · CAL · TRADES ·
-    REPORTS · JOURNAL · ERRORS · SETTINGS, with IMPORT and LOCK on the right. Beside
+    REPORTS · JOURNAL · ERRORS · QUOTES · SETTINGS, with IMPORT and LOCK on the right. Beside
     them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
     SCHWAB 10-02`, the last import per broker turning amber with `!` when it
     is older than the latest closed session (Q55). Webull counts an import at
@@ -1339,6 +1371,25 @@ win or lose, then read the list for the mistakes that repeat.
 - Unreviewed trades are not listed: swing reviews are required (Q70), day
   reviews optional.
 
+### 6.7b Quotes (Q81)
+
+A list to scroll through of trading quotes worth keeping: lines from videos,
+books, other traders or the owner's own head.
+
+- Newest first, each a card with the quote, then **— source**, the link's
+  site (`youtube.com ↗`, opening in a new tab), its tags, the date added, and
+  **EDIT** / **REMOVE**. The title shows the count (`3 OF 12` when filtered).
+- A search box (every word must match the text, source or tags), a pill per
+  tag with its count (one at a time; click again to clear), and a click on a
+  source shows only that source's quotes.
+- **+ ADD QUOTE** opens a form: QUOTE (required), SOURCE (suggests sources
+  used before), LINK (`https://` added when left off) and TAGS
+  (comma-separated, with the tags used before as pills to toggle). Each add,
+  edit or removal writes `sayings.json` in one commit through the usual
+  preview (Q40); it needs the browser token. A committed quote shows at once
+  marked **DEPLOYING** until the redeploy brings it into the data.
+- The demo shows made-up quotes from made-up sources; COMMIT is disabled there.
+
 ### 6.8 Import
 
 See §4.5A. Drag-and-drop CSVs, then a preview (new fills and trades, with
@@ -1729,6 +1780,7 @@ the commit leaves the private repo.
 | Q78 | Chart uploads | Owner request 2026-10-15: add chart screenshots from the app instead of starting a Claude session. Trade detail's Charts panel takes a pasted, dropped or chosen image and commits it to **Playbook** through the Git Data API, one image per commit (`Add <SYMBOL> <DATE> <1m/5m/daily> chart (uploaded in the journal)`), the same blobs → tree → commit → ref path as trade-history edits. The name is picked against Playbook's main at commit time and never overwrites (-2, -3, …, across image formats), and a moved main is re-read and retried. 1m and 5m are saved as `-intraday-1m` / `-intraday-5m`, so Q33's gallery rule and the review skill still treat them as intraday charts (Playbook's `sync_review.py` accepts the suffix); the gallery labels them 1M / 5M. The one browser token now also needs Contents: read and write on Playbook; saving it checks that (`playbook` in the sealed record) and Settings shows it. Owner chose uploads over drawn candlestick charts, so §11's TradingView item stays future. |
 | Q79 | Errors on any trade | Owner request 2026-10-15: an error can be made on a trade that still made money (one real review already names one), so the error table is no longer losses only. The Playbook skill asks "What was the error?" on every closed trade and offers a skip, which writes "No error."; the ERRORS page lists every closed reviewed idea whose review names an error, win or loss, and leaves out no-error answers. A reviewed loss with nothing written still shows NOT WRITTEN (a reminder); a win with nothing written is not listed. |
 | Q80 | Inverse ETF lookup | Owner request 2026-11-04: a page to search a stock and find its single-stock inverse ETF(s). The LOOKUPS page (reachable while locked, like CALC) is a searchable table over `src/core/lookups/inverse-etfs.json`, matching on either the ETF symbol or its underlying. The table is **manually curated**, not fetched: it started from the owner's TradingView "Leveraged Inverse ETFs" watchlist (~175 symbols), keeping only the ones that track a single stock (TSLQ → TSLA, NVDD → NVDA, …) and dropping sector/country/bond/commodity/index/basket/volatility inverse ETFs (SPXS, TZA, FNGD, …), which have no single-stock underlying. A follow-up pass (2026-11-05) re-pulled every excluded symbol's TradingView description to double-check the cut: it caught 4 missed single-stock entries for SK hynix (SKDD/SKHN/SKHQ/SKHZ → SKHY, the Nasdaq ADR; SK hynix itself trades in Korea as KRX:000660) and confirmed the rest (Mag7/FANG+ baskets, DRAM/AI/auto-industry sector products, etc.) genuinely have no single-stock underlying. Owner request 2026-11-06 added the three classic QQQ inverses (SQQQ/QID/PSQ) by name despite QQQ being an index ETF, not a single stock — a deliberate one-off exception to the single-stock rule, not a reopening of the broader sector/index scope. No build script fetches this: TradingView access exists only in a Claude session, not in this repo's Node scripts (Yahoo only), so refreshing it means asking Claude to re-pull the watchlist and re-derive the file, every so often. A per-stock sector-ETF lookup was discussed and deferred — out of scope for this pass. |
+| Q81 | Quotes page | Owner request 2026-11-15: a page to keep and scroll through trading quotes heard or thought of while trading, "similar to the Errors page", with an optional source, link and category. Unlike ERRORS (read from Playbook reviews) quotes are entered in the app, so they live in trade-history's `sayings.json` (§3.6), encrypted like the rest, and each change is one previewed commit like the account value (Q68). Free-form tags rather than a fixed category list, so a category is just a tag. Named `sayings` to stay clear of `quotes.json` (prices). |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy

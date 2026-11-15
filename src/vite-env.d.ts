@@ -11,6 +11,7 @@ declare module "virtual:tj-validators" {
   export const config: ValidateFn;
   export const symbols: ValidateFn;
   export const trades: ValidateFn;
+  export const sayings: ValidateFn;
 }
 
 /** True only in the public demo build (`vite build --mode demo`); false in every real build, so demo code is dropped. */

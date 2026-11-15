@@ -3,7 +3,7 @@
 // importing it is free.
 import { DataFileError } from "./data-error.ts";
 
-export const SCHEMAS = ["fills", "overrides", "config", "symbols", "trades"] as const;
+export const SCHEMAS = ["fills", "overrides", "config", "symbols", "trades", "sayings"] as const;
 export type SchemaName = (typeof SCHEMAS)[number];
 export type SchemaTexts = Record<SchemaName, string>;
 /** Throws when `data` does not match the named schema. */

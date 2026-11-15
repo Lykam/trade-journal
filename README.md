@@ -19,6 +19,7 @@ generated in your browser; nothing to log in to)
 - **Open positions** with adds, trims, realized and unrealized P&L.
 - **Trades** table with filters kept in the URL, bulk tags, style and exclude;
   **trade detail** with executions, timeline, the linked review and charts.
+- **Quotes:** trading quotes worth keeping, with source, link and tags.
 - **Calendar**, **Reports** (stats grid, breakdowns, win vs loss days,
   drawdown, compare, tag breakdown) and a **Journal** of Playbook reviews.
 - **Import** of Schwab and Webull CSV exports in the browser or from a CLI,
