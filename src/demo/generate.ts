@@ -401,25 +401,28 @@ function cotFor(asOf: string): CotFile {
   const report = addDays(etDate(asOf), -((dayOfWeek(etDate(asOf)) + 5) % 7) - 7); // the Tuesday before last
   const released = addDays(report, 3);
   const wave = (from: number, to: number) => Array.from({ length: 52 }, (_, i) => Math.round(from + ((to - from) * i) / 51 + 8 * Math.sin(i / 4)));
-  const none = { state: "neutral", side: null, since: null, entry: null, stop: null, last: null } as const;
+  const none = { state: "neutral", side: null, since: null, entry: null, stop: null, last: null, trigger: null, lastClose: null } as const;
   const markets: CotMarketSnapshot[] = [
     {
       id: "ES", name: "S&P 500", etf: "SPY", report, released, stale: false, osc: 14, zone: "buy", osc4w: 31, osc1y: 55,
       net: { commercial: 4.1, largeSpec: -9.2, small: 5.1 }, net1y: { commercial: -1.2, largeSpec: 2.4, small: -1.2 },
       smallRank: 84, commRank: 88, extreme: { side: "short", since: "2020-09-22", first: "1997-09-30" }, divergence: "small-long-large-short", spark: [...wave(55, 18).slice(0, 51), 14],
-      signal: { state: "confirmed", side: "long", since: addDays(released, 4), entry: 101.42, stop: 98.87, last: { kind: "stopped", side: "long", date: addDays(released, 2), ret: -1.3 } },
+      contracts: { largeSpec: { net: -192_400, min: -201_300, max: 140_800 }, commercial: { net: 85_600, min: -150_200, max: 98_100 } },
+      signal: { state: "confirmed", side: "long", since: addDays(released, 4), entry: 598.4, stop: 590.12, last: { kind: "stopped", side: "long", date: addDays(released, 2), ret: -1.3 }, trigger: null, lastClose: 603.1 },
     },
     {
       id: "NQ", name: "Nasdaq-100", etf: "QQQ", report, released, stale: false, osc: 86, zone: "sell", osc4w: 92, osc1y: 70,
       net: { commercial: -18.4, largeSpec: 13.1, small: 5.3 }, net1y: { commercial: -12, largeSpec: 8.2, small: 3.8 },
       smallRank: 77, commRank: 12, extreme: { side: "long", since: "2025-01-28", first: "1999-06-29" }, divergence: null, spark: [...wave(70, 90).slice(0, 51), 86],
-      signal: { ...none, state: "armed", side: "short", since: addDays(released, 1) },
+      contracts: { largeSpec: { net: 38_200, min: -12_500, max: 44_900 }, commercial: { net: -53_700, min: -61_000, max: 9_800 } },
+      signal: { ...none, state: "armed", side: "short", since: addDays(released, 1), trigger: 701.45, lastClose: 688.17 },
     },
     {
-      id: "YM", name: "Dow", etf: "DIA", report, released, stale: false, osc: 47, zone: "neutral", osc4w: 52, osc1y: 38,
+      id: "YM", name: "Dow", etf: "DIA", report, released, stale: false, osc: 74, zone: "neutral", osc4w: 66, osc1y: 38,
       net: { commercial: -3.3, largeSpec: 1.9, small: 1.4 }, net1y: { commercial: 2.2, largeSpec: -3, small: 0.8 },
-      smallRank: 51, commRank: 55, extreme: { side: "short", since: "2026-10-27", first: "2002-10-01" }, divergence: null, spark: [...wave(38, 50).slice(0, 51), 47],
-      signal: { ...none, last: { kind: "exited", side: "long", date: addDays(report, -40), ret: 6.8 } },
+      smallRank: 51, commRank: 28, extreme: { side: "long", since: "2026-10-27", first: "2002-10-01" }, divergence: null, spark: [...wave(38, 70).slice(0, 51), 74],
+      contracts: { largeSpec: { net: 9_100, min: -14_200, max: 12_600 }, commercial: { net: -12_800, min: -16_900, max: 15_300 } },
+      signal: { ...none, last: { kind: "exited", side: "long", date: addDays(report, -40), ret: 6.8 }, lastClose: 522.47 },
     },
   ];
   return { asOf, attemptedAt: asOf, snapshot: { markets, brake: cotBrake(markets) } };

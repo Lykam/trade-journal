@@ -148,7 +148,7 @@ export function CalculatorPage({ cot = null }: { cot?: CotFile | null }) {
               <p className="dim small">COT data loads once the site is unlocked; until then no brake applies.</p>
             ) : (
               <>
-                <p className={brake!.multiplier < 1 ? "half b" : "gain b"}>{brakeLabel(brake!)}</p>
+                <p className={brake!.multiplier < 1 ? "half b" : "muted b"}>{brakeLabel(brake!)}</p>
                 <p className="dim small">
                   {brakeReason(side, brake!)} Report {cot.snapshot.markets.map((m) => m.report).sort().at(-1)}
                   {cot.stale ? " (stale)" : ""}.

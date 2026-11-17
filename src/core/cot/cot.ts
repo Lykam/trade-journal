@@ -130,6 +130,13 @@ export interface CotSignal {
   stop: number | null;
   /** How the previous signal ended. ret is % on the ETF, signed for the side. */
   last: { kind: "stopped" | "exited" | "expired"; side: CotSide; date: string; ret: number | null } | null;
+  /**
+   * armed: the level the next session must take out to be a reversal day: the lowest low (long)
+   * or highest high (short) of the last REVERSAL_LOOKBACK bars. Absent in files written before it existed.
+   */
+  trigger?: number | null;
+  /** The last bar's close, for distances to the trigger and stop. */
+  lastClose?: number | null;
 }
 
 /**
@@ -190,9 +197,14 @@ export function walkSignal(readings: CotReading[], bars: DailyBar[]): CotSignal 
     }
   }
 
-  if (pos) return { state: "confirmed", side: pos.side, since: pos.date, entry: pos.entry, stop: pos.stop, last };
-  if (armed) return { state: "armed", side: armed.side, since: armed.since, entry: null, stop: null, last };
-  return { state: "neutral", side: null, since: null, entry: null, stop: null, last };
+  const lastClose = bars.length ? bars[bars.length - 1]!.close : null;
+  if (pos) return { state: "confirmed", side: pos.side, since: pos.date, entry: pos.entry, stop: pos.stop, last, trigger: null, lastClose };
+  if (armed) {
+    const recent = bars.slice(-REVERSAL_LOOKBACK);
+    const trigger = armed.side === "long" ? Math.min(...recent.map((b) => b.low)) : Math.max(...recent.map((b) => b.high));
+    return { state: "armed", side: armed.side, since: armed.since, entry: null, stop: null, last, trigger, lastClose };
+  }
+  return { state: "neutral", side: null, since: null, entry: null, stop: null, last, trigger: null, lastClose };
 }
 
 export interface CotBreakdown {
@@ -227,6 +239,11 @@ export interface CotMarketSnapshot {
    */
   extreme: { side: "short" | "long"; since: string | null; first: string };
   /**
+   * Net contracts now and their 3-year (LOOKBACK_WEEKS) min/max, to reconcile with COT charts that
+   * plot contracts with a "3yr range" band. Absent in files written before it existed.
+   */
+  contracts?: { largeSpec: ContractRange; commercial: ContractRange };
+  /**
    * Small traders and large specs crowded on opposite sides (Shapiro's 1999: the small guys
    * long and making money while the large specs were short; the top came once they were squeezed out).
    */
@@ -234,6 +251,12 @@ export interface CotMarketSnapshot {
   /** Oscillator for the last SPARK_WEEKS reports, oldest first. */
   spark: number[];
   signal: CotSignal;
+}
+
+export interface ContractRange {
+  net: number;
+  min: number;
+  max: number;
 }
 
 export interface CotBrake {
@@ -253,6 +276,13 @@ const breakdown = (r: CotReport): CotBreakdown => ({
   largeSpec: round(netPct(r.largeSpec, r.openInterest), 1),
   small: round(netPct(r.small, r.openInterest), 1),
 });
+
+/** Net contracts for a group at report i, with their min and max over the 3-year lookback. */
+function contractRange(reports: CotReport[], i: number, group: "largeSpec" | "commercial"): ContractRange {
+  const net = (r: CotReport) => r[group][0] - r[group][1];
+  const window = reports.slice(Math.max(0, i - LOOKBACK_WEEKS + 1), i + 1).map(net);
+  return { net: net(reports[i]!), min: Math.min(...window), max: Math.max(...window) };
+}
 
 /** One market's snapshot at `now`; null without a full lookback of reports. */
 export function computeCotMarket(market: CotMarket, reports: CotReport[], bars: DailyBar[], now: string): CotMarketSnapshot | null {
@@ -303,6 +333,7 @@ export function computeCotMarket(market: CotMarket, reports: CotReport[], bars: 
     smallRank,
     commRank,
     extreme: { side, since, first: sorted[0]!.date },
+    contracts: { largeSpec: contractRange(sorted, i, "largeSpec"), commercial: contractRange(sorted, i, "commercial") },
     divergence,
     spark,
     signal: walkSignal(oscillator(sorted), [...bars].sort((a, b) => a.date.localeCompare(b.date))),

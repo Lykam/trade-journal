@@ -940,12 +940,22 @@ large specs 2026-11-17 to align with his explanation.) Like §5.6 it needs no ke
   producers of commodity markets, which may be why commercials are weakest on
   the Nasdaq. Thresholds are constants in `src/core/cot/cot.ts`, like the
   regime's.
-- **Also shown:** 4-week and year-over-year change in the oscillator; net %
-  of OI for commercials, large specs and small traders now and a year ago;
-  commercials' and small traders' ranks; a flag when small traders and large
-  specs are crowded on opposite sides (the 1999 setup: small traders long,
-  large specs short, the top once the specs are squeezed out); a 52-week
-  sparkline; the rules in plain terms.
+- **Card (UX review 2026-11-17):** the header says NO COT BRAKE (muted) or
+  names each braked side in yellow with the reason as text; it never shows a
+  green "full size", since the brake only cuts. Each row gives the action:
+  ARMED shows the trigger the next session must take out (the 10-bar low for
+  a long, high for a short, in ETF terms); CONFIRMED shows entry, stop and
+  distance to it, and the exit at 50; within 10 of a zone it says NEAR SELL
+  (BUY) ZONE and what Friday's report would brake. Short signals stay visible
+  but are tagged WEAK IN BACKTESTS. DETAILS: a 52-week rank sparkline with
+  zone bands and 20/50/80 labels; one aligned table of net % of OI now and a
+  year ago and the 3-year rank for large specs, commercials and small traders;
+  net contracts with their 3-year range (to match COT charts' "3yr range"
+  band); the long-history line only when it's at least a year back; the last
+  signal; the 1999 divergence flag; and the one rule that applies now. Report,
+  release and next-release dates show once in a footer. The rules sit behind
+  their own toggle, grouped READ / ZONES / ENTER / MANAGE / SIZE / TIMING /
+  RECORD. On a phone the status wraps under the meter and DETAILS stacks.
 - **Pipeline:** `build/fetch-cot.ts` (`npm run cot`) runs with the regime on
   the ~16:20 ET post-close slot or a manual run: weekly reports, but the
   reversal check needs daily bars. On any missing market or bars the previous
