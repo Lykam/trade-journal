@@ -74,59 +74,69 @@ export function LookupsPage({ data }: { data: DataBundle }) {
 
       {editing && (
         <section className="panel lookups-edit" aria-label="Changes to commit">
-          <div className="panel-head"><h2>Changes</h2></div>
-          <div className="body symmap">
+          <div className="panel-head">
+            <h2>Changes</h2>
+            <span className="dim small">{[selected.size && `${selected.size} to remove`, adds.length && `${adds.length} to add`].filter(Boolean).join(" · ")}</span>
+          </div>
+          <div className="lk-body">
             {selected.size > 0 && (
-              <div className="row">
-                <span className="label small">REMOVE {selected.size}</span>
-                {[...selected].sort().map((s) => (
-                  <button key={s} type="button" className="pill" disabled={busy} onClick={() => toggle(s)} title="Keep this one">{s} ×</button>
-                ))}
-              </div>
-            )}
-            {adds.map((d, i) => {
-              const set = (k: keyof InverseEtfDraft) => (e: { target: { value: string } }) =>
-                setAdds((a) => a.map((x, j) => (j === i ? { ...x, [k]: e.target.value } : x)));
-              const existing = table[d.symbol.trim().toUpperCase()];
-              return (
-                <div key={i} className="row" role="group" aria-label={`New row ${i + 1}`}>
-                  <label className="field"><span className="label small">ETF</span>
-                    <input className="input narrow" value={d.symbol} disabled={busy} onChange={set("symbol")} placeholder="TSLQ" spellCheck={false} autoFocus={i === adds.length - 1} />
-                  </label>
-                  <label className="field"><span className="label small">UNDERLYING</span>
-                    <input className="input narrow" value={d.underlying} disabled={busy} onChange={set("underlying")} placeholder="TSLA" spellCheck={false} />
-                  </label>
-                  <label className="field"><span className="label small">LEV</span>
-                    <input className="input narrow" inputMode="decimal" value={d.leverage} disabled={busy} onChange={set("leverage")} placeholder="2" />
-                  </label>
-                  <label className="field grow"><span className="label small">ISSUER</span>
-                    <input className="input" value={d.issuer} disabled={busy} onChange={set("issuer")} placeholder="Tradr" list="lookup-issuers"
-                      onKeyDown={(e) => e.key === "Enter" && i === adds.length - 1 && setAdds((a) => [...a, emptyDraft()])} />
-                  </label>
-                  <button type="button" className="btn ghost tiny" disabled={busy} onClick={() => setAdds((a) => a.filter((_, j) => j !== i))} aria-label="Drop this row">×</button>
-                  {existing && !selected.has(d.symbol.trim().toUpperCase()) && <span className="half small">replaces {d.symbol.trim().toUpperCase()} → {existing.underlying}</span>}
+              <div className="lk-group">
+                <div className="label small">Remove</div>
+                <div className="lk-pills">
+                  {[...selected].sort().map((s) => (
+                    <button key={s} type="button" className="pill loss" disabled={busy} onClick={() => toggle(s)} title="Keep this one" aria-label={`Keep ${s}`}>
+                      {s}<span className="lk-x" aria-hidden>×</span>
+                    </button>
+                  ))}
                 </div>
-              );
-            })}
-            <datalist id="lookup-issuers">{issuers.map((s) => <option key={s} value={s} />)}</datalist>
-            {adds.length > 0 && (
-              <div><button type="button" className="btn ghost tiny" disabled={busy} onClick={() => setAdds((a) => [...a, emptyDraft()])}>+ ROW</button></div>
-            )}
-            {__TJ_DEMO__ ? (
-              <div className="row">
-                <button type="button" className="btn primary" disabled>COMMIT…</button>
-                <span className="note-line">{DEMO_COMMIT_NOTE}</span>
-                <button type="button" className="btn ghost" onClick={reset}>CANCEL</button>
               </div>
-            ) : (
-              <LookupsCommit
-                change={change}
-                error={error}
-                onBusy={setBusy}
-                onCommitted={(t) => { setPending(t); reset(); }}
-                onClose={reset}
-              />
             )}
+            {adds.length > 0 && (
+              <div className="lk-group">
+                <div className="label small">Add</div>
+                <div className="lk-grid" role="table" aria-label="Rows to add">
+                  <div className="lk-row lk-head" role="row" aria-hidden>
+                    <span>ETF</span><span>UNDERLYING</span><span>LEV</span><span>ISSUER</span><span />
+                  </div>
+                  {adds.map((d, i) => {
+                    const set = (k: keyof InverseEtfDraft) => (e: { target: { value: string } }) =>
+                      setAdds((a) => a.map((x, j) => (j === i ? { ...x, [k]: e.target.value } : x)));
+                    const sym = d.symbol.trim().toUpperCase();
+                    const existing = table[sym];
+                    return (
+                      <div key={i} className="lk-row" role="row">
+                        <input className="input" aria-label="ETF symbol" value={d.symbol} disabled={busy} onChange={set("symbol")} placeholder="TSLQ" spellCheck={false} autoFocus={i === adds.length - 1} />
+                        <input className="input" aria-label="Underlying" value={d.underlying} disabled={busy} onChange={set("underlying")} placeholder="TSLA" spellCheck={false} />
+                        <input className="input" aria-label="Leverage" inputMode="decimal" value={d.leverage} disabled={busy} onChange={set("leverage")} placeholder="2" />
+                        <input className="input" aria-label="Issuer" value={d.issuer} disabled={busy} onChange={set("issuer")} placeholder="Tradr" list="lookup-issuers"
+                          onKeyDown={(e) => e.key === "Enter" && i === adds.length - 1 && setAdds((a) => [...a, emptyDraft()])} />
+                        <button type="button" className="btn ghost tiny" disabled={busy} onClick={() => setAdds((a) => a.filter((_, j) => j !== i))} aria-label="Drop this row" title="Drop this row">×</button>
+                        {existing && !selected.has(sym) && <span className="half small lk-note">Replaces {sym} → {existing.underlying} {existing.leverage}x {existing.issuer}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div><button type="button" className="btn ghost tiny" disabled={busy} onClick={() => setAdds((a) => [...a, emptyDraft()])}>+ ROW</button></div>
+              </div>
+            )}
+            <datalist id="lookup-issuers">{issuers.map((s) => <option key={s} value={s} />)}</datalist>
+            <div className="lk-actions">
+              {__TJ_DEMO__ ? (
+                <div className="row">
+                  <button type="button" className="btn primary" disabled>COMMIT…</button>
+                  <span className="note-line">{DEMO_COMMIT_NOTE}</span>
+                  <button type="button" className="btn ghost" onClick={reset}>CANCEL</button>
+                </div>
+              ) : (
+                <LookupsCommit
+                  change={change}
+                  error={error}
+                  onBusy={setBusy}
+                  onCommitted={(t) => { setPending(t); reset(); }}
+                  onClose={reset}
+                />
+              )}
+            </div>
           </div>
         </section>
       )}
@@ -180,7 +190,7 @@ export function LookupsPage({ data }: { data: DataBundle }) {
           </table>
           {!rows.length && <div className="empty">No inverse ETF on file for "{query}". Either none exists, or it isn't in the list yet: <b>+ ADD ETF</b>.</div>}
         </div>
-        <div className="dim small">
+        <div className="dim small lk-foot">
           Single-stock inverse ETFs only. Tick rows to remove them (e.g. when a fund is delisted), or <b>+ ADD ETF</b>; one commit saves every change to trade-history.
           {starter && " This is the built-in starting list: your first commit saves it to trade-history, which is used from then on."}
         </div>

@@ -474,7 +474,26 @@ table.grid.lookups tbody tr { border-top-color: var(--border-strong); }
 table.grid.lookups .pick { width: 1%; padding-right: 0; }
 table.grid.lookups tr.removing td { text-decoration: line-through; color: var(--muted); }
 table.grid.lookups tr.removing td.pick { text-decoration: none; }
-.lookups-edit .input.narrow { width: 7.5em; }
+.lookups-edit { margin-bottom: 12px; }
+.lookups-edit .panel-head { align-items: center; }
+.lk-body { display: flex; flex-direction: column; gap: 16px; padding: 14px 16px 16px; }
+.lk-group { display: flex; flex-direction: column; gap: 8px; }
+.lk-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.lk-pills .pill { gap: 6px; padding: 3px 8px 3px 12px; font-size: 11px; }
+.lk-pills .lk-x { opacity: 0.7; font-size: 13px; line-height: 1; }
+.lk-pills .pill:hover:not(:disabled) .lk-x { opacity: 1; }
+.lk-grid { display: flex; flex-direction: column; gap: 6px; }
+.lk-row { display: grid; grid-template-columns: 7em 7em 4.5em minmax(8em, 16em) auto; gap: 8px; align-items: center; }
+.lk-row .input { width: 100%; min-width: 0; box-sizing: border-box; }
+.lk-head span { font-size: 10px; letter-spacing: 0.1em; color: var(--muted); }
+.lk-note { grid-column: 1 / -1; }
+.lk-actions { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+.lk-foot { padding: 10px 14px 12px; }
+@media (max-width: 560px) {
+  .lk-row { grid-template-columns: 1fr 1fr 4em auto; }
+  .lk-row > :nth-child(4) { grid-column: 1 / 4; grid-row: 2; }
+  .lk-head { display: none; }
+}
 @media (max-width: 640px) {
   /* Side-by-side stat columns wrap instead of pushing B off screen. */
   table.grid.cols td { white-space: normal; overflow-wrap: break-word; }
