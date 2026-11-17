@@ -8,13 +8,14 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { REPO_ROOT } from "../cli/lib/history.ts";
-import { COT_MARKETS, computeCot, LOOKBACK_WEEKS, type CotMarketId, type CotReport, type DailyBar } from "../src/core/cot/cot.ts";
+import { COT_MARKETS, computeCot, type CotMarketId, type CotReport, type DailyBar } from "../src/core/cot/cot.ts";
 import type { CotFile } from "../src/core/types.ts";
 import { isPublicLog, runMain } from "./public-log.ts";
 import { yahooClient } from "./yahoo.ts";
 
 /** Lookback plus a year of year-over-year and sparkline history, with margin. */
-const REPORT_WEEKS = LOOKBACK_WEEKS + 52 + 26;
+/** All of it: the 3-year rank needs only LOOKBACK_WEEKS, but "most short since" reads the whole history (CFTC data starts 1986). */
+const HISTORY_FROM = "1986-01-01";
 /** Daily bars: enough to walk a signal through a long-lasting zone. */
 const BAR_DAYS = 730;
 
@@ -119,7 +120,7 @@ export async function runFetchCot(
   const provider = opts.provider ?? new CftcYahooProvider();
   const now = opts.now ?? new Date().toISOString();
   const prev = readCot(out);
-  const from = new Date(Date.parse(now) - REPORT_WEEKS * 7 * 24 * 3600_000).toISOString().slice(0, 10);
+  const from = HISTORY_FROM;
 
   let byCode: Record<string, CotReport[]> = {};
   let bars: Record<string, DailyBar[]> = {};

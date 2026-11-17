@@ -1,7 +1,7 @@
 // COT positioning gauge (SPEC §5.7), after Jason Shapiro's use of the CFTC
-// Commitments of Traders report: follow the commercials, the better-informed side.
-// Pure: given weekly COT reports and daily bars (oldest first), rank the
-// commercials' net position against its own history, find the zone, walk the
+// Commitments of Traders report, as he explains it: when the large speculators get
+// very short, look to buy (the commercials are the mirror). Pure: given weekly COT
+// reports and daily bars (oldest first), rank the large-spec net position against its own history, find the zone, walk the
 // reversal-confirmed signal, and derive a direction-aware swing sizing brake.
 // No network here; that lives in build/fetch-cot.ts.
 // No runtime imports: build/fetch-cot.ts is loaded natively by the Vite config chain
@@ -62,10 +62,10 @@ export const COT_MARKETS: readonly CotMarket[] = [
 export const LOOKBACK_WEEKS = 156;
 /** Top or bottom slice of the 3-year range that counts as crowded. */
 export const EDGE = 20;
-/** Oscillator ≥ this: commercials near their most long of the range, look to buy. */
-export const BUY_ZONE = 100 - EDGE;
-/** Oscillator ≤ this: commercials near their most short of the range, look to sell. */
-export const SELL_ZONE = EDGE;
+/** Oscillator ≤ this: large specs near their most short of the range, look to buy ("when it goes to zero, I look to be a buyer"). */
+export const BUY_ZONE = EDGE;
+/** Oscillator ≥ this: large specs near their most long of the range, look to sell. */
+export const SELL_ZONE = 100 - EDGE;
 /** Back at neutral: take profits (Shapiro: "when it goes back to 50, I'm out"). */
 export const NEUTRAL = 50;
 /** A reversal day undercuts (overtakes) the low (high) of this many prior sessions. */
@@ -99,21 +99,21 @@ export function rank(values: number[], i: number, n = LOOKBACK_WEEKS): number | 
   return max === min ? 50 : round((100 * (values[i]! - min)) / (max - min), 1);
 }
 
-export const zoneOf = (osc: number): CotZone => (osc >= BUY_ZONE ? "buy" : osc <= SELL_ZONE ? "sell" : "neutral");
+export const zoneOf = (osc: number): CotZone => (osc <= BUY_ZONE ? "buy" : osc >= SELL_ZONE ? "sell" : "neutral");
 
 export interface CotReading {
   report: string;
   released: string;
-  /** Commercials' net ranked in the lookback: 0 = their most short, 100 = their most long. */
+  /** Large specs' net ranked in the lookback: 0 = their most short (buy), 100 = their most long (sell). */
   osc: number;
 }
 
 /** Oscillator per report, oldest first; reports without a full lookback are left out. */
 export function oscillator(reports: CotReport[]): CotReading[] {
-  const comm = reports.map((r) => netPct(r.commercial, r.openInterest));
+  const spec = reports.map((r) => netPct(r.largeSpec, r.openInterest));
   const out: CotReading[] = [];
   for (let i = 0; i < reports.length; i++) {
-    const osc = rank(comm, i);
+    const osc = rank(spec, i);
     if (osc !== null) out.push({ report: reports[i]!.date, released: releaseDate(reports[i]!.date), osc });
   }
   return out;
@@ -158,7 +158,7 @@ export function walkSignal(readings: CotReading[], bars: DailyBar[]): CotSignal 
         const fill = pos.side === "long" ? Math.min(b.open, pos.stop) : Math.max(b.open, pos.stop);
         last = { kind: "stopped", side: pos.side, date: b.date, ret: ret(pos.side, pos.entry, fill) };
         pos = null;
-      } else if (known !== null && (pos.side === "long" ? known <= NEUTRAL : known >= NEUTRAL)) {
+      } else if (known !== null && (pos.side === "long" ? known >= NEUTRAL : known <= NEUTRAL)) {
         last = { kind: "exited", side: pos.side, date: b.date, ret: ret(pos.side, pos.entry, b.close) };
         pos = null;
       }
@@ -217,9 +217,15 @@ export interface CotMarketSnapshot {
   osc1y: number | null;
   net: CotBreakdown;
   net1y: CotBreakdown | null;
-  /** Small traders' and large specs' nets, ranked like the oscillator (context; the signal is the commercials). */
+  /** Small traders' and commercials' nets, ranked like the oscillator (context; the signal is the large specs). */
   smallRank: number | null;
-  specRank: number | null;
+  commRank: number | null;
+  /**
+   * The large specs' net against all the history fetched (Shapiro: a 1-year extreme may be
+   * nothing over 10): the side they lean to and the last report they were more extreme than
+   * now. since = null: the most extreme in all of it, back to `first`.
+   */
+  extreme: { side: "short" | "long"; since: string | null; first: string };
   /**
    * Small traders and large specs crowded on opposite sides (Shapiro's 1999: the small guys
    * long and making money while the large specs were short; the top came once they were squeezed out).
@@ -255,21 +261,29 @@ export function computeCotMarket(market: CotMarket, reports: CotReport[], bars: 
   const spec = sorted.map((r) => netPct(r.largeSpec, r.openInterest));
   const small = sorted.map((r) => netPct(r.small, r.openInterest));
   const i = sorted.length - 1;
-  const osc = rank(comm, i);
+  const osc = rank(spec, i);
   if (osc === null) return null;
   const latest = sorted[i]!;
   const smallRank = rank(small, i);
-  const specRank = rank(spec, i);
+  const commRank = rank(comm, i);
   const zone = zoneOf(osc);
   const high = (r: number | null) => r !== null && r >= 100 - EDGE;
   const low = (r: number | null) => r !== null && r <= EDGE;
   const divergence =
-    high(smallRank) && low(specRank) ? "small-long-large-short"
-    : low(smallRank) && high(specRank) ? "small-short-large-long"
+    high(smallRank) && low(osc) ? "small-long-large-short"
+    : low(smallRank) && high(osc) ? "small-short-large-long"
     : null;
+  const side = osc <= NEUTRAL ? "short" : "long";
+  let since: string | null = null;
+  for (let k = i - 1; k >= 0; k--) {
+    if (side === "short" ? spec[k]! < spec[i]! : spec[k]! > spec[i]!) {
+      since = sorted[k]!.date;
+      break;
+    }
+  }
   const spark: number[] = [];
   for (let k = Math.max(0, i - SPARK_WEEKS + 1); k <= i; k++) {
-    const v = rank(comm, k);
+    const v = rank(spec, k);
     if (v !== null) spark.push(v);
   }
   const released = releaseDate(latest.date);
@@ -282,12 +296,13 @@ export function computeCotMarket(market: CotMarket, reports: CotReport[], bars: 
     stale: daysBetween(released, etDate(now)) > STALE_DAYS,
     osc,
     zone,
-    osc4w: rank(comm, i - 4),
-    osc1y: rank(comm, i - 52),
+    osc4w: rank(spec, i - 4),
+    osc1y: rank(spec, i - 52),
     net: breakdown(latest),
     net1y: i >= 52 ? breakdown(sorted[i - 52]!) : null,
     smallRank,
-    specRank,
+    commRank,
+    extreme: { side, since, first: sorted[0]!.date },
     divergence,
     spark,
     signal: walkSignal(oscillator(sorted), [...bars].sort((a, b) => a.date.localeCompare(b.date))),
