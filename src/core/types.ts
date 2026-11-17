@@ -194,6 +194,20 @@ export interface SayingsFile {
   sayings: Saying[];
 }
 
+/** One single-stock inverse ETF on the LOOKUPS page (SPEC §3.7, Q80, Q82). */
+export interface InverseEtfInfo {
+  underlying: string;
+  leverage: number;
+  issuer: string;
+}
+
+/** lookups.json in trade-history: the LOOKUPS page's table, edited in the app. */
+export interface LookupsFile {
+  schemaVersion: 1;
+  /** ETF symbol → what it tracks. */
+  inverseEtfs: Record<string, InverseEtfInfo>;
+}
+
 /** One price for a held symbol (SPEC §5.4). */
 export interface Quote {
   price: number;
@@ -265,6 +279,8 @@ export interface DataBundle {
   playbook: PlaybookData | null;
   /** The QUOTES page (sayings.json); absent in bundles built before it existed. */
   sayings?: SayingsFile;
+  /** The LOOKUPS page (lookups.json); null/absent until first committed, when the page starts from the built-in list. */
+  lookups?: LookupsFile | null;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */
   imageFiles?: Record<string, string>;
   loadedAt: string;

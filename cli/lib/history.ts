@@ -45,6 +45,7 @@ export function loadHistory(dir: string): History {
       fills: existsSync(fillsDir) ? readdirSync(fillsDir).map((name) => ({ name, text: readFileSync(join(fillsDir, name), "utf8") })) : [],
       derived: readIf(join(dir, "derived", "trades.json")),
       sayings: readIf(join(dir, "sayings.json")),
+      lookups: readIf(join(dir, "lookups.json")),
     },
     validate,
   );

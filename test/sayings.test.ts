@@ -21,7 +21,7 @@ const A: Saying = { id: "q-aaaaaaaaaaaa", text: "Cut losers fast.", source: "Own
 const B: Saying = { id: "q-bbbbbbbbbbbb", text: "Volatility contracts before it expands.", source: "Review video", link: "https://example.com/v", tags: ["volatility"], addedAt: "2026-11-10T14:00:00.000Z" };
 
 const snap = (sayings: Saying[] = []): HistorySnapshot => ({
-  config, symbols: {}, overrides: { trades: {}, openingPositions: [] }, fills: [], derived: null, sayings: { schemaVersion: 1, sayings },
+  config, symbols: {}, overrides: { trades: {}, openingPositions: [] }, fills: [], derived: null, sayings: { schemaVersion: 1, sayings }, lookups: null,
 });
 
 describe("sayings.json", () => {

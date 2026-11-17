@@ -6,7 +6,7 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 import { parseJsonFile } from "../data-error.ts";
 import { etDate } from "../normalize/util.ts";
 import { SCHEMAS, type SchemaTexts, type Validate } from "../schema-names.ts";
-import type { Config, DerivedTrades, Fill, FillsFile, Overrides, SayingsFile, SymbolsMap } from "../types.ts";
+import type { Config, DerivedTrades, Fill, FillsFile, LookupsFile, Overrides, SayingsFile, SymbolsMap } from "../types.ts";
 
 export interface HistorySnapshot {
   config: Config;
@@ -16,6 +16,8 @@ export interface HistorySnapshot {
   derived: DerivedTrades | null;
   /** sayings.json (the QUOTES page); empty when the file doesn't exist yet. */
   sayings: SayingsFile;
+  /** lookups.json (the LOOKUPS page); null when the file doesn't exist yet. */
+  lookups: LookupsFile | null;
 }
 
 /** Raw file texts of a trade-history checkout; optional files may be missing. */
@@ -27,6 +29,7 @@ export interface HistoryTexts {
   fills: Array<{ name: string; text: string }>;
   derived?: string;
   sayings?: string;
+  lookups?: string;
 }
 
 export interface FileWrite {
@@ -66,7 +69,9 @@ export function parseHistory(t: HistoryTexts, validate: Validate): HistorySnapsh
   const derived = t.derived === undefined ? null : parseJsonFile<DerivedTrades>(t.derived, "derived/trades.json");
   const sayings = t.sayings === undefined ? emptySayings() : parseJsonFile<SayingsFile>(t.sayings, "sayings.json");
   validate("sayings", sayings, "sayings.json");
-  return { config, symbols, overrides, fills, derived, sayings };
+  const lookups = t.lookups === undefined ? null : parseJsonFile<LookupsFile>(t.lookups, "lookups.json");
+  if (lookups) validate("lookups", lookups, "lookups.json");
+  return { config, symbols, overrides, fills, derived, sayings, lookups };
 }
 
 export const emptySayings = (): SayingsFile => ({ schemaVersion: 1, sayings: [] });

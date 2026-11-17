@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "lookups.schema.json",
+  "title": "trade-history lookups.json (the LOOKUPS page: single-stock inverse ETFs, edited in the app)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "inverseEtfs"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "inverseEtfs": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z][A-Z0-9.]{0,9}$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["underlying", "leverage", "issuer"],
+        "properties": {
+          "underlying": { "type": "string", "pattern": "^[A-Z][A-Z0-9.]{0,9}$" },
+          "leverage": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 },
+          "issuer": { "type": "string", "minLength": 1, "maxLength": 60 }
+        }
+      }
+    }
+  }
+}

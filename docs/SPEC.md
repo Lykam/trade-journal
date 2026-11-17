@@ -398,6 +398,25 @@ Optional: a repo without it has no quotes.
 
 ---
 
+### 3.7 `lookups.json`: inverse ETF lookups (Q82)
+
+The LOOKUPS page's table (§6.7c) of single-stock inverse ETFs, edited in the
+app. Optional: until it exists, the page starts from the built-in list in the
+app repo (`src/core/lookups/inverse-etfs-starter.json`), and the first commit
+from the page writes the whole table here.
+
+```json
+{
+  "schemaVersion": 1,
+  "inverseEtfs": {
+    "NVQD": { "underlying": "NVQX", "leverage": 2, "issuer": "Some Issuer" }
+  }
+}
+```
+
+- Keys are ETF symbols, sorted; tickers are uppercase. `leverage` is a
+  positive number (1, 2, …), `issuer` free text up to 60 characters.
+
 ## 4. Import and normalization
 
 All parsing, dedupe and grouping code lives in `trade-journal` as pure TS
@@ -1390,6 +1409,24 @@ books, other traders or the owner's own head.
   marked **DEPLOYING** until the redeploy brings it into the data.
 - The demo shows made-up quotes from made-up sources; COMMIT is disabled there.
 
+### 6.7c Lookups (Q80, Q82)
+
+Search a stock to find its single-stock inverse ETF(s), or the other way round.
+
+- A table of ETF, UNDERLYING, LEV, ISSUER, grouped by underlying, with a search
+  box matching either ticker. It reads `lookups.json` (§3.7), so it unlocks like
+  every other page.
+- Each row has a checkbox, and the header box ticks every row shown. Ticked rows
+  are struck through and listed under **Changes** as REMOVE pills (click one to
+  keep it). **+ ADD ETF** adds a row of ETF / UNDERLYING / LEV / ISSUER inputs
+  (issuer suggests those on file; Enter in the last one adds another row). An add
+  over a symbol already on file replaces it.
+- **COMMIT…** reads trade-history fresh and previews every removal, add and
+  replacement, then writes them all in one commit (Q40); it needs the browser
+  token. The table shows the result at once, marked **DEPLOYING** until the
+  redeploy brings it into the data.
+- The demo shows the built-in list; COMMIT is disabled there.
+
 ### 6.8 Import
 
 See §4.5A. Drag-and-drop CSVs, then a preview (new fills and trades, with
@@ -1779,8 +1816,9 @@ the commit leaves the private repo.
 | Q77 | Error table | Owner request 2026-10-12, after Nicolas Darvas's table of errors (*How I Made $2,000,000 in the Stock Market*): every reviewed loss records its error and a page lists them to learn from. Kept simple: one free-text line per loss, no fixed error categories, no P&L-by-error report. Playbook's template and skill gain a `## The Error` section asked only when the idea lost money ("What was the error?"; Darvas's exact wording was not found, so this is a paraphrase of his practice). The journal adds the ERRORS page (§6.7a). |
 | Q78 | Chart uploads | Owner request 2026-10-15: add chart screenshots from the app instead of starting a Claude session. Trade detail's Charts panel takes a pasted, dropped or chosen image and commits it to **Playbook** through the Git Data API, one image per commit (`Add <SYMBOL> <DATE> <1m/5m/daily> chart (uploaded in the journal)`), the same blobs → tree → commit → ref path as trade-history edits. The name is picked against Playbook's main at commit time and never overwrites (-2, -3, …, across image formats), and a moved main is re-read and retried. 1m and 5m are saved as `-intraday-1m` / `-intraday-5m`, so Q33's gallery rule and the review skill still treat them as intraday charts (Playbook's `sync_review.py` accepts the suffix); the gallery labels them 1M / 5M. The one browser token now also needs Contents: read and write on Playbook; saving it checks that (`playbook` in the sealed record) and Settings shows it. Owner chose uploads over drawn candlestick charts, so §11's TradingView item stays future. |
 | Q79 | Errors on any trade | Owner request 2026-10-15: an error can be made on a trade that still made money (one real review already names one), so the error table is no longer losses only. The Playbook skill asks "What was the error?" on every closed trade and offers a skip, which writes "No error."; the ERRORS page lists every closed reviewed idea whose review names an error, win or loss, and leaves out no-error answers. A reviewed loss with nothing written still shows NOT WRITTEN (a reminder); a win with nothing written is not listed. |
-| Q80 | Inverse ETF lookup | Owner request 2026-11-04: a page to search a stock and find its single-stock inverse ETF(s). The LOOKUPS page (reachable while locked, like CALC) is a searchable table over `src/core/lookups/inverse-etfs.json`, matching on either the ETF symbol or its underlying. The table is **manually curated**, not fetched: it started from the owner's TradingView "Leveraged Inverse ETFs" watchlist (~175 symbols), keeping only the ones that track a single stock (TSLQ → TSLA, NVDD → NVDA, …) and dropping sector/country/bond/commodity/index/basket/volatility inverse ETFs (SPXS, TZA, FNGD, …), which have no single-stock underlying. A follow-up pass (2026-11-05) re-pulled every excluded symbol's TradingView description to double-check the cut: it caught 4 missed single-stock entries for SK hynix (SKDD/SKHN/SKHQ/SKHZ → SKHY, the Nasdaq ADR; SK hynix itself trades in Korea as KRX:000660) and confirmed the rest (Mag7/FANG+ baskets, DRAM/AI/auto-industry sector products, etc.) genuinely have no single-stock underlying. Owner request 2026-11-06 added the three classic QQQ inverses (SQQQ/QID/PSQ) by name despite QQQ being an index ETF, not a single stock — a deliberate one-off exception to the single-stock rule, not a reopening of the broader sector/index scope. No build script fetches this: TradingView access exists only in a Claude session, not in this repo's Node scripts (Yahoo only), so refreshing it means asking Claude to re-pull the watchlist and re-derive the file, every so often. A per-stock sector-ETF lookup was discussed and deferred — out of scope for this pass. |
+| Q80 | Inverse ETF lookup | Owner request 2026-11-04: a page to search a stock and find its single-stock inverse ETF(s). The LOOKUPS page (reachable while locked, like CALC) is a searchable table over `src/core/lookups/inverse-etfs.json`, matching on either the ETF symbol or its underlying. The table is **manually curated**, not fetched: it started from the owner's TradingView "Leveraged Inverse ETFs" watchlist (~175 symbols), keeping only the ones that track a single stock (TSLQ → TSLA, NVDD → NVDA, …) and dropping sector/country/bond/commodity/index/basket/volatility inverse ETFs (SPXS, TZA, FNGD, …), which have no single-stock underlying. A follow-up pass (2026-11-05) re-pulled every excluded symbol's TradingView description to double-check the cut: it caught 4 missed single-stock entries for SK hynix (SKDD/SKHN/SKHQ/SKHZ → SKHY, the Nasdaq ADR; SK hynix itself trades in Korea as KRX:000660) and confirmed the rest (Mag7/FANG+ baskets, DRAM/AI/auto-industry sector products, etc.) genuinely have no single-stock underlying. Owner request 2026-11-06 added the three classic QQQ inverses (SQQQ/QID/PSQ) by name despite QQQ being an index ETF, not a single stock — a deliberate one-off exception to the single-stock rule, not a reopening of the broader sector/index scope. No build script fetches this: TradingView access exists only in a Claude session, not in this repo's Node scripts (Yahoo only), so refreshing it meant asking Claude to re-pull the watchlist and re-derive the file (superseded by Q82: the list is now edited on the page). A per-stock sector-ETF lookup was discussed and deferred — out of scope for this pass. |
 | Q81 | Quotes page | Owner request 2026-11-15: a page to keep and scroll through trading quotes heard or thought of while trading, "similar to the Errors page", with an optional source, link and category. Unlike ERRORS (read from Playbook reviews) quotes are entered in the app, so they live in trade-history's `sayings.json` (§3.6), encrypted like the rest, and each change is one previewed commit like the account value (Q68). Free-form tags rather than a fixed category list, so a category is just a tag. Named `sayings` to stay clear of `quotes.json` (prices). |
+| Q82 | Editable lookups | Owner request 2026-11-17, with two inverse ETFs being delisted that day: add or remove several lookups at once in the UI, not by command. Owner chose to move the table into trade-history (`lookups.json`, §3.7) rather than keep it in the app with edits on top, so LOOKUPS now unlocks like the other pages (previously reachable while locked). The old built-in table stays in the app only as the starting list until the first commit creates `lookups.json`. Ticked removals and any number of added rows go in one previewed commit (§6.7c). Named `lookups` to leave room for other lookups later. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy

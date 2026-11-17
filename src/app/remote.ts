@@ -5,6 +5,7 @@ import { planBalanceCommit, type BalanceCommitPlan } from "../core/account/commi
 import { commitPlan, readHistory, type GitHubClient, type RemoteHistory } from "../core/github/client";
 import { importFingerprint, importMessage, importWrites, planImport, type ImportInput, type ImportPlan } from "../core/import/plan";
 import { planOverrideCommit, type OverrideCommitPlan, type StagedAction } from "../core/journal/overrides";
+import { planLookupsCommit, type LookupsChange, type LookupsCommitPlan } from "../core/lookups/lookups";
 import { planSayingCommit, type SayingChange, type SayingCommitPlan } from "../core/sayings/sayings";
 import { validatorFrom, type SchemaTexts } from "../core/schema-names";
 import { planSymbolCommit, type SymbolChange, type SymbolCommitPlan } from "../core/symbols/mapping";
@@ -13,11 +14,12 @@ import config from "../../schema/config.schema.json?raw";
 import fills from "../../schema/fills.schema.json?raw";
 import overrides from "../../schema/overrides.schema.json?raw";
 import sayings from "../../schema/sayings.schema.json?raw";
+import lookups from "../../schema/lookups.schema.json?raw";
 import symbols from "../../schema/symbols.schema.json?raw";
 import trades from "../../schema/trades.schema.json?raw";
 import * as compiled from "virtual:tj-validators";
 
-export const schemas: SchemaTexts = { config, fills, overrides, symbols, trades, sayings };
+export const schemas: SchemaTexts = { config, fills, overrides, symbols, trades, sayings, lookups };
 // Precompiled at build time from the same schema files (no `new Function` under the CSP, Q46).
 export const validate = validatorFrom((name) => compiled[name]);
 /** The derived/trades.json generator, as the CLI writes it. */
@@ -87,3 +89,12 @@ export const computeSaying = (remote: RemoteHistory, change: SayingChange): Sayi
 
 export const commitSaying = (gh: GitHubClient, remote: RemoteHistory, plan: SayingCommitPlan, change: SayingChange) =>
   commitPlan(gh, validate, remote, plan, (r) => computeSaying(r, change));
+
+// ---------------------------------------------------------------------------
+// Lookups (lookups.json, Q82)
+
+export const computeLookups = (remote: RemoteHistory, change: LookupsChange): LookupsCommitPlan =>
+  planLookupsCommit(remote.snap, change, { schemas }, validate);
+
+export const commitLookups = (gh: GitHubClient, remote: RemoteHistory, plan: LookupsCommitPlan, change: LookupsChange) =>
+  commitPlan(gh, validate, remote, plan, (r) => computeLookups(r, change));
