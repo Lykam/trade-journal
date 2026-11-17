@@ -21,7 +21,7 @@ const DEMO_TOKEN: TokenState = { status: "ok", record: { repo: "demo/trade-histo
 function demoRemote(data: DataBundle): RemoteHistory {
   return {
     state: { repo: { owner: "demo", repo: "trade-history" }, branch: "main", headSha: "demo000", treeSha: "", files: new Map() },
-    snap: { config: data.config, symbols: data.symbols, overrides: data.overrides, fills: data.fills, derived: data.derived, sayings: data.sayings ?? { schemaVersion: 1, sayings: [] } },
+    snap: { config: data.config, symbols: data.symbols, overrides: data.overrides, fills: data.fills, derived: data.derived, sayings: data.sayings ?? { schemaVersion: 1, sayings: [] }, lookups: data.lookups ?? null },
     archived: { paths: new Set(), blobShas: new Set() },
   };
 }

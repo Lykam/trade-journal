@@ -30,6 +30,7 @@ export function loadBundle(historyDir: string, quotesFile: string, playbookDir: 
     cot: cotFile ? readCot(cotFile) : null,
     playbook: loadPlaybook(playbookDir),
     sayings: h.sayings,
+    lookups: h.lookups,
     loadedAt: new Date().toISOString(),
     history: headCommit(historyDir),
   };

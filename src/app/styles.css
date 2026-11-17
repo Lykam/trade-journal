@@ -471,6 +471,10 @@ table.grid tr.sub td { border-top-color: var(--rule-faint); }
    next to each other at a glance, not just on close inspection). */
 table.grid.lookups tr.band td { background: rgba(245, 165, 36, 0.1); }
 table.grid.lookups tbody tr { border-top-color: var(--border-strong); }
+table.grid.lookups .pick { width: 1%; padding-right: 0; }
+table.grid.lookups tr.removing td { text-decoration: line-through; color: var(--muted); }
+table.grid.lookups tr.removing td.pick { text-decoration: none; }
+.lookups-edit .input.narrow { width: 7.5em; }
 @media (max-width: 640px) {
   /* Side-by-side stat columns wrap instead of pushing B off screen. */
   table.grid.cols td { white-space: normal; overflow-wrap: break-word; }

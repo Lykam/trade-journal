@@ -99,6 +99,8 @@ describe("precompiled validators (S4)", () => {
       ["trades", JSON.parse(readFileSync(join(FIXTURES, "expected", "trades.json"), "utf8"))],
       ["overrides", { trades: { x: { style: "both" } } }],
       ["sayings", { schemaVersion: 1, sayings: [{ id: "q-0123456789ab", text: "Cut losers.", link: "https://example.com/v", tags: ["exits"], addedAt: "2026-11-15T14:00:00.000Z" }] }],
+      ["lookups", { schemaVersion: 1, inverseEtfs: { TSLQ: { underlying: "TSLA", leverage: 2, issuer: "Tradr" } } }],
+      ["lookups", { schemaVersion: 1, inverseEtfs: { "bad sym": { underlying: "", leverage: -1, issuer: "" } } }],
       ["sayings", { schemaVersion: 1, sayings: [{ id: "q-1", text: "", link: "javascript:alert(1)", tags: ["Bad Tag"], addedAt: "x" }] }],
     ];
     for (const [name, data] of cases) expect(outcome(pre, name, data)).toBe(outcome(run, name, data));

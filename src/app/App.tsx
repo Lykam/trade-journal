@@ -82,13 +82,13 @@ export function App() {
   const pinned = new URLSearchParams(window.location.search).has("now");
 
   // The encrypted site shows nothing but the passphrase screen until unlocked (the demo never
-  // locks), except the calculator and lookups: neither needs trade data, so they stay reachable
-  // for quick access (e.g. a phone home-screen shortcut) without unlocking first.
-  if (load.status === "locked" && path !== "/calc" && path !== "/lookups") return __TJ_DEMO__ ? null : <LockScreen notice={load.notice} unlock={load.unlock} />;
+  // locks), except the calculator: it needs no trade data, so it stays reachable for quick access
+  // (e.g. a phone home-screen shortcut) without unlocking first. LOOKUPS reads trade-history's
+  // lookups.json (Q82), so it unlocks like the rest.
+  if (load.status === "locked" && path !== "/calc") return __TJ_DEMO__ ? null : <LockScreen notice={load.notice} unlock={load.unlock} />;
 
   let page: React.ReactNode;
   if (path === "/calc") page = <CalculatorPage cot={load.status === "ready" ? load.data.cot : null} />;
-  else if (path === "/lookups") page = <LookupsPage />;
   else if (load.status === "loading") page = <div className="center-msg">LOADING…</div>;
   else if (load.status === "error")
     page = (
@@ -110,6 +110,7 @@ export function App() {
     else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
     else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
     else if (path === "/quotes") page = <QuotesPage data={data} />;
+    else if (path === "/lookups") page = <LookupsPage data={data} />;
     else if (path === "/reports") page = <ReportsPage journal={journal!} view={view} params={params} />;
     else if (path === "/settings") page = <SettingsPage data={data} />;
     else if (path === "/import") page = <ImportPage data={data} />;
