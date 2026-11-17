@@ -22,8 +22,8 @@ export function brakeLabel(b: CotBrake): string {
 export function brakeReason(side: CotSide, b: CotBrake): string {
   if (b.multiplier >= 1) return side === "long" ? "No index in the sell zone." : "No index in the buy zone.";
   return side === "long"
-    ? `${b.against.join(", ")} in the sell zone: commercials near their most short.`
-    : `${b.against.join(", ")} in the buy zone: commercials near their most long.`;
+    ? `${b.against.join(", ")} in the sell zone: large specs near their most long.`
+    : `${b.against.join(", ")} in the buy zone: large specs near their most short.`;
 }
 
 function signalText(s: CotSignal, etf: string): string {
@@ -32,20 +32,37 @@ function signalText(s: CotSignal, etf: string): string {
   return "NO SIGNAL";
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthYear = (d: string) => `${MONTHS[+d.slice(5, 7) - 1]} ${d.slice(0, 4)}`;
+const yearsBetween = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / (365.25 * 86_400_000);
+
+/**
+ * The large specs against all history: "MOST SHORT SINCE SEP 2020 (6.2Y)" or "MOST SHORT ON RECORD (SINCE 1999)".
+ * `notable` = at least a year, the bar for showing it on the main row (Shapiro: a 1-year extreme may be nothing over 10).
+ */
+function extremeText(m: CotMarketSnapshot): { text: string; notable: boolean } | null {
+  const e = m.extreme;
+  if (!e) return null;
+  const side = e.side === "short" ? "SHORT" : "LONG";
+  if (e.since === null) return { text: `MOST ${side} ON RECORD (SINCE ${e.first.slice(0, 4)})`, notable: true };
+  const y = yearsBetween(e.since, m.report);
+  return { text: `MOST ${side} SINCE ${monthYear(e.since).toUpperCase()} (${y.toFixed(1)}Y)`, notable: y >= 1 };
+}
+
 function lastText(l: CotSignal["last"]): string | null {
   if (!l) return null;
   const what = l.kind === "expired" ? "EXPIRED UNCONFIRMED" : l.kind === "stopped" ? "STOPPED" : "EXITED AT NEUTRAL";
   return `LAST: ${SIDE[l.side]} ${what} ${mmdd(l.date)}${l.ret === null ? "" : ` ${signedPct(l.ret)}`}`;
 }
 
-/** 0–100 bar: sell zone (left) tinted red, buy zone (right) green, a tick at 50, the reading as a needle. */
+/** 0–100 bar: buy zone (left) tinted green, sell zone (right) red, a tick at 50, the reading as a needle. */
 function Meter({ m }: { m: CotMarketSnapshot }) {
   const W = 120, H = 14, x = (v: number) => (v / 100) * W;
   return (
-    <svg className="cot-meter" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${m.name} commercials ${m.osc.toFixed(0)} of 100`}>
+    <svg className="cot-meter" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${m.name} large specs ${m.osc.toFixed(0)} of 100`}>
       <rect x="0" y="4" width={W} height="6" className="f-dim" opacity="0.35" />
-      <rect x="0" y="4" width={x(SELL_ZONE)} height="6" className="f-loss" opacity="0.6" />
-      <rect x={x(BUY_ZONE)} y="4" width={W - x(BUY_ZONE)} height="6" className="f-gain" opacity="0.6" />
+      <rect x="0" y="4" width={x(BUY_ZONE)} height="6" className="f-gain" opacity="0.6" />
+      <rect x={x(SELL_ZONE)} y="4" width={W - x(SELL_ZONE)} height="6" className="f-loss" opacity="0.6" />
       <line x1={x(NEUTRAL)} x2={x(NEUTRAL)} y1="2" y2="12" className="chart-ref" />
       <rect x={Math.min(W - 3, Math.max(0, x(m.osc) - 1.5))} y="0" width="3" height={H} className="cot-needle" />
     </svg>
@@ -67,6 +84,7 @@ function Spark({ m }: { m: CotMarketSnapshot }) {
 
 function Row({ m, more }: { m: CotMarketSnapshot; more: boolean }) {
   const last = lastText(m.signal.last);
+  const ext = extremeText(m);
   return (
     <li className="cot-row">
       <div className="cot-main">
@@ -78,6 +96,7 @@ function Row({ m, more }: { m: CotMarketSnapshot; more: boolean }) {
           4W {m.osc4w === null ? "—" : signed(m.osc - m.osc4w)} · 1Y {m.osc1y === null ? "—" : signed(m.osc - m.osc1y)}
         </span>
         <span className={m.signal.state === "confirmed" ? "accent" : m.signal.state === "armed" ? "half" : "dim"}>{signalText(m.signal, m.etf)}</span>
+        {ext?.notable && m.zone !== "neutral" && <span className="accent">{ext.text}</span>}
         {m.stale && <span className="half">STALE</span>}
       </div>
       {more && (
@@ -96,8 +115,14 @@ function Row({ m, more }: { m: CotMarketSnapshot; more: boolean }) {
                 </dd>
               </>
             )}
-            <dt>Large specs</dt>
-            <dd>{crowd(m.specRank ?? null)}</dd>
+            {ext && (
+              <>
+                <dt>All history</dt>
+                <dd>LARGE SPECS {ext.text}</dd>
+              </>
+            )}
+            <dt>Commercials</dt>
+            <dd>{crowd(m.commRank ?? null)} (the mirror; high = most long)</dd>
             <dt>Small traders</dt>
             <dd>{crowd(m.smallRank)}</dd>
             <dt>Report</dt>
@@ -123,12 +148,14 @@ function CotRules() {
     <div className="cot-rules small">
       <b className="label">THE RULES (ANY COT MARKET)</b>
       <ul>
-        <li><b>Read:</b> legacy report, futures only. Follow the commercials (the better-informed side): net = long − short, as % of open interest.</li>
-        <li><b>Rank:</b> where that net sits within its last 3 years (156 weekly reports; the &ldquo;3yr range&rdquo; on a COT chart). 0 = their most short, 100 = their most long.</li>
-        <li><b>Relative, not absolute:</b> in markets where commercials are always short (gold, crude), a buy is their short being small for them.</li>
-        <li><b>Buy zone (≥ {BUY_ZONE}):</b> commercials near their most long → look for a long. <b>Sell zone (≤ {SELL_ZONE}):</b> near their most short → look for a short.</li>
+        <li><b>Read:</b> legacy report, futures only. Watch the large speculators (non-commercial): net = long − short, as % of open interest. The commercials are their mirror.</li>
+        <li><b>Rank:</b> where that net sits within its last 3 years (156 weekly reports). 0 = their most short, 100 = their most long.</li>
+        <li><b>Buy zone (≤ {BUY_ZONE}):</b> large specs very short → look to buy (&ldquo;when it goes to zero, I look to be a buyer&rdquo;). <b>Sell zone (≥ {SELL_ZONE}):</b> very long → look to sell.</li>
+        <li><b>Check the long history:</b> an extreme over 3 years may be ordinary over 10. Most short since years ago (or on record) is a stronger setup.</li>
+        <li><b>Relative, not absolute:</b> in markets where one side is always net short (gold, crude), compare to their own history, not to zero.</li>
         <li><b>A zone only arms it.</b> No price confirmation, no trade.</li>
         <li><b>Confirm with a reversal day:</b> undercut the prior 10-day low, then close up on the day in the upper half of its range (mirror it for shorts at a 10-day high).</li>
+        <li><b>Best confirmation:</b> bad news that fails to push it lower (his lumber low: a terrible housing number, a gap to a new low, closed up on the day). Mirror for shorts.</li>
         <li><b>Stop:</b> the reversal day&apos;s low (high for shorts). Stopped out while the zone holds? Re-arm and wait for the next reversal.</li>
         <li><b>Exit:</b> take profits when the rank gets back to {NEUTRAL}.</li>
         <li><b>Expire:</b> the zone ends before a reversal shows up → no trade.</li>
@@ -136,13 +163,14 @@ function CotRules() {
         <li><b>Levels, not weekly changes.</b> Where they sit matters, not how much they moved this week.</li>
         <li><b>Extra tell:</b> small traders crowded long while large specs are crowded short (late 1999) — the top comes once the specs are squeezed out.</li>
         <li><b>Sizing:</b> any index in the sell zone → swing longs ½ size; any in the buy zone → inverse ETFs ½ size. Never sizes up. Day trades untouched.</li>
-        <li><b>Track record here:</b> longs worked on the S&amp;P and Dow, not the Nasdaq (large specs did better there). Shorts failed everywhere, which is why the short side only brakes. Failed on the Russell.</li>
+        <li><b>COT alone is never the trade.</b> It points to good risk/reward and keeps you out of trouble (don&apos;t be short where everyone already is).</li>
+        <li><b>Track record here:</b> longs worked on the S&amp;P, Nasdaq and Dow. Shorts failed in backtests, which is why the short side only brakes. Failed on the Russell.</li>
       </ul>
     </div>
   );
 }
 
-/** COT positioning (SPEC §5.7): commercials' positioning per index, the reversal-confirmed signal, and the swing sizing brake. */
+/** COT positioning (SPEC §5.7): large-spec crowding per index, the reversal-confirmed signal, and the swing sizing brake. */
 export function CotCard({ c }: { c: CotFile | null | undefined }) {
   const [more, setMore] = useState(false);
   if (!c || !c.snapshot.markets.length) return null;

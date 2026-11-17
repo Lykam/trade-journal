@@ -51,8 +51,8 @@ describe("rank and zones", () => {
     expect(rank([1, 2, 3], 2)).toBeNull();
   });
 
-  it("splits 0–100 into sell ≤ 20, buy ≥ 80, neutral between", () => {
-    expect([0, 20, 21, 79, 80, 100].map(zoneOf)).toEqual(["sell", "sell", "neutral", "neutral", "buy", "buy"]);
+  it("splits 0–100 into buy ≤ 20, sell ≥ 80, neutral between", () => {
+    expect([0, 20, 21, 79, 80, 100].map(zoneOf)).toEqual(["buy", "buy", "neutral", "neutral", "sell", "sell"]);
   });
 
   it("dates a Tuesday report's release to the Friday after", () => {
@@ -67,29 +67,29 @@ describe("walkSignal", () => {
   const downReversal: DailyBar = { date: "2026-01-13", open: 101, high: 103, low: 99, close: 99.5 };
 
   it("arms in the buy zone and waits for a reversal day", () => {
-    expect(walkSignal([reading("2026-01-02", 90)], [...base(), flatBar("2026-01-13")])).toMatchObject({ state: "armed", side: "long", since: "2026-01-13" });
+    expect(walkSignal([reading("2026-01-02", 10)], [...base(), flatBar("2026-01-13")])).toMatchObject({ state: "armed", side: "long", since: "2026-01-13" });
   });
 
   it("confirms a long on an upside reversal, stop at its low", () => {
-    const s = walkSignal([reading("2026-01-02", 90)], [...base(), upReversal, { date: "2026-01-14", open: 100, high: 101, low: 98, close: 100 }]);
+    const s = walkSignal([reading("2026-01-02", 10)], [...base(), upReversal, { date: "2026-01-14", open: 100, high: 101, low: 98, close: 100 }]);
     expect(s).toMatchObject({ state: "confirmed", side: "long", since: "2026-01-13", entry: 100.5, stop: 97 });
   });
 
   it("confirms a short on a downside reversal in the sell zone, stop at its high", () => {
-    expect(walkSignal([reading("2026-01-02", 10)], [...base(), downReversal])).toMatchObject({ state: "confirmed", side: "short", stop: 103 });
+    expect(walkSignal([reading("2026-01-02", 90)], [...base(), downReversal])).toMatchObject({ state: "confirmed", side: "short", stop: 103 });
   });
 
   it("stops out at the stop (or a worse open), then re-arms while the zone holds", () => {
     const stopped = [...base(), upReversal, { date: "2026-01-14", open: 99, high: 99, low: 96, close: 96.5 }];
-    expect(walkSignal([reading("2026-01-02", 90)], stopped).state).toBe("neutral");
-    const s = walkSignal([reading("2026-01-02", 90)], [...stopped, flatBar("2026-01-15", 96.5)]);
+    expect(walkSignal([reading("2026-01-02", 10)], stopped).state).toBe("neutral");
+    const s = walkSignal([reading("2026-01-02", 10)], [...stopped, flatBar("2026-01-15", 96.5)]);
     expect(s).toMatchObject({ state: "armed", side: "long", since: "2026-01-15" });
     expect(s.last).toEqual({ kind: "stopped", side: "long", date: "2026-01-14", ret: -3.48 });
   });
 
   it("takes profits once the oscillator is back to 50", () => {
     const s = walkSignal(
-      [reading("2026-01-02", 90), reading("2026-01-13", 45)],
+      [reading("2026-01-02", 10), reading("2026-01-13", 55)],
       [...base(), upReversal, { date: "2026-01-14", open: 102, high: 103, low: 101, close: 102.51 }],
     );
     expect(s.state).toBe("neutral");
@@ -97,19 +97,19 @@ describe("walkSignal", () => {
   });
 
   it("expires an armed zone that ends before a reversal confirms it", () => {
-    const s = walkSignal([reading("2026-01-02", 90), reading("2026-01-13", 70)], flatBars("2026-01-03", 12));
+    const s = walkSignal([reading("2026-01-02", 10), reading("2026-01-13", 30)], flatBars("2026-01-03", 12));
     expect(s.state).toBe("neutral");
     expect(s.last).toMatchObject({ kind: "expired", side: "long", date: "2026-01-14" });
   });
 
   it("ignores a reading released more than two weeks before the bar", () => {
     const bars = [...flatBars("2026-01-20", 10), { ...upReversal, date: "2026-01-30" }];
-    expect(walkSignal([reading("2026-01-02", 90)], bars).state).toBe("neutral");
+    expect(walkSignal([reading("2026-01-02", 10)], bars).state).toBe("neutral");
   });
 
   it("only uses a reading from the session after its release", () => {
     // Released the same day as the reversal: not known yet.
-    expect(walkSignal([reading("2026-01-13", 90)], [...base(), upReversal]).state).toBe("neutral");
+    expect(walkSignal([reading("2026-01-13", 10)], [...base(), upReversal]).state).toBe("neutral");
   });
 });
 
@@ -122,10 +122,12 @@ describe("computeCotMarket", () => {
     expect(computeCotMarket(ES, reports(LOOKBACK_WEEKS - 1, (i) => i), [], now)).toBeNull();
   });
 
-  it("puts commercials at their most long in the buy zone, with 4-week and year-over-year readings", () => {
+  it("puts large specs at their most short in the buy zone, with 4-week and year-over-year readings", () => {
     const m = computeCotMarket(ES, reports(n, (i) => (i === n - 1 ? -50 : i % 20)), [], now)!;
-    expect(m).toMatchObject({ osc: 100, zone: "buy", specRank: 0, report: lastReport, stale: false });
+    expect(m).toMatchObject({ osc: 0, zone: "buy", commRank: 100, report: lastReport, stale: false });
     expect(m.net.commercial).toBe(50);
+    // -50 is lower than anything before it: the most short on record.
+    expect(m.extreme).toEqual({ side: "short", since: null, first: "2022-01-04" });
     expect(m.osc4w).not.toBeNull();
     expect(m.osc1y).not.toBeNull();
     expect(m.net.largeSpec).toBe(-50);
@@ -136,8 +138,16 @@ describe("computeCotMarket", () => {
   it("flags small traders long while large specs are short (the 1999 setup)", () => {
     const m = computeCotMarket(ES, reports(n, (i) => -i, (i) => i), [], now)!;
     expect(m.smallRank).toBe(100);
-    expect(m.specRank).toBe(0);
+    expect(m.osc).toBe(0);
     expect(m.divergence).toBe("small-long-large-short");
+  });
+
+  it("dates the last time large specs were more extreme, across all of the history", () => {
+    // A deep short early on (week 3 at -40), then a range of 0..19, ending at -30: most short since week 3.
+    const m = computeCotMarket(ES, reports(n, (i) => (i === 3 ? -40 : i === n - 1 ? -30 : i % 20)), [], now)!;
+    expect(m.extreme).toEqual({ side: "short", since: addDays("2022-01-04", 21), first: "2022-01-04" });
+    const top = computeCotMarket(ES, reports(n, (i) => (i === n - 1 ? 25 : i % 20)), [], now)!;
+    expect(top.extreme).toMatchObject({ side: "long", since: null });
   });
 
   it("marks a reading stale once its release is more than two weeks old", () => {
@@ -150,15 +160,15 @@ describe("cotBrake", () => {
   const m = (id: CotMarketSnapshot["id"], osc: number, stale = false) => ({ id, osc, zone: zoneOf(osc), stale }) as CotMarketSnapshot;
 
   it("halves longs while an index is in the sell zone and inverse ETFs while one is in the buy zone", () => {
-    expect(cotBrake([m("ES", 62), m("NQ", 8), m("YM", 16)])).toEqual({
+    expect(cotBrake([m("ES", 24), m("NQ", 83), m("YM", 80)])).toEqual({
       long: { multiplier: COT_BRAKE, against: ["NQ", "YM"] },
       short: { multiplier: 1, against: [] },
     });
-    expect(cotBrake([m("ES", 88), m("NQ", 50), m("YM", 50)]).short).toEqual({ multiplier: COT_BRAKE, against: ["ES"] });
+    expect(cotBrake([m("ES", 12), m("NQ", 50), m("YM", 50)]).short).toEqual({ multiplier: COT_BRAKE, against: ["ES"] });
   });
 
   it("leaves stale markets out", () => {
-    expect(cotBrake([m("NQ", 5, true)]).long.multiplier).toBe(1);
+    expect(cotBrake([m("NQ", 95, true)]).long.multiplier).toBe(1);
   });
 });
 
