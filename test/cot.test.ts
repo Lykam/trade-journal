@@ -70,6 +70,14 @@ describe("walkSignal", () => {
     expect(walkSignal([reading("2026-01-02", 10)], [...base(), flatBar("2026-01-13")])).toMatchObject({ state: "armed", side: "long", since: "2026-01-13" });
   });
 
+  it("gives an armed signal the level the next session must take out, and the last close", () => {
+    const bars = [...base(), { date: "2026-01-13", open: 100, high: 104, low: 99.5, close: 103 }]; // no new low: stays armed
+    // Long: the lowest low of the last 10 bars; short: the highest high.
+    expect(walkSignal([reading("2026-01-02", 10)], bars)).toMatchObject({ state: "armed", trigger: 99, lastClose: 103 });
+    expect(walkSignal([reading("2026-01-02", 90)], bars)).toMatchObject({ state: "armed", side: "short", trigger: 104, lastClose: 103 });
+    expect(walkSignal([reading("2026-01-02", 50)], bars)).toMatchObject({ state: "neutral", trigger: null, lastClose: 103 });
+  });
+
   it("confirms a long on an upside reversal, stop at its low", () => {
     const s = walkSignal([reading("2026-01-02", 10)], [...base(), upReversal, { date: "2026-01-14", open: 100, high: 101, low: 98, close: 100 }]);
     expect(s).toMatchObject({ state: "confirmed", side: "long", since: "2026-01-13", entry: 100.5, stop: 97 });
@@ -128,6 +136,8 @@ describe("computeCotMarket", () => {
     expect(m.net.commercial).toBe(50);
     // -50 is lower than anything before it: the most short on record.
     expect(m.extreme).toEqual({ side: "short", since: null, first: "2022-01-04" });
+    // Net contracts with the 3-year range, as a COT chart's "3yr range" band shows them.
+    expect(m.contracts).toEqual({ largeSpec: { net: -500, min: -500, max: 190 }, commercial: { net: 500, min: -190, max: 500 } });
     expect(m.osc4w).not.toBeNull();
     expect(m.osc1y).not.toBeNull();
     expect(m.net.largeSpec).toBe(-50);
