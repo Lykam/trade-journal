@@ -36,8 +36,8 @@ export function brakeLabel(b: CotBrake): string {
 export function brakeReason(side: CotSide, b: CotBrake): string {
   if (b.multiplier >= 1) return side === "long" ? "No index in the sell zone." : "No index in the buy zone.";
   return side === "long"
-    ? `${b.against.join(", ")} in the sell zone: large specs near their most long.`
-    : `${b.against.join(", ")} in the buy zone: large specs near their most short.`;
+    ? `${b.against.join(", ")} in the sell zone. Large specs crowded long.`
+    : `${b.against.join(", ")} in the buy zone. Large specs crowded short.`;
 }
 
 /** The row's status: what the signal is, what it needs, or how close the index is to a zone. Null = nothing to say. */
@@ -75,13 +75,13 @@ function status(m: CotMarketSnapshot): { text: string; cls: string; weak: boolea
 function ruleNow(m: CotMarketSnapshot): string {
   const s = m.signal;
   if (s.state === "confirmed")
-    return `In the trade: out at the stop, or when the rank gets back to ${NEUTRAL}. Moves within the zone don't matter.`;
+    return `In the trade. Out at the stop, or when the rank gets back to ${NEUTRAL}.`;
   if (s.state === "armed")
     return s.side === "long"
-      ? "A zone only arms it. The next session must undercut the 10-day low, then close up on the day in the upper half of its range. Best: bad news that fails to push it lower."
-      : "A zone only arms it. The next session must take out the 10-day high, then close down on the day in the lower half of its range. Best: good news that fails to lift it.";
-  if (m.zone !== "neutral") return "In the zone but not armed: it re-arms the session after a stop or a fresh report.";
-  return `Neutral: no edge either way. Watch for ≤ ${BUY_ZONE} (buy) or ≥ ${SELL_ZONE} (sell) on Friday's report.`;
+      ? "Armed. Next it needs a session that undercuts the 10-day low and closes up in the upper half of its range. Best when bad news can't push it lower."
+      : "Armed. Next it needs a session that takes out the 10-day high and closes down in the lower half of its range. Best when good news can't lift it.";
+  if (m.zone !== "neutral") return "In the zone, not armed. Re-arms the session after a stop or a new report.";
+  return `Neutral, no edge. Watch Friday's report for ≤ ${BUY_ZONE} or ≥ ${SELL_ZONE}.`;
 }
 
 function lastText(l: CotSignal["last"]): string | null {
@@ -227,8 +227,8 @@ function Row({ m, more }: { m: CotMarketSnapshot; more: boolean }) {
             {m.divergence && (
               <p className="accent small">
                 {m.divergence === "small-long-large-short"
-                  ? "Small traders crowded long, large specs crowded short: the late-1999 setup. The top came once the large specs were squeezed out."
-                  : "Small traders crowded short, large specs crowded long: the mirror of the late-1999 setup."}
+                  ? "Small traders crowded long, large specs crowded short. Late 1999 looked like this. The top came after the large specs got squeezed out."
+                  : "Small traders crowded short, large specs crowded long. Late 1999 in reverse."}
               </p>
             )}
             <p className="text-2 small">↳ {ruleNow(m)}</p>
@@ -242,13 +242,13 @@ function Row({ m, more }: { m: CotMarketSnapshot; more: boolean }) {
 /** The rules in plain terms, written to work on any COT market (SPEC §5.7). */
 function CotRules({ id }: { id: string }) {
   const rules: [string, string][] = [
-    ["READ", "Legacy report, futures only. Large specs' net (long − short) as % of open interest, ranked over 3 years: 0 = their most short, 100 = their most long. Commercials are the mirror."],
-    ["ZONES", `≤ ${BUY_ZONE} buy zone (specs very short: "when it goes to zero, I look to be a buyer"). ≥ ${SELL_ZONE} sell zone. Check the long history: a 3-year extreme may be ordinary over 10. Levels, not weekly changes.`],
-    ["ENTER", "A zone only arms it. A reversal day confirms: undercut the 10-day low, close up on the day in the upper half of its range (mirror for shorts). Best: bad news that fails to push it lower."],
+    ["READ", "Legacy report, futures only. Large specs' net (long − short) as % of open interest, ranked over 3 years. 0 = most short, 100 = most long. Commercials are the mirror."],
+    ["ZONES", `≤ ${BUY_ZONE} buy zone ("when it goes to zero, I look to be a buyer"). ≥ ${SELL_ZONE} sell zone. Check the long history. A 3-year extreme can be normal over 10. Levels, not weekly changes.`],
+    ["ENTER", "A zone only arms it. A reversal day confirms it. Long: undercut the 10-day low, then close up in the upper half of the range. Shorts are the mirror. Best when bad news can't push it lower."],
     ["MANAGE", `Stop = the reversal day's low (high for shorts). Exit when the rank gets back to ${NEUTRAL}. Zone ends before a reversal → expired, no trade. Stopped while the zone holds → re-arms.`],
     ["SIZE", "Sell zone → swing longs ½. Buy zone → inverse ETFs ½. Never sizes up. Day trades untouched."],
     ["TIMING", "Tuesday data, released Friday 3:30 PM ET, used from the next session. Over 2 weeks old = stale, ignored."],
-    ["RECORD", "Longs worked on the S&P, Nasdaq and Dow; shorts failed in backtests, so the short side mostly brakes. COT alone is never the trade."],
+    ["RECORD", "Longs worked on the S&P, Nasdaq and Dow. Shorts failed in backtests, so the short side is mostly a brake. COT alone is never the trade."],
   ];
   return (
     <dl className="cot-rules kv small" id={id}>
@@ -297,6 +297,7 @@ export function CotCard({ c }: { c: CotFile | null | undefined }) {
             {rules ? "▾ RULES" : "▸ RULES"}
           </button>
         </span>
+        {c.board && <><span className="grow" /><a href="#/cot">ALL FUTURES ›</a></>}
       </div>
       {braked && (
         <p className="text-2 small cot-reason">
@@ -324,10 +325,9 @@ export function CotGaugeNote({ c }: { c: CotFile | null | undefined }) {
   if (long.multiplier >= 1 && short.multiplier >= 1) return <div className="muted">COT · NO BRAKE</div>;
   const reasons = [long.multiplier < 1 && brakeReason("long", long), short.multiplier < 1 && brakeReason("short", short)].filter(Boolean).join(" ");
   return (
-    <div className="muted">
+    <div className="muted" title={reasons}>
       COT · LONGS <b className={long.multiplier < 1 ? "half" : "muted"}>{brakeLabel(long)}</b> · INVERSE{" "}
       <b className={short.multiplier < 1 ? "half" : "muted"}>{brakeLabel(short)}</b>
-      <div className="small">{reasons}</div>
     </div>
   );
 }

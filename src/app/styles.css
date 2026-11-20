@@ -20,6 +20,10 @@
   --loss: #ef4444;
   --half: #facc15;
   --flat: #8a8a8a;
+  /* COT trader groups, as COT charts color them: large specs blue, commercials red, small traders yellow. */
+  --cot-spec: #5b7cfa;
+  --cot-comm: #ef4444;
+  --cot-small: #facc15;
   --font: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: dark;
 }
@@ -164,6 +168,60 @@ a.sym:hover { color: var(--accent); }
   .cot-facts { flex-basis: 100%; }
   .cot .kv { grid-template-columns: minmax(0, 1fr); gap: 0 0; }
   .cot .kv dd { margin-bottom: 6px; }
+}
+
+/* ---- COT page (SPEC §6.7d) */
+.cotb-controls { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.cotb-trade { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid var(--rule); background: var(--inset); }
+.cotb-trade p { margin: 2px 0 0; }
+.cotb-trade-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin-left: -10px; padding-left: 8px; border-left: 2px solid transparent; }
+.cotb-trade-row .flabel { flex: 0 0 8.5em; }
+.cotb-trade-row.on { border-left-color: currentColor; }
+.cotb-trade-row.on .flabel { color: inherit; font-weight: 700; }
+.cotb-trade-cell { white-space: normal !important; min-width: 180px; }
+.cotb-rank { display: inline-block; min-width: 2em; text-align: right; font-variant-numeric: tabular-nums; }
+.cotb-chart-body { padding: 8px 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+.cotb-sel-heads { margin: 0; }
+.cot-chart .chart-readout { white-space: normal; }
+.cot-ro { white-space: nowrap; }
+.cot-pane { fill: none; stroke: var(--rule); }
+.cot-up line { stroke: var(--gain); }
+.cot-up rect { fill: var(--gain); }
+.cot-down line { stroke: var(--loss); }
+.cot-down rect { fill: var(--loss); }
+.cot-f-spec { fill: var(--cot-spec); opacity: 0.85; }
+.cot-f-comm { fill: var(--cot-comm); opacity: 0.75; }
+.cot-s-spec, .cot-s-comm, .cot-s-small { fill: none; stroke-width: 1.75; }
+.cot-s-spec { stroke: var(--cot-spec); }
+.cot-s-comm { stroke: var(--cot-comm); }
+.cot-s-small { stroke: var(--cot-small); }
+.cot-k-spec { color: var(--cot-spec); }
+.cot-k-comm { color: var(--cot-comm); }
+.cot-k-small { color: var(--cot-small); }
+.cot-key-spec { background: var(--cot-spec); }
+.cot-key-comm { background: var(--cot-comm); }
+.cot-key-small { background: var(--cot-small); }
+.f-zone-buy { background: color-mix(in srgb, var(--gain) 35%, transparent); }
+.f-zone-sell { background: color-mix(in srgb, var(--loss) 35%, transparent); }
+.cot-chart .chart-legend .key:not(:first-child) { margin-left: 10px; }
+.cotb-meter-cell { display: inline-flex; align-items: center; gap: 8px; }
+.cotb-meter { width: 90px; height: 12px; }
+.cotb-sector th { padding-top: 12px; color: var(--accent); font-size: 11px; letter-spacing: 0.1em; }
+tr.cotb-on { background: var(--inset); }
+/* The market column stays put while the table scrolls sideways (phone, tablet); the selected row's accent bar sits on it. */
+.cotb-table thead th:first-child, .cotb-table tbody td:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel); box-shadow: 1px 0 0 var(--rule); }
+.cotb-table tr.clickable:hover td:first-child, .cotb-table tr.cotb-on td:first-child { background: var(--inset); }
+.cotb-table tr.cotb-on td:first-child { box-shadow: inset 2px 0 0 var(--accent), 1px 0 0 var(--rule); }
+.cotb-sector span { position: sticky; left: 14px; }
+.cotb-heads-cell { white-space: normal !important; min-width: 280px; }
+.cotb-foot { margin: 0; padding: 8px 14px 12px; }
+.cotb-rules .kv { padding: 10px 14px 14px; }
+@media (max-width: 640px) {
+  .cotb-name { display: none; }
+  .cotb-chart-body { padding: 8px 8px 10px; }
+  /* Room for the readout's usual three lines, so the chart doesn't jump as the hover changes its length. */
+  .cot-chart .chart-readout { min-height: 4.35em; }
+  .cotb-rules .kv { grid-template-columns: minmax(0, 1fr); }
 }
 .dial .value { fill: var(--text); font: 700 22px var(--font); }
 .dial .scale { fill: var(--dim); font: 9px var(--font); }

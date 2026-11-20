@@ -59,8 +59,8 @@ export function AccountsPanel({ data }: { data: DataBundle }) {
       )}
       <CheckpointList data={data} onRemove={(account, date) => setEditing({ kind: "remove", account, date })} />
       <div className="body dim small">
-        Value = start + every buy and sale since (cash) + open positions at the last price (at cost without one). Enter the broker's
-        total after a close to correct anything the fills miss; the gap carries forward until the next one.
+        Value = start + cash from every fill since + open positions at last price (cost if unpriced). After a close, enter the
+        broker's total to fix drift. The gap carries until the next one.
       </div>
     </section>
   );
@@ -160,7 +160,7 @@ function BalanceForm({ data, editing, onClose }: { data: DataBundle; editing: Ed
             ))}
           </div>
           <span className="dim small">
-            {held.length ? "Prices at that close (pre-filled from the latest quotes for today); a blank one counts at cost." : "No positions held at that close."}
+            {held.length ? "Prices at that close, pre-filled with the latest quotes. Blank = at cost." : "No positions held at that close."}
           </span>
         </>
       )}
@@ -235,7 +235,7 @@ function BalanceCommit({ account, next, error, onBusy, onClose }: {
           want: site ? { sha: out.commit.sha, date: out.commit.date } : { date: out.commit.date },
           link: `${ACTIONS_URL}/workflows/deploy.yml`,
           commitUrl: out.commit.url,
-          note: site ? undefined : `Committed to ${record.repo}, which the site doesn't read; the reload shows the same data.`,
+          note: site ? undefined : `Committed to ${record.repo}. The site doesn't read it, so the reload looks the same.`,
         });
       }
       setPhase({ kind: "done", url: out.commit?.url ?? null });

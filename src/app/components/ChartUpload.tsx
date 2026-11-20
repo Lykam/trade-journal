@@ -78,7 +78,7 @@ export function ChartUpload({ dates, defaultDate, symbols, defaultKind, existing
     const images = imagesOf(files);
     if (!images.length || busy) return;
     const bad = images.find((f) => !UPLOAD_TYPES[f.type]);
-    if (bad) return setPhase({ kind: "error", message: `Not an image this app stores (${bad.type || "unknown type"}). Use PNG, JPEG, GIF, WebP or BMP.` });
+    if (bad) return setPhase({ kind: "error", message: `Not a supported image (${bad.type || "unknown type"}). Use PNG, JPEG, GIF, WebP or BMP.` });
     const made = await Promise.all(images.map(async (f): Promise<Item> => ({
       id: nextId++, blob: f, type: f.type, url: URL.createObjectURL(f), bytes: new Uint8Array(await f.arrayBuffer()),
       kind: defaultKind, date: defaultDate, symbol: symbols[0]!,

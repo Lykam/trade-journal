@@ -300,7 +300,7 @@ describe("window stats, baseline note and sparkline", () => {
 
   it("reports no state without a baseline or window", () => {
     expect(computeGauge("day", { trades: [], config, now: NOW })).toMatchObject({ state: null, delta: null });
-    expect(computeGauge("day", { trades: batch("day", "2026-09-29", 1, 0), config, now: NOW }).message).toContain("No baseline");
+    expect(computeGauge("day", { trades: batch("day", "2026-09-29", 1, 0), config, now: NOW }).message).toContain("No average yet");
   });
 
   it("shows 8 weeks of closed-trade win rates, oldest first, ending this week", () => {

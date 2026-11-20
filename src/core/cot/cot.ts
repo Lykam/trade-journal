@@ -85,7 +85,7 @@ export const releaseDate = (reportDate: string): string => {
 };
 
 /** Net position as a percent of open interest, so readings compare across years of changing OI. */
-const netPct = ([long, short]: [number, number], oi: number) => (oi > 0 ? (100 * (long - short)) / oi : 0);
+export const netPct = ([long, short]: [number, number], oi: number) => (oi > 0 ? (100 * (long - short)) / oi : 0);
 
 /** Where values[i] sits in the trailing `n` values, 0 (lowest) to 100 (highest); null without enough history. */
 export function rank(values: number[], i: number, n = LOOKBACK_WEEKS): number | null {
@@ -284,6 +284,23 @@ function contractRange(reports: CotReport[], i: number, group: "largeSpec" | "co
   return { net: net(reports[i]!), min: Math.min(...window), max: Math.max(...window) };
 }
 
+/**
+ * The latest of `values` (oldest first, dated by `dates`) against all of them: the side the
+ * oscillator leans to and the last date it was more extreme than now (since = null: the most extreme on record).
+ */
+export function extremeOf(values: number[], dates: string[], osc: number): CotMarketSnapshot["extreme"] {
+  const i = values.length - 1;
+  const side = osc <= NEUTRAL ? "short" : "long";
+  let since: string | null = null;
+  for (let k = i - 1; k >= 0; k--) {
+    if (side === "short" ? values[k]! < values[i]! : values[k]! > values[i]!) {
+      since = dates[k]!;
+      break;
+    }
+  }
+  return { side, since, first: dates[0]! };
+}
+
 /** One market's snapshot at `now`; null without a full lookback of reports. */
 export function computeCotMarket(market: CotMarket, reports: CotReport[], bars: DailyBar[], now: string): CotMarketSnapshot | null {
   const sorted = [...reports].sort((a, b) => a.date.localeCompare(b.date));
@@ -303,14 +320,6 @@ export function computeCotMarket(market: CotMarket, reports: CotReport[], bars: 
     high(smallRank) && low(osc) ? "small-long-large-short"
     : low(smallRank) && high(osc) ? "small-short-large-long"
     : null;
-  const side = osc <= NEUTRAL ? "short" : "long";
-  let since: string | null = null;
-  for (let k = i - 1; k >= 0; k--) {
-    if (side === "short" ? spec[k]! < spec[i]! : spec[k]! > spec[i]!) {
-      since = sorted[k]!.date;
-      break;
-    }
-  }
   const spark: number[] = [];
   for (let k = Math.max(0, i - SPARK_WEEKS + 1); k <= i; k++) {
     const v = rank(spec, k);
@@ -332,7 +341,7 @@ export function computeCotMarket(market: CotMarket, reports: CotReport[], bars: 
     net1y: i >= 52 ? breakdown(sorted[i - 52]!) : null,
     smallRank,
     commRank,
-    extreme: { side, since, first: sorted[0]!.date },
+    extreme: extremeOf(spec, sorted.map((r) => r.date), osc),
     contracts: { largeSpec: contractRange(sorted, i, "largeSpec"), commercial: contractRange(sorted, i, "commercial") },
     divergence,
     spark,

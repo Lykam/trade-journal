@@ -10,6 +10,7 @@ import { DOW, stamp } from "./format";
 import { lock } from "./vault";
 import { CalculatorPage } from "./pages/CalculatorPage";
 import { CalendarPage } from "./pages/CalendarPage";
+import { CotPage } from "./pages/CotPage";
 import { DeployBanner } from "./components/DeployBanner";
 import { Dashboard } from "./pages/Dashboard";
 import { ErrorsPage } from "./pages/ErrorsPage";
@@ -31,6 +32,7 @@ const NAV = [
   { path: "/cal", label: "CAL" },
   { path: "/trades", label: "TRADES" },
   { path: "/reports", label: "REPORTS" },
+  { path: "/cot", label: "COT" },
   { path: "/journal", label: "JOURNAL" },
   { path: "/errors", label: "ERRORS" },
   { path: "/quotes", label: "QUOTES" },
@@ -111,6 +113,7 @@ export function App() {
     else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
     else if (path === "/quotes") page = <QuotesPage data={data} />;
     else if (path === "/lookups") page = <LookupsPage data={data} />;
+    else if (path === "/cot") page = <CotPage data={data} params={params} />;
     else if (path === "/reports") page = <ReportsPage journal={journal!} view={view} params={params} />;
     else if (path === "/settings") page = <SettingsPage data={data} />;
     else if (path === "/import") page = <ImportPage data={data} />;

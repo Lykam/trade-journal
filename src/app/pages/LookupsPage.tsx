@@ -188,11 +188,11 @@ export function LookupsPage({ data }: { data: DataBundle }) {
               })()}
             </tbody>
           </table>
-          {!rows.length && <div className="empty">No inverse ETF on file for "{query}". Either none exists, or it isn't in the list yet: <b>+ ADD ETF</b>.</div>}
+          {!rows.length && <div className="empty">No inverse ETF on file for "{query}". Add one with <b>+ ADD ETF</b>.</div>}
         </div>
         <div className="dim small lk-foot">
-          Single-stock inverse ETFs only. Tick rows to remove them (e.g. when a fund is delisted), or <b>+ ADD ETF</b>; one commit saves every change to trade-history.
-          {starter && " This is the built-in starting list: your first commit saves it to trade-history, which is used from then on."}
+          Single-stock inverse ETFs only. Tick rows to remove, or <b>+ ADD ETF</b>. One commit saves all changes.
+          {starter && " Built-in starting list. Your first commit saves it to trade-history."}
         </div>
       </section>
     </main>
@@ -258,7 +258,7 @@ function LookupsCommit({ change, error, onBusy, onCommitted, onClose }: {
           want: site ? { sha: out.commit.sha, date: out.commit.date } : { date: out.commit.date },
           link: `${ACTIONS_URL}/workflows/deploy.yml`,
           commitUrl: out.commit.url,
-          note: site ? undefined : `Committed to ${record.repo}, which the site doesn't read; the reload shows the same data.`,
+          note: site ? undefined : `Committed to ${record.repo}. The site doesn't read it, so the reload looks the same.`,
         });
         onCommitted(out.plan.lookups.inverseEtfs);
       }

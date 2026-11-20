@@ -82,7 +82,7 @@ export function CalculatorPage({ cot = null }: { cot?: CotFile | null }) {
                 aria-label="Amount to exclude"
               />
             </div>
-            <p className="dim small">e.g. extra cash sitting in the account that isn't meant to be risked right now.</p>
+            <p className="dim small">Cash you don't want at risk right now.</p>
             <p className="muted small">Sizing against: <span className="text-2 b">{money(effective, { sign: false })}</span></p>
           </div>
         </section>
@@ -112,7 +112,7 @@ export function CalculatorPage({ cot = null }: { cot?: CotFile | null }) {
               <span className="label small">Max capital, % of account</span>
               <input className="input tiny" inputMode="decimal" value={capPct} onChange={(e) => setCapPct(e.target.value)} />
             </label>
-            <p className="dim small">Shares are rounded down to a tenth, so the position never exceeds either limit.</p>
+            <p className="dim small">Shares round down to a tenth, so neither limit is crossed.</p>
           </div>
         </section>
 
@@ -128,8 +128,8 @@ export function CalculatorPage({ cot = null }: { cot?: CotFile | null }) {
               <input className="input tiny" inputMode="decimal" value={recentDays} onChange={(e) => setRecentDays(e.target.value)} placeholder="2" />
             </label>
             <p className="dim small">
-              If your recent trades are closing faster than typical, the market's probably choppier — size down.
-              Leave either blank to skip this.
+              Recent trades closing faster than usual means a choppier market. Size down.
+              Leave either blank to skip.
             </p>
           </div>
         </section>
@@ -143,9 +143,9 @@ export function CalculatorPage({ cot = null }: { cot?: CotFile | null }) {
               ))}
             </div>
             {side === "day" ? (
-              <p className="dim small">Day trades aren&apos;t braked: COT is weekly positioning, a swing-horizon input.</p>
+              <p className="dim small">No COT brake on day trades. It&apos;s weekly data.</p>
             ) : !cot ? (
-              <p className="dim small">COT data loads once the site is unlocked; until then no brake applies.</p>
+              <p className="dim small">COT data loads after unlock. No brake until then.</p>
             ) : (
               <>
                 <p className={brake!.multiplier < 1 ? "half b" : "muted b"}>{brakeLabel(brake!)}</p>
@@ -161,7 +161,7 @@ export function CalculatorPage({ cot = null }: { cot?: CotFile | null }) {
         <section className="panel" aria-label="Result">
           <div className="panel-head"><h2>Result</h2></div>
           <div className="body">
-            {!result && <p className="muted">Enter account size, entry and stop to calculate.</p>}
+            {!result && <p className="muted">Enter account size, entry and stop.</p>}
             {result?.error && <p className="loss">{result.error}</p>}
             {result?.value && (() => {
               const r = result.value;

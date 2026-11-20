@@ -440,7 +440,7 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
             <CopyCommand label="START IN CLAUDE CODE" command={command} />
           </div>
         )}
-        {writing && <span className="dim small">Finviz context and after-the-fact charts still need the terminal sync step once this is saved.</span>}
+        {writing && <span className="dim small">After saving, run the sync step for Finviz context and later charts.</span>}
       </div>
     </section>
   );

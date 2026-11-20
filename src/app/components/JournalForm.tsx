@@ -69,7 +69,7 @@ export function JournalForm({ idea, existingReviewPaths, existingImages, onDone 
       </div>
 
       <Field label="Category" hint="Intraday, breaking news, IPO, imbalance, swing…" value={a.category} onChange={set("category")} rows={1} />
-      <Field label="Context" hint="News, market backdrop, why it was in play, float/short interest. Finviz stats are added later by a sync step, not here." value={a.context} onChange={set("context")} />
+      <Field label="Context" hint="News, market backdrop, why it was in play, float / short interest. Finviz stats come later from the sync step." value={a.context} onChange={set("context")} />
 
       {!day && (
         <>
@@ -93,9 +93,9 @@ export function JournalForm({ idea, existingReviewPaths, existingImages, onDone 
 
       {closed ? (
         <>
-          <Field label="How It Resolved" hint="What the stock did after the exit — kept going, reversed, chopped? Was the exit right?" value={a.howResolved} onChange={set("howResolved")} />
+          <Field label="How It Resolved" hint="What it did after the exit. Kept going, reversed, chopped? Was the exit right?" value={a.howResolved} onChange={set("howResolved")} />
           {idea.netPnl >= 0 ? (
-            <Field label="The Error" value="Not applicable — the trade made money." readOnly rows={1} />
+            <Field label="The Error" value="N/A. The trade made money." readOnly rows={1} />
           ) : (
             <Field label="The Error" hint="One short line, in your own words." value={a.error} onChange={set("error")} rows={1} />
           )}
@@ -104,7 +104,7 @@ export function JournalForm({ idea, existingReviewPaths, existingImages, onDone 
           <Field label="Solutions & Lessons Learned" hint="What to take away, what went well, what to change?" value={a.lessons} onChange={set("lessons")} />
         </>
       ) : (
-        <div className="empty small">This swing position is still open. Save the entry now; come back once it closes to finish the exit sections.</div>
+        <div className="empty small">Still open. Save the entry now and finish the exit sections after it closes.</div>
       )}
 
       <div className="muted small">
@@ -133,7 +133,7 @@ export function JournalForm({ idea, existingReviewPaths, existingImages, onDone 
       {phase.kind === "done" && (
         <div className="row" role="status">
           <span className="gain small">COMMITTED <code>{phase.path}</code> · <a href={phase.url} target="_blank" rel="noopener noreferrer">VIEW COMMIT ↗</a></span>
-          <span className="dim small">It shows here after the redeploy. Still missing Finviz context — run the sync step once for it.</span>
+          <span className="dim small">It shows here after the redeploy. Run the sync step once to add Finviz context.</span>
         </div>
       )}
     </fieldset>

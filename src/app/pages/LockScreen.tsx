@@ -41,7 +41,7 @@ export function LockScreen({ notice, unlock }: { notice: string | null; unlock: 
       <form className="panel lock-box" onSubmit={submit} aria-label="Unlock">
         <div className="lock-brand">TRADE/JRNL</div>
         <h1>LOCKED</h1>
-        <p className="muted small">The journal data on this site is encrypted. Enter the site passphrase to decrypt it in this browser.</p>
+        <p className="muted small">The journal data is encrypted. Enter the passphrase to unlock it in this browser.</p>
         {notice && <p className="half small" role="status">{notice}</p>}
         <label className="lock-field">
           <span className="label">PASSPHRASE</span>
@@ -63,8 +63,8 @@ export function LockScreen({ notice, unlock }: { notice: string | null; unlock: 
         </label>
         <p className="dim small">
           {remember
-            ? "The derived key is kept in this browser until you press LOCK. Only use this on your own device."
-            : "The derived key is kept for this tab only and is gone when you close it."}
+            ? "The key stays in this browser until you press LOCK. Your own device only."
+            : "The key is kept for this tab only."}
         </p>
         {error && <p id="lock-error" className="loss b" role="alert">{error}</p>}
         <button type="submit" className="btn primary lock-btn" disabled={!passphrase || busy}>
@@ -73,7 +73,7 @@ export function LockScreen({ notice, unlock }: { notice: string | null; unlock: 
         {demo && (
           <>
             <button type="button" className="btn lock-btn" disabled={busy} onClick={() => void open(demo)}>OPEN DEMO</button>
-            <p className="dim small">Demo build: synthetic fixture data, unlocked with the public demo passphrase.</p>
+            <p className="dim small">Demo build: synthetic data, public demo passphrase.</p>
           </>
         )}
       </form>

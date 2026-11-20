@@ -132,7 +132,7 @@ function SymbolCommit({ sym, info, mapped, onBusy, onClose }: {
           want: site ? { sha: out.commit.sha, date: out.commit.date } : { date: out.commit.date },
           link: `${ACTIONS_URL}/workflows/deploy.yml`,
           commitUrl: out.commit.url,
-          note: site ? undefined : `Committed to ${record.repo}, which the site doesn't read; the reload shows the same data.`,
+          note: site ? undefined : `Committed to ${record.repo}. The site doesn't read it, so the reload looks the same.`,
         });
       }
       setPhase({ kind: "done", url: out.commit?.url ?? null });

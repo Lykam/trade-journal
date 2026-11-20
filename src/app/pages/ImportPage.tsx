@@ -201,7 +201,7 @@ export function ImportPage({ data }: { data: DataBundle }) {
           want: site ? { sha: out.commit.sha, date: out.commit.date } : { date: out.commit.date },
           link: `${ACTIONS_URL}/workflows/deploy.yml`,
           commitUrl: out.commit.url,
-          note: site ? undefined : `Committed to ${record.repo}, which the site doesn't read; the reload shows the same data.`,
+          note: site ? undefined : `Committed to ${record.repo}. The site doesn't read it, so the reload looks the same.`,
         });
       }
     } catch (e) {
@@ -239,7 +239,7 @@ export function ImportPage({ data }: { data: DataBundle }) {
         onDrop={(e) => { e.preventDefault(); setDrag(false); void pick(e.dataTransfer.files); }}
       >
         <p title="Webull_Orders_Records*.csv or Trading_*_Transactions_*.csv; ordered by the numbers and dates in their names">
-          Drop Webull or Schwab CSV exports here. The oldest is applied first; reorder with ↑ ↓.
+          Drop Webull or Schwab CSV exports here. Oldest goes first. Reorder with ↑ ↓.
         </p>
         <input ref={input} type="file" accept=".csv,text/csv" multiple hidden onChange={(e) => { void pick(e.target.files); e.target.value = ""; }} />
         <button type="button" className="btn primary" onClick={() => input.current?.click()}>CHOOSE FILES</button>
@@ -304,7 +304,7 @@ export function ImportPage({ data }: { data: DataBundle }) {
             <section className="panel" aria-label="Ticker changes">
               <div className="panel-head"><h2>Ticker changes · {plan.renames.size}</h2></div>
               <div className="body">
-                <p className="muted small">Webull now reports these fills under a new symbol; the original symbol is kept (Q18).</p>
+                <p className="muted small">Webull now reports these fills under a new symbol. The original symbol is kept.</p>
                 {[...plan.renames].map(([k, n]) => <div key={k}><code>{k}</code> <span className="dim">({n} fills)</span></div>)}
               </div>
             </section>
@@ -314,7 +314,7 @@ export function ImportPage({ data }: { data: DataBundle }) {
             <section className="panel" aria-label="ETF symbols to map">
               <div className="panel-head"><h2>New ETF symbols · {Object.keys(maps).length}</h2></div>
               <div className="body">
-                <p className="muted small" title="Ticked rows are written to symbols.json in this commit; unticked ones stay unmapped">Guessed from the fund name. Tick to save it, so its trades count toward the underlying.</p>
+                <p className="muted small" title="Ticked rows go into symbols.json with this commit. Unticked ones stay unmapped.">Guessed from the fund name. Tick to save it so its trades count toward the underlying.</p>
                 <div className="scroll-x">
                   <table className="grid dense">
                     <thead><tr><th>MAP</th><th>SYMBOL</th><th>NAME</th><th>UNDERLYING</th><th>LEVERAGE</th><th>DIRECTION</th><th>ISSUER</th></tr></thead>

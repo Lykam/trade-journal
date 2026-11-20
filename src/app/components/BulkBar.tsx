@@ -87,7 +87,7 @@ function CommitFlow({ staged, onLock, onCommitted }: {
           want: site ? { sha: out.commit.sha, date: out.commit.date } : { date: out.commit.date },
           link: `${ACTIONS_URL}/workflows/deploy.yml`,
           commitUrl: out.commit.url,
-          note: site ? undefined : `Committed to ${record.repo}, which the site doesn't read; the reload shows the same data.`,
+          note: site ? undefined : `Committed to ${record.repo}. The site doesn't read it, so the reload looks the same.`,
         });
       }
       setPhase({ kind: "idle" });
@@ -197,7 +197,7 @@ function StagedEdits({ data, staging: s, staged, onDiscard }: { data: DataBundle
         )}
         <button type="button" className="btn" disabled={s.locked} onClick={() => { s.discard(); onDiscard?.(); }}>DISCARD</button>
       </div>
-      {s.locked && <div className="dim small">Staging is paused while the commit preview is open: CONFIRM or go BACK first.</div>}
+      {s.locked && <div className="dim small">Staging is paused during the commit preview. CONFIRM or go BACK first.</div>}
     </div>
   );
 }

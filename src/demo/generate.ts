@@ -10,7 +10,8 @@
 // - The current week is scripted: a small search over the outcomes of the
 //   trades the gauges look at makes Day show ½ (or ¼) size and Swing Full size.
 import { addDays, dayOfWeek, etInstant, weekStart } from "../core/calendar";
-import { cotBrake, type CotMarketSnapshot } from "../core/cot/cot";
+import { BOARD_MARKETS, BOARD_WEEKS, computeBoardMarket, type CotBoard } from "../core/cot/board";
+import { cotBrake, type CotMarketSnapshot, type CotReport, type DailyBar } from "../core/cot/cot";
 import { computeGauge } from "../core/gauge/gauge";
 import { lastSessionDate } from "../core/market";
 import { assignIds, type RawFill } from "../core/normalize/ids";
@@ -425,7 +426,55 @@ function cotFor(asOf: string): CotFile {
       signal: { ...none, last: { kind: "exited", side: "long", date: addDays(report, -40), ret: 6.8 }, lastClose: 522.47 },
     },
   ];
-  return { asOf, attemptedAt: asOf, snapshot: { markets, brake: cotBrake(markets) } };
+  return { asOf, attemptedAt: asOf, snapshot: { markets, brake: cotBrake(markets) }, board: boardFor(asOf, report) };
+}
+
+/**
+ * A made-up COT board (SPEC §5.8) for the COT page: per market, a mean-reverting large-spec
+ * net, small traders as noise, commercials as the other side, and a price that drifts with
+ * the specs. A few markets get fixed signals so every heads-up state shows.
+ */
+function boardFor(asOf: string, report: string): CotBoard {
+  const weeks = BOARD_WEEKS + 8;
+  const markets = BOARD_MARKETS.map((m) => {
+    const r = new Rng(seedOf(DEMO_SEED, "cot-board", m.id));
+    const oi = r.range(50_000, 600_000);
+    const base = r.range(5, 5_000);
+    let spec = r.range(-0.2, 0.2);
+    let px = base;
+    const reports: CotReport[] = [];
+    const weekly: DailyBar[] = [];
+    for (let i = weeks - 1; i >= 0; i--) {
+      const date = addDays(report, -7 * i);
+      spec += -0.06 * spec + r.range(-0.05, 0.05);
+      const small = 0.3 * spec + r.range(-0.03, 0.03);
+      const o = Math.round(oi * r.range(0.95, 1.05));
+      const toLS = (net: number): [number, number] => [Math.round(o * (0.3 + Math.max(0, net))), Math.round(o * (0.3 + Math.max(0, -net)))];
+      const ls = toLS(spec), sm = toLS(small);
+      const comm: [number, number] = [ls[1] + sm[1], ls[0] + sm[0]];
+      reports.push({ date, openInterest: o, largeSpec: ls, small: sm, commercial: comm });
+      const open = px;
+      px = Math.max(base * 0.2, px * (1 + 0.04 * spec + r.range(-0.04, 0.04)));
+      weekly.push({ date: addDays(date, -1), open, high: Math.max(open, px) * r.range(1, 1.03), low: Math.min(open, px) * r.range(0.97, 1), close: px });
+    }
+    // The current week's bar, after the last report.
+    const last = weekly.at(-1)!;
+    weekly.push({ date: addDays(last.date, 7), open: last.close, high: last.close * 1.01, low: last.close * 0.98, close: last.close * 0.995 });
+    return computeBoardMarket(m, reports, weekly, [], asOf);
+  });
+  const none = { state: "neutral", side: null, since: null, entry: null, stop: null, last: null, trigger: null, lastClose: null } as const;
+  const lastClose = (id: string) => markets.find((x) => x.id === id)?.rows.at(-1)?.[6] ?? 100;
+  const fixed: Record<string, CotBoard["markets"][number]["signal"]> = {
+    GC: { ...none, state: "confirmed", side: "long", since: addDays(report, 2), entry: lastClose("GC") * 0.98, stop: lastClose("GC") * 0.95, lastClose: lastClose("GC") },
+    CL: { ...none, state: "armed", side: "short", since: addDays(report, 3), trigger: lastClose("CL") * 1.03, lastClose: lastClose("CL") },
+    ZC: { ...none, state: "armed", side: "long", since: addDays(report, 3), trigger: lastClose("ZC") * 0.97, lastClose: lastClose("ZC") },
+  };
+  for (const x of markets) {
+    const m = BOARD_MARKETS.find((b) => b.id === x.id)!;
+    x.signal = fixed[x.id] ?? { ...none, lastClose: lastClose(x.id) };
+    x.signalOn = m.yahoo;
+  }
+  return { asOf, markets };
 }
 
 // ---------------------------------------------------------------- scripted gauges

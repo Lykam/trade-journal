@@ -20,6 +20,9 @@ generated in your browser; nothing to log in to)
 - **Trades** table with filters kept in the URL, bulk tags, style and exclude;
   **trade detail** with executions, timeline, the linked review and charts.
 - **Quotes:** trading quotes worth keeping, with source, link and tags.
+- **COT:** Commitments of Traders positioning across 44 futures, in the style
+  of a crowded-market report: a heads-up list, a price / net positions / rank
+  chart per market, and every market by sector (public CFTC and Yahoo data).
 - **Calendar**, **Reports** (stats grid, breakdowns, win vs loss days,
   drawdown, compare, tag breakdown) and a **Journal** of Playbook reviews.
 - **Import** of Schwab and Webull CSV exports in the browser or from a CLI,

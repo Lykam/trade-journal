@@ -115,7 +115,7 @@ export function GaugeCard({ g, config, cot }: { g: GaugeData; config: Config; co
         </div>
         <div className="text-2">{g.message}</div>
         {target && (
-          <div className="muted" title="Wins this week that would bring the win rate back to your average, with nothing else changing">
+          <div className="muted" title="Wins needed this week to get back to your average">
             FULL SIZE AT <b className="text-1">{wl(target.w, target.l)}</b> (+{target.wins} WIN{target.wins === 1 ? "" : "S"})
           </div>
         )}
@@ -141,11 +141,11 @@ export function GaugeCard({ g, config, cot }: { g: GaugeData; config: Config; co
           </div>
           <div className="notes">
             {g.counts.prior > 0 && (
-              <span className="dim" title={`Until this week has ${min} decided trades, the latest earlier ones fill the window (Q20)`}>
-                {g.counts.prior} EARLIER TRADE{g.counts.prior === 1 ? "" : "S"} FILL IN UNTIL THIS WEEK HAS {min}
+              <span className="dim" title={`The latest earlier trades count until this week has ${min}`}>
+                {g.counts.prior} EARLIER TRADE{g.counts.prior === 1 ? "" : "S"} COUNT UNTIL THIS WEEK HAS {min}
               </span>
             )}
-            {swingOpen && g.counts.open > 0 && <span className="dim">OPEN POSITIONS COUNT AT THE LAST PRICE</span>}
+            {swingOpen && g.counts.open > 0 && <span className="dim">OPEN POSITIONS AT LAST PRICE</span>}
             {swing && g.pricesAsOf && (
               <span className="dim">
                 PRICES {stamp(g.pricesAsOf)}
@@ -158,7 +158,7 @@ export function GaugeCard({ g, config, cot }: { g: GaugeData; config: Config; co
               </span>
             )}
             {b.lowConfidence && (
-              <span className="dim">LOW-CONFIDENCE AVERAGE: {b.wins + b.losses} trades {config.gauge.baselineDays === null ? "all time" : `in ${config.gauge.baselineDays} days`} (&lt; 20)</span>
+              <span className="dim">THIN AVERAGE: {b.wins + b.losses} trades {config.gauge.baselineDays === null ? "all time" : `in ${config.gauge.baselineDays} days`} (&lt; 20)</span>
             )}
           </div>
           <Sparkline g={g} />

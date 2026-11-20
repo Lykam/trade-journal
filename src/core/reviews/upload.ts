@@ -17,7 +17,7 @@ export interface ChartUpload {
 /** Throws UploadError when the image can't be uploaded as given. */
 export function checkUpload(u: Pick<ChartUpload, "type" | "bytes">): string {
   const ext = UPLOAD_TYPES[u.type];
-  if (!ext) throw new UploadError(`Not an image this app stores (${u.type || "unknown type"}). Use PNG, JPEG, GIF, WebP or BMP.`);
+  if (!ext) throw new UploadError(`Not a supported image (${u.type || "unknown type"}). Use PNG, JPEG, GIF, WebP or BMP.`);
   if (u.bytes.length === 0) throw new UploadError("The image is empty.");
   if (u.bytes.length > MAX_UPLOAD_BYTES) throw new UploadError(`The image is ${(u.bytes.length / 1048576).toFixed(1)} MB; the limit is ${MAX_UPLOAD_BYTES / 1048576} MB.`);
   return ext;

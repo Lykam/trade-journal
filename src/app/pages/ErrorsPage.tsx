@@ -16,7 +16,7 @@ export function ErrorsPage({ journal: j }: { journal: Journal }) {
         <h1>ERRORS <span className="sub">/ {rows.length} TRADE{rows.length === 1 ? "" : "S"}{rows.length ? ` · ${money(total)}` : ""}</span></h1>
       </header>
       <div className="dim small">
-        Every reviewed trade with an error, whether it made or lost money. Read down the list for the ones that repeat.
+        Reviewed trades with an error, winners too. Look for repeats.
         {missing > 0 && <> {missing} losing trade{missing === 1 ? " still has" : "s still have"} no error written.</>}
       </div>
       <section className="panel">

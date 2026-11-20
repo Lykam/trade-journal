@@ -20,7 +20,7 @@ async function fetchDevBundle(): Promise<DataBundle> {
   return body;
 }
 
-export const WRONG_PASSPHRASE = "Wrong passphrase. Nothing was decrypted; try again.";
+export const WRONG_PASSPHRASE = "Wrong passphrase. Try again.";
 
 /** Demo build only: the generated charts, by Playbook image path. */
 let demoImages: Record<string, string> = {};
@@ -77,7 +77,7 @@ export function useBundle(): Load {
         }
       } catch (e) {
         if (!(e instanceof WrongKeyError)) throw e;
-        notice = "The key saved in this browser no longer opens the data (the passphrase was probably changed). Enter the new passphrase.";
+        notice = "The saved key no longer opens the data. The passphrase probably changed. Enter the new one.";
       }
       if (live) setLoad({ status: "locked", notice, unlock });
     })().catch((e) => live && fail(e));

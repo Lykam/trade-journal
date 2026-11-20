@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.23)
+# Trade Journal — Spec (v0.24)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -733,15 +733,15 @@ MZRT +$10 (W). The window is 3W / 2L = 60%.
   limits it to that many days back (Q73 used a rolling 90), and
   `excludeCurrentWeekFromBaseline: true` ends it before the current week
   instead of today (the original rule, Q13). Open positions never enter the
-  baseline. If the baseline has fewer than 20 trades, a "low-confidence
-  baseline" note is shown.
+  baseline. If the baseline has fewer than 20 trades, a "thin average"
+  note is shown.
 - Let `Δ = windowWinRate − baselineWinRate` (percentage points):
 
 | State | Condition | Example, baseline 60% | Message |
 |---|---|---|---|
-| 🟢 **Full size** | Δ ≥ 0 | ≥ 60% | "At or above your average." |
-| 🟡 **½ size** | −10 ≤ Δ < 0 | 50–59.9% | "Below your average: trade half size." |
-| 🔴 **¼ size** | Δ < −10 | < 50% | "Well below your average: trade quarter size." |
+| 🟢 **Full size** | Δ ≥ 0 | ≥ 60% | "At or above average." |
+| 🟡 **½ size** | −10 ≤ Δ < 0 | 50–59.9% | "Below average. Trade half size." |
+| 🔴 **¼ size** | Δ < −10 | < 50% | "Well below average. Trade quarter size." |
 
 
 - Full size requires being at or above the average, so recovery means getting
@@ -827,7 +827,7 @@ fully static.
 - Window stats: W/L count as `6W 5L` (swing: `CLOSED 1W 0L · OPEN 4W 2L`),
   realized and unrealized P&L, avg win / avg loss, profit factor, and
   expectancy per trade, all spelled out. Notes say when earlier trades fill
-  in the window (`4 EARLIER TRADES FILL IN UNTIL THIS WEEK HAS 5`) and that
+  in the window (`4 EARLIER TRADES COUNT UNTIL THIS WEEK HAS 5`) and that
   open positions count at the last price.
 - At phone width the gauge is compact: a small dial beside the call, with the
   stats behind a **STATS** toggle.
@@ -921,7 +921,7 @@ large specs 2026-11-17 to align with his explanation.) Like §5.6 it needs no ke
   **shorts, which are inverse ETFs,** are halved while any is in the **buy
   zone**. Stale markets are left out. Day trades (long only) are not braked:
   COT is weekly, a swing-horizon input. The brake shows as a line on the swing
-  gauge card and applies in the share calculator (DAY / SWING LONG / SWING
+  gauge card (the reason on hover; the COT card spells it out) and applies in the share calculator (DAY / SWING LONG / SWING
   SHORT selector), after the turnover multiplier. It is kept out of the swing
   gauge's own full/½/¼ call, which stays about the trader's results only.
 - **Backtest (2006–2026, the full rules above, by group ranked):**
@@ -969,6 +969,54 @@ large specs 2026-11-17 to align with his explanation.) Like §5.6 it needs no ke
   automates the price half; the news half is the trader's judgment.
 - **Not built:** Shapiro's seasonal adjustment (little use for index futures)
   and his "human COT" (TV consensus), which has no data feed.
+
+### 5.8 COT board (Q83)
+
+The data behind the COT page (§6.7d): Shapiro's Crowded Market Report view
+across the futures, not just the three indices the gauge brakes on. It changes
+nothing about §5.7's gauge or brake.
+
+- **Markets** (`BOARD_MARKETS` in `src/core/cot/board.ts`, 44): currencies (6A
+  6N 6C 6E 6B 6S 6J 6M, DX), energies (CL HO RB NG), metals (GC SI HG PL PA),
+  softs (SB KC CC CT OJ LBR), grains (ZC ZS ZM ZL ZW KE ZO), livestock (LE GF
+  HE), rates (ZB ZN ZF ZT), indices (ES NQ YM RTY) and crypto (BTC ETH): the
+  futures on Shapiro's CMR watchlist plus rates and livestock. Each has its
+  CFTC legacy code, a Yahoo front-month symbol (`SI=F`; the dollar index is
+  `DX-Y.NYB`, Yahoo has no `DX=F`) and a TradingView continuous symbol for
+  the link. Codes and symbols were checked against both sources 2026-11-19.
+- **Per market, in `cot.json` as `board`:** the last `BOARD_WEEKS` (312:
+  three years to chart plus a three-year lookback before it) weeks with a
+  report, plus the current week's bar: report date, open interest, net
+  contracts for large specs / commercials / small traders, and the weekly
+  close (for last price and week change; the chart has no candles, so no
+  OHLC). Weeks are stored as tuples (`BoardRow`) because keys were a quarter
+  of the gzipped size: about 260 KB gzipped for the whole board. Also the large
+  specs' long-history extreme (as §5.7) and the reversal-confirmed signal on
+  the system settings (3-year rank on % of OI), walked on the future's daily
+  bars. ES, NQ and YM take the gauge's signal instead (walked on SPY/QQQ/DIA)
+  so the page and the dashboard agree; `signalOn` names the symbol.
+- **Ranks are computed in the browser** (`rankSeries`) for the page's
+  lookback (26W, 52W, 3Y) and basis (% of OI, the system; or contracts, as
+  COT charts plot it, which reproduces the TradingView COT indicator: silver
+  on 2026-11-10 was +19,364 / −33,283 / +13,919 in both). Weeks without a
+  report carry the last rank.
+- **Heads-up per market** (`summarize`), kept short: a signal on the system
+  settings ("▲ IN LONG SINCE 11-05 · STOP 1.301", "ARMED LONG · TRIGGER <
+  0.6644"), a zone ("CROWDED SHORT · BUY ON A REVERSAL", "CROWDED LONG · SELL
+  ON A REVERSAL"; the rank is already in its own column), near a zone ("NEAR
+  BUY ZONE (3 AWAY)"), the long-history extreme when in a zone and at least a
+  year back ("MOST SHORT SINCE JAN 2023"), "SMALL TRADERS LONG VS SPECS",
+  "FAST MOVE 0 → 100 IN 4W", and "STALE DATA". Priority: confirmed 5, armed
+  4, zone 3, near 2, then distance from 50.
+- **Pipeline:** the same `npm run cot` run and cached `cot.json` as §5.7.
+  CFTC reads are paged (Socrata's 50,000-row limit; 44 markets of full history
+  is several pages); Yahoo calls run four at a time. A market with no reports
+  this time keeps its previous entry, marked stale; a run that fetched no
+  board market at all carries the whole previous board, marked stale. The
+  board never changes the exit code or the gauge. `cot.json` is now written
+  without indentation.
+- **Not backtested** outside the indices (§5.7): the page says so, and front-
+  month bars jump at rolls, which can trip a reversal or stop.
 
 ---
 
@@ -1448,6 +1496,55 @@ Search a stock to find its single-stock inverse ETF(s), or the other way round.
   redeploy brings it into the data.
 - The demo shows the built-in list; COMMIT is disabled there.
 
+### 6.7d COT (Q83)
+
+A quick heads-up on futures positioning and a chart like a COT indicator,
+after Jason Shapiro's Crowded Market Report. Data: §5.8.
+
+- **Header:** market count, the report Tuesday and next Friday release, and
+  the board's as-of time. Controls, remembered per browser: LOOKBACK 26W /
+  52W / 3Y (default 3Y), RANK ON % OF OI / CONTRACTS (default % of OI, the
+  system), CHART 1Y / 2Y / 3Y (default 2Y).
+- **No separate heads-up panel** (owner 2026-11-19: it repeated the table).
+  The table's SHOW HEADS UP (a live signal or a zone, with its count; near a
+  zone doesn't count, so it actually filters: 20 of 44 on 2026-11-19, not 32)
+  covers it. SORT MOST CROWDED sorts by the large specs' distance from 50.
+- **Trade it with** (owner 2026-11-19: trades stocks, not futures):
+  `TRADE_IDEAS` in `board.ts` lists, per market, ETFs and related stocks that
+  gain if it rises (`long`) and inverse ETFs that gain if it falls (`short`),
+  with a note where nothing tracks it (coffee, cocoa, cotton, OJ, livestock)
+  or the link is loose (refiners for heating oil and gasoline, UUP as the
+  other side of a currency with no inverse ETF). `TICKER_NOTES` says what each
+  is (2x, 3x short, miners, …) and flags thin volume. The side to act on is a
+  live signal's, else the zone's (colored, with a bar at its left; the other
+  side's symbols stay plain): crowded short → BUY list, crowded
+  long → INVERSE list (or "NO INVERSE · TRIM …"; "—" when nothing is listed). Symbols link to
+  TradingView. Every symbol was checked live on Yahoo 2026-11-19. These are
+  instruments that move with the market, not recommendations.
+- **Chart** of the selected market (`?m=SI`; default the top heads-up with
+  something listed for its side, so not coffee or cattle; click a table row):
+  name, last price and week change, the three ranks, a link to the future in
+  TradingView, its heads-up lines and both TRADE IT WITH lists, then the net
+  contracts by report (owner 2026-11-19: just the net bars, no candles or rank
+  pane): large specs blue and commercials red as columns, small traders a
+  yellow step line, zero line. A crosshair readout gives the report date, each
+  group's net, OI, the three ranks at the page's lookback and the week's
+  close; it wraps between items. Month ticks at a regular step, January as the
+  year. Drawn at the measured width so text stays sharp; shorter on a phone.
+- **Markets:** every market grouped by sector (or MOST CROWDED first; SHOW ALL
+  / HEADS UP). Columns in reading order, so a phone sees what matters before
+  scrolling: market, large-spec meter and rank, the first heads-up lines,
+  TRADE WITH, then last, week %, rank 4 weeks ago, commercials' and small
+  traders' ranks, specs' net and weekly change. Ranks in a zone are bold
+  green/red, near one yellow. The market column stays put when the table
+  scrolls sideways. Picking a market scrolls to the chart and moves keyboard
+  focus to its heading.
+- **How to read it:** a collapsed panel with READ / RANK / ZONES / ENTER /
+  MANAGE / CAVEATS.
+- The dashboard COT card links here (ALL FUTURES ›, right of its head). Without a board (old
+  `cot.json`) the page says when it will appear. The demo has a made-up board
+  for every market, with fixed signals on GC, CL and ZC.
+
 ### 6.8 Import
 
 See §4.5A. Drag-and-drop CSVs, then a preview (new fills and trades, with
@@ -1840,6 +1937,7 @@ the commit leaves the private repo.
 | Q80 | Inverse ETF lookup | Owner request 2026-11-04: a page to search a stock and find its single-stock inverse ETF(s). The LOOKUPS page (reachable while locked, like CALC) is a searchable table over `src/core/lookups/inverse-etfs.json`, matching on either the ETF symbol or its underlying. The table is **manually curated**, not fetched: it started from the owner's TradingView "Leveraged Inverse ETFs" watchlist (~175 symbols), keeping only the ones that track a single stock (TSLQ → TSLA, NVDD → NVDA, …) and dropping sector/country/bond/commodity/index/basket/volatility inverse ETFs (SPXS, TZA, FNGD, …), which have no single-stock underlying. A follow-up pass (2026-11-05) re-pulled every excluded symbol's TradingView description to double-check the cut: it caught 4 missed single-stock entries for SK hynix (SKDD/SKHN/SKHQ/SKHZ → SKHY, the Nasdaq ADR; SK hynix itself trades in Korea as KRX:000660) and confirmed the rest (Mag7/FANG+ baskets, DRAM/AI/auto-industry sector products, etc.) genuinely have no single-stock underlying. Owner request 2026-11-06 added the three classic QQQ inverses (SQQQ/QID/PSQ) by name despite QQQ being an index ETF, not a single stock — a deliberate one-off exception to the single-stock rule, not a reopening of the broader sector/index scope. No build script fetches this: TradingView access exists only in a Claude session, not in this repo's Node scripts (Yahoo only), so refreshing it meant asking Claude to re-pull the watchlist and re-derive the file (superseded by Q82: the list is now edited on the page). A per-stock sector-ETF lookup was discussed and deferred — out of scope for this pass. |
 | Q81 | Quotes page | Owner request 2026-11-15: a page to keep and scroll through trading quotes heard or thought of while trading, "similar to the Errors page", with an optional source, link and category. Unlike ERRORS (read from Playbook reviews) quotes are entered in the app, so they live in trade-history's `sayings.json` (§3.6), encrypted like the rest, and each change is one previewed commit like the account value (Q68). Free-form tags rather than a fixed category list, so a category is just a tag. Named `sayings` to stay clear of `quotes.json` (prices). |
 | Q82 | Editable lookups | Owner request 2026-11-17, with two inverse ETFs being delisted that day: add or remove several lookups at once in the UI, not by command. Owner chose to move the table into trade-history (`lookups.json`, §3.7) rather than keep it in the app with edits on top, so LOOKUPS now unlocks like the other pages (previously reachable while locked). The old built-in table stays in the app only as the starting list until the first commit creates `lookups.json`. Ticked removals and any number of added rows go in one previewed commit (§6.7c). Named `lookups` to leave room for other lookups later. |
+| Q83 | COT page | Owner request 2026-11-19: a COT tab that mimics Jason Shapiro's Crowded Market Report, a quick heads-up across the futures and a chart like his TradingView COT indicator (alongside a Pine copy of it saved to the owner's TradingView). Built as a board of 44 futures in `cot.json` from the same `npm run cot` run (§5.8) and a COT page (§6.7d). Ranks are recomputed in the browser so the page can show the system's 3-year % of OI rank (default, matching the gauge and backtest) or a 26-week contracts rank like the indicator. Signals stay on the system settings and are labelled SYSTEM. Follow-up the same day: the owner trades stocks, not futures, so each market lists stocks and ETFs for each side (§6.7d), and the chart is just the net bars. The gauge and its brake are unchanged: still the three indices. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
