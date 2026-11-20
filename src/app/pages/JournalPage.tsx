@@ -35,7 +35,7 @@ function StatusChip({ r }: { r: Review }) {
 function ReviewCell({ j, r }: { j: Journal; r: Review }) {
   const { idea } = ideaFor(j, r);
   if (!idea) return <><StatusChip r={r} /> <span className="half small">NO MATCHING IDEA</span></>;
-  if (exitMissing(j, r)) return <span className="chip loss" title="The review is still OPEN but the idea has closed: write the exit">EXIT MISSING</span>;
+  if (exitMissing(j, r)) return <span className="chip loss" title="Review still OPEN but the idea closed. Write the exit.">EXIT MISSING</span>;
   return <><StatusChip r={r} />{r.header.status === "open" && idea.status === "open" ? null : r.header.status !== idea.status ? <span className="muted small"> · idea {idea.status}</span> : null}</>;
 }
 
@@ -158,7 +158,7 @@ export function ReviewPage({ journal: j, id, view }: { journal: Journal; id: str
       <article className="panel md-wrap">
         <LazyReview path={r.path} markdown={r.markdown} />
       </article>
-      <div className="dim small">Read-only. Reviews are written in Playbook with <code>/playbook-review</code> (run in a terminal: <code>{reviewCommand(r.ticker ?? "TICKER", r.date ?? "DATE")}</code>).</div>
+      <div className="dim small">Read-only. Write reviews in Playbook with <code>/playbook-review</code>. In a terminal: <code>{reviewCommand(r.ticker ?? "TICKER", r.date ?? "DATE")}</code></div>
     </main>
   );
 }

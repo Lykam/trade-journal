@@ -274,7 +274,7 @@ function Compare({ c }: { c: Ctx }) {
   return (
     <>
       <div className="row">
-        <span className="label small" title="Each preset replaces the style, instrument, broker and dates of both sides; other filters stay">PRESETS</span>
+        <span className="label small" title="Sets style, instrument, broker and dates on both sides. Other filters stay.">PRESETS</span>
         {COMPARE_PRESETS.map((p) => <a key={p.key} className="btn" href={presetHref(p)}>{p.label}</a>)}
       </div>
       <FilterBar view={bView} journal={c.j} base="#/reports" title="B FILTERS" pnl={false} count={false} defaultOpen={false}

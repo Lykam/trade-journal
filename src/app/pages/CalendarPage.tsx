@@ -217,7 +217,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
 
         </div>
       </section>
-      <div className="dim small">P&amp;L on the day it was booked (ET): trims on their own day, the rest on the close. Darker = bigger day. 📄 = review.</div>
+      <div className="dim small">P&amp;L lands on the day it's booked (ET). Trims on their day, the rest on the close. Darker = bigger day. 📄 = review.</div>
     </main>
   );
 }

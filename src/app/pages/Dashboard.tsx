@@ -33,7 +33,7 @@ function RefreshPrices() {
         className="btn"
         disabled={deploy?.phase === "waiting"}
         onClick={() => { setError(null); refreshPrices(record).catch((e) => setError((e as Error).message)); }}
-        title="Start the prices workflow now; new prices appear after its deploy (1–2 min)"
+        title="Runs the prices workflow. New prices show after the deploy (1–2 min)."
       >
         REFRESH PRICES
       </button>

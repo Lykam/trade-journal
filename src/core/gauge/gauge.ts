@@ -161,9 +161,9 @@ export function sizeState(delta: number, bands: Config["gauge"]["bands"]): SizeS
 
 const MESSAGES: Record<SizeState, string> = {
   // Sizes are spelled out: at body size "½" reads as "%" in JetBrains Mono (#13). The glyphs stay in the big headline.
-  full: "At or above your average.",
-  half: "Below your average: trade half size.",
-  quarter: "Well below your average: trade quarter size.",
+  full: "At or above average.",
+  half: "Below average. Trade half size.",
+  quarter: "Well below average. Trade quarter size.",
 };
 
 export function windowStats(items: WindowItem[]): WindowStats {
@@ -276,8 +276,8 @@ export function computeGauge(style: Style, input: GaugeInput): Gauge {
   const state = delta === null ? null : sizeState(delta, g.bands);
   const message =
     state ? MESSAGES[state]
-    : stats.winRate === null ? "No decisive trades in the window yet."
-    : "No baseline: no closed trades in the baseline period.";
+    : stats.winRate === null ? "No wins or losses yet."
+    : "No average yet. No closed trades in the lookback.";
 
   const sparkline: SparkPoint[] = [];
   for (let w = SPARKLINE_WEEKS - 1; w >= 0; w--) {

@@ -1,4 +1,5 @@
 // Shared data types for the trade-history contract (docs/SPEC.md §3).
+import type { CotBoard } from "./cot/board.ts";
 import type { CotSnapshot } from "./cot/cot.ts";
 import type { RegimeSnapshot } from "./regime/regime.ts";
 
@@ -247,6 +248,8 @@ export interface CotFile {
   /** The last fetch failed; this snapshot was carried over from a previous run. */
   stale?: true;
   snapshot: CotSnapshot;
+  /** The COT page's futures board (SPEC §5.8), with its own asOf; absent in files written before it existed. */
+  board?: CotBoard;
 }
 
 /** One Playbook review as read from disk (SPEC §6.7, §6.11). */

@@ -49,7 +49,7 @@ export function OpenPage({ data, now }: { data: DataBundle; now: string }) {
       {accounts.size > 0 && <section className="panel" aria-label="Accounts"><AccountLine accounts={accounts} /></section>}
       <OpenTable rows={rows} totals={t} acct={accounts.size > 0} />
       <div className="dim small" title="Realized = locked in by trims, less buy fees. Unrealized = shares × (last − avg cost). Total = both.">
-        Average-cost basis; may differ from Schwab's FIFO tax lots.
+        Average cost. Schwab's FIFO tax lots may differ.
       </div>
 
     </main>

@@ -49,7 +49,7 @@ export function AccountLine({ accounts }: { accounts: Map<string, AccountValue> 
 }
 
 function acctTitle(a: AccountValue): string {
-  const base = `Started ${money(a.balance.start.amount, { sign: false })} on ${a.balance.start.date}; cash = start + every buy and sale since.`;
+  const base = `Started ${money(a.balance.start.amount, { sign: false })} on ${a.balance.start.date}. Cash = start + every fill since.`;
   const cp = a.checkpoint
     ? ` Actual ${money(a.checkpoint.value, { sign: false })} entered for ${a.checkpoint.date}, a ${money(a.adjustment)} correction.`
     : " No actual value entered yet.";

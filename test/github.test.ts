@@ -505,7 +505,7 @@ describe("chart uploads to Playbook (Q78)", () => {
   });
 
   it("refuses non-images, empty and oversized files before any request", () => {
-    expect(() => checkUpload({ type: "image/svg+xml", bytes: PNG })).toThrow(/Not an image/);
+    expect(() => checkUpload({ type: "image/svg+xml", bytes: PNG })).toThrow(/Not a supported image/);
     expect(() => checkUpload({ type: "image/png", bytes: new Uint8Array() })).toThrow(/empty/);
     expect(() => checkUpload({ type: "image/png", bytes: new Uint8Array(10 * 1024 * 1024 + 1) })).toThrow(/limit/);
     expect(checkUpload({ type: "image/jpeg", bytes: PNG })).toBe("jpg");
@@ -630,7 +630,7 @@ describe("in-app journal review (Q80)", () => {
     const before = fake.commitCount();
     await expect(
       commitReview(new GitHubClient(TOKEN, fake.fetch), DATA, idea, blankAnswers, [{ date: "2026-10-13", symbol: "TSTU", kind: "daily", type: "image/svg+xml", bytes: PNG }]),
-    ).rejects.toThrow(/Not an image/);
+    ).rejects.toThrow(/Not a supported image/);
     expect(fake.commitCount()).toBe(before);
   });
 });

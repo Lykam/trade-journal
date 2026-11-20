@@ -199,7 +199,7 @@ describe("#20 breakdowns", () => {
   it("grays ratio stats under 10 units and says why; no losses reads as a reason, not infinity", () => {
     const g = (count: number, wins: number, pf: number | null) => ({ count, wins, profitFactor: pf }) as never;
     expect(small(g(9, 3, 2))).toBe(true);
-    expect(smallTitle(g(4, 4, null))).toBe("Only 4: too few to mean much");
+    expect(smallTitle(g(4, 4, null))).toBe("Only 4. Too few to trust.");
     expect(small(g(10, 5, 1.5))).toBe(false);
     expect(smallTitle(g(12, 12, null))).toBe("No losses");
     expect(smallTitle(g(12, 6, 1.2))).toBeUndefined();
