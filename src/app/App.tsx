@@ -33,13 +33,13 @@ const NAV = [
   { path: "/cal", label: "CAL" },
   { path: "/trades", label: "TRADES" },
   { path: "/reports", label: "REPORTS" },
-  { path: "/cot", label: "COT" },
   { path: "/journal", label: "JOURNAL" },
   { path: "/errors", label: "ERRORS" },
   { path: "/plays", label: "PLAYS" },
   { path: "/quotes", label: "QUOTES" },
-  { path: "/calc", label: "CALC" },
   { path: "/lookups", label: "LOOKUPS" },
+  { path: "/cot", label: "COT" },
+  { path: "/calc", label: "CALC" },
   { path: "/settings", label: "SETTINGS" },
 ];
 
