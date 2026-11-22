@@ -2,6 +2,7 @@
 import type { CotBoard } from "./cot/board.ts";
 import type { CotSnapshot } from "./cot/cot.ts";
 import type { MoversFile } from "./movers/movers.ts";
+import type { MoverNotesFile } from "./movers/notes.ts";
 import type { RegimeSnapshot } from "./regime/regime.ts";
 
 export type Broker = "schwab" | "webull";
@@ -289,6 +290,8 @@ export interface DataBundle {
   lookups?: LookupsFile | null;
   /** The MOVERS page (movers.json, Q85): written weekly by `npm run movers`; null/absent until first published. */
   movers?: MoversFile | null;
+  /** Notes on MOVERS rows (mover-notes.json, Q86), edited on the page; null/absent until the first note. */
+  moverNotes?: MoverNotesFile | null;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */
   imageFiles?: Record<string, string>;
   loadedAt: string;

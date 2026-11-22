@@ -12,6 +12,7 @@ import { readCot } from "./fetch-cot.ts";
 import { readRegime } from "./fetch-regime.ts";
 import { loadPlaybook } from "./playbook.ts";
 import { parseMoversFile } from "../src/core/movers/movers.ts";
+import { NOTES_PATH, parseNotes } from "../src/core/movers/notes.ts";
 
 export function loadBundle(historyDir: string, quotesFile: string, playbookDir: string, regimeFile: string, cotFile?: string): DataBundle {
   if (!existsSync(join(historyDir, "config.json"))) throw new Error(`no config.json in ${historyDir} (set TRADE_HISTORY_DIR)`);
@@ -33,6 +34,7 @@ export function loadBundle(historyDir: string, quotesFile: string, playbookDir: 
     sayings: h.sayings,
     lookups: h.lookups,
     movers: readMovers(historyDir),
+    moverNotes: existsSync(join(historyDir, NOTES_PATH)) ? parseNotes(readFileSync(join(historyDir, NOTES_PATH), "utf8")) : null,
     loadedAt: new Date().toISOString(),
     history: headCommit(historyDir),
   };

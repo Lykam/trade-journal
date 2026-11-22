@@ -5,7 +5,11 @@ import { MoversPage } from "../src/app/pages/MoversPage";
 import type { DataBundle } from "../src/core/types";
 import { lastCompleteFriday } from "../build/fetch-movers";
 import { computeMovers, filterMovers, moverRows, moversCsv, moversFile, NO_FILTER, parseMoversFile, type Bar, type Day, type Split } from "../src/core/movers/movers";
-import { demoMovers } from "../src/demo/movers";
+import { demoMoverNotes, demoMovers } from "../src/demo/movers";
+import { GitHubClient } from "../src/core/github/client";
+import { commitMoverNote } from "../src/core/movers/notes-commit";
+import { applyNote, NOTE_MAX, noteKey, NOTES_PATH, notesJson, parseNotes } from "../src/core/movers/notes";
+import { FakeGitHub, TOKEN } from "./fake-github";
 
 const bar = (c: number, v = 20e6, extra: Partial<Bar> = {}): Bar => ({ o: c, h: c, l: c, c, v, ...extra });
 const day = (date: string, bars: Record<string, Bar>): Day => ({ date, bars: new Map(Object.entries(bars)) });
@@ -137,5 +141,45 @@ describe("MoversPage", () => {
     expect(html.indexOf(latest.end)).toBeGreaterThan(-1);
     expect(html).toContain(`href="#/trade/T-1"`);
     expect((html.match(/<tr/g) ?? []).length).toBe(Math.min(n, 150) + 1);
+  });
+});
+
+describe("mover notes (Q86)", () => {
+  const K = noteKey("2026-11-20", "SLS");
+
+  it("sets, edits and removes a note, one line, at most 200 characters", () => {
+    const a = applyNote(null, K, "  gapped on\n news  ", "2026-11-22");
+    expect(a.notes[K]).toEqual({ text: "gapped on news", updated: "2026-11-22" });
+    const b = applyNote(a, noteKey("2026-11-13", "ABC"), "earlier", "2026-11-22");
+    expect(Object.keys(b.notes)).toEqual(["2026-11-13|ABC", K]);
+    expect(applyNote(b, K, "   ", "2026-11-23").notes[K]).toBeUndefined();
+    expect(() => applyNote(null, K, "x".repeat(NOTE_MAX + 1), "2026-11-22")).toThrow(/at most 200/);
+    expect(applyNote(null, K, "x".repeat(NOTE_MAX), "2026-11-22").notes[K]!.text).toHaveLength(200);
+    expect(parseNotes(notesJson(b))).toEqual(b);
+    expect(parseNotes("[]")).toBeNull();
+  });
+
+  it("commits to mover-notes.json, keeping a note saved elsewhere meanwhile", async () => {
+    const REPO = { owner: "tester", repo: "history-sandbox" };
+    const other = noteKey("2026-11-13", "ABC");
+    const fake = new FakeGitHub({ "config.json": "{}" }, {
+      beforePatch: (f) => {
+        if (f.text(NOTES_PATH) === undefined) f.push({ [NOTES_PATH]: notesJson(applyNote(null, other, "from the phone", "2026-11-22")) });
+      },
+    });
+    const out = await commitMoverNote(new GitHubClient(TOKEN, fake.fetch), REPO, K, "held VWAP", new Date("2026-11-22T17:00:00Z"));
+    const file = parseNotes(fake.text(NOTES_PATH))!;
+    expect(file.notes[K]!.text).toBe("held VWAP");
+    expect(file.notes[other]!.text).toBe("from the phone");
+    expect(out.sha).toBeTruthy();
+    expect(fake.text("config.json")).toBe("{}");
+  });
+
+  it("shows a saved note in the table and + NOTE elsewhere", () => {
+    const file = demoMovers("2026-11-22T15:00:00Z", 7);
+    const notes = demoMoverNotes(file);
+    const html = renderToStaticMarkup(createElement(MoversPage, { data: { movers: file, moverNotes: notes, derived: { trades: [] } } as unknown as DataBundle }));
+    expect(html).toContain("Demo note: gapped on news");
+    expect(html).toContain("+ NOTE");
   });
 });

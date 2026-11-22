@@ -4,6 +4,7 @@
 import { addDays, dayOfWeek, weekStart } from "../core/calendar";
 import { etDate } from "../core/normalize/util";
 import { DEFAULT_CRITERIA, moversFile, type Mover, type MoversFile, type MoverWeek } from "../core/movers/movers";
+import { noteKey, type MoverNotesFile } from "../core/movers/notes";
 import { Rng, seedOf } from "./prng";
 import { DAY_TICKERS } from "./tickers";
 
@@ -48,3 +49,10 @@ export function demoMovers(now: string, seed: number): MoversFile {
 }
 
 const round = (n: number, d = 1) => Math.round(n * 10 ** d) / 10 ** d;
+
+/** A couple of short notes on the latest movers, so the demo shows the NOTE column in use. */
+export function demoMoverNotes(file: MoversFile): MoverNotesFile {
+  const recent = [...file.weeks].reverse().flatMap((w) => w.movers.map((m) => noteKey(w.end, m.ticker))).slice(0, 2);
+  const texts = ["Demo note: gapped on news, held VWAP all week.", "Demo note: faded after day one; the short worked."];
+  return { schemaVersion: 1, notes: Object.fromEntries(recent.map((k, i) => [k, { text: texts[i]!, updated: file.through }])) };
+}
