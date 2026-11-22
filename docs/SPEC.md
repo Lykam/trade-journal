@@ -1042,7 +1042,7 @@ candlestick charts in v1 (see §11).
   - **Green `#22c55e` gains / red `#ef4444` losses.** Yellow `#facc15` is used
     only for the "½ size" state.
   - **Top navigation bar** instead of a sidebar: DASH · OPEN · CAL · TRADES ·
-    REPORTS · JOURNAL · ERRORS · PLAYS · QUOTES · LOOKUPS · COT · CALC ·
+    REPORTS · JOURNAL · ERRORS · PLAYS · MOVERS · QUOTES · LOOKUPS · COT · CALC ·
     SETTINGS, with IMPORT and LOCK on the right. Beside
     them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
     SCHWAB 10-02`, the last import per broker turning amber with `!` when it
@@ -1516,6 +1516,45 @@ Playbook can read or edit it like any other file.
   in the demo, which shows three generic plays using its generated charts.
 - The leak guard treats each play's path and file name as private.
 
+### 6.7f Movers (Q85)
+
+A research list of the market's biggest weekly moves, for studying how they
+behave (long or short). Public market data, not the owner's trades.
+
+- **Rule** (`src/core/movers/movers.ts`, `DEFAULT_CRITERIA`): a US common stock
+  or ADR (delisted names included; ETFs, warrants, units excluded) qualifies
+  for a week (Monday to its last market day) when
+  - it moved **50%+ either way**, measured from the prior week's last close:
+    on the Friday close (`basis: close`), or only at the week's high or low
+    (`basis: intraweek`, it faded by Friday);
+  - its **average daily dollar volume** (Σ v × vw ÷ days) was **$100M+** over
+    that week *or* the trailing 21 market days ("30d");
+  - its **price** (actual traded, not split-adjusted) was **over $5** at the
+    start or the end of the week.
+  Splits inside the week are adjusted so they aren't fake moves; bankruptcy
+  re-listings and unrecorded reverse splits can still slip through (e.g. WOLF
+  2025-10-03), so rows over ~1,000% deserve a check.
+- **Data**: `npm run movers` (`build/fetch-movers.ts`) reads Massive (formerly
+  Polygon.io; key in `MASSIVE_API_KEY` or `POLYGON_API_KEY`): grouped daily bars
+  (one call per market day, cached gzipped in `_cache/movers/days/`), splits,
+  and the common-stock/ADR reference list (cached a week). The free plan gives 5
+  calls a minute and 2 years of history, so the backfill took ~2 hours and a
+  weekly run takes about a minute. It writes `movers.json` and `movers.csv`
+  (gitignored) and, with `--publish`, commits `movers.json` to **trade-history**
+  (token from `GITHUB_TOKEN` or `gh auth token`), whose push redeploys the site.
+- **Schedule**: the Windows scheduled task **TradeJournal Movers**
+  (`build/movers-task.ps1`, registered with `-Register`) runs Saturdays 09:00,
+  or at the next chance if the PC was off; log in `_cache/movers-task.log`.
+- The **MOVERS** page lists every mover newest week first: move, the week's
+  high and low, start → end price, $vol/day (week and 30d) and average daily
+  range, with ×N for tickers that repeat, INTRAWEEK for faded moves and TRADED
+  (linking the trade) when the owner had a trade on it open that week. Filters:
+  ticker search (clicking a ticker shows all its weeks), direction, close vs
+  intraweek, and liquidity (already liquid before the move vs only because of
+  it). Read-only.
+- The bundle reads trade-history's `movers.json`; without one (dev on the
+  fixtures) the local `movers.json`. The demo shows 26 weeks of invented movers.
+
 ### 6.7c Lookups (Q80, Q82)
 
 Search a stock to find its single-stock inverse ETF(s), or the other way round.
@@ -1977,6 +2016,7 @@ the commit leaves the private repo.
 | Q82 | Editable lookups | Owner request 2026-11-17, with two inverse ETFs being delisted that day: add or remove several lookups at once in the UI, not by command. Owner chose to move the table into trade-history (`lookups.json`, §3.7) rather than keep it in the app with edits on top, so LOOKUPS now unlocks like the other pages (previously reachable while locked). The old built-in table stays in the app only as the starting list until the first commit creates `lookups.json`. Ticked removals and any number of added rows go in one previewed commit (§6.7c). Named `lookups` to leave room for other lookups later. |
 | Q83 | COT page | Owner request 2026-11-19: a COT tab that mimics Jason Shapiro's Crowded Market Report, a quick heads-up across the futures and a chart like his TradingView COT indicator (alongside a Pine copy of it saved to the owner's TradingView). Built as a board of 44 futures in `cot.json` from the same `npm run cot` run (§5.8) and a COT page (§6.7d). Ranks are recomputed in the browser so the page can show the system's 3-year % of OI rank (default, matching the gauge and backtest) or a 26-week contracts rank like the indicator. Signals stay on the system settings and are labelled SYSTEM. Follow-up the same day: the owner trades stocks, not futures, so each market lists stocks and ETFs for each side (§6.7d), and the chart is just the net bars. The gauge and its brake are unchanged: still the three indices. |
 | Q84 | Plays page | Owner request 2026-11-21: a place to keep and grow notes for Playbook setups ("plays"): a name, the markets it works in, timeframes, entry tactics and a long write-up with images, then further write-ups and images appended one at a time in their own sections, ending up as one .md per play. Built as the PLAYS page (§6.7e) writing `Plays/<slug>.md` in **Playbook** directly, so the saved file is the .md and no generate step is needed; stored in Playbook rather than trade-history because the plays sit beside the reviews and skills that will use them. Named PLAYS, not SETUPS, to stay clear of the Setups page removed on 2026-11-10. |
+| Q85 | Movers page | Owner request 2026-11-22: a weekly historical list of stocks that moved 50%+ (either way: "I can long or short, but seeing what is moving greatly is key"), with $100M+ average daily dollar volume over the week or 30 days and price over $5, for research. A TradingView screen only sees the current week and live listings, so history comes from Massive's grouped daily bars (free plan: 2 years), including delisted names to avoid survivorship bias. Weekly volatility was considered and rejected as the filter (it ranks chop, not distance travelled) but kept as the ADR column. Runs locally as a Windows scheduled task and publishes `movers.json` to trade-history, so no market-data key lives in Actions and the deploy just bundles the file (§6.7f). |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy

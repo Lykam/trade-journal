@@ -23,6 +23,7 @@ import { chartSvg, svgDataUrl, type Candle, type Marker } from "./charts";
 import { Rng, seedOf } from "./prng";
 import { demoReview } from "./reviews";
 import { demoSayings } from "./sayings";
+import { demoMovers } from "./movers";
 import { demoPlays } from "./plays";
 import { DAY_TICKERS, DEMO_SYMBOLS, SWING_TICKERS, type DemoTicker } from "./tickers";
 
@@ -666,6 +667,7 @@ export function generateDemo(now: string): DemoData {
     cot: cotFor(quotesAsOf(nowMs)),
     playbook: { reviews, images: Object.keys(images).sort(), plays: demoPlays(now, Object.keys(images).sort()) },
     sayings: demoSayings(now),
+    movers: demoMovers(now, DEMO_SEED),
     loadedAt: now,
     history: null,
     // Both brokers imported the evening of the latest closed session, as after a normal day.

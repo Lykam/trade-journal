@@ -1,6 +1,7 @@
 // Shared data types for the trade-history contract (docs/SPEC.md §3).
 import type { CotBoard } from "./cot/board.ts";
 import type { CotSnapshot } from "./cot/cot.ts";
+import type { MoversFile } from "./movers/movers.ts";
 import type { RegimeSnapshot } from "./regime/regime.ts";
 
 export type Broker = "schwab" | "webull";
@@ -286,6 +287,8 @@ export interface DataBundle {
   sayings?: SayingsFile;
   /** The LOOKUPS page (lookups.json); null/absent until first committed, when the page starts from the built-in list. */
   lookups?: LookupsFile | null;
+  /** The MOVERS page (movers.json, Q85): written weekly by `npm run movers`; null/absent until first published. */
+  movers?: MoversFile | null;
   /** Production only: Playbook image path → its encrypted file name in img/ (an HMAC, Q34). Absent in dev. */
   imageFiles?: Record<string, string>;
   loadedAt: string;

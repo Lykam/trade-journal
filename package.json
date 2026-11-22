@@ -18,6 +18,7 @@
     "quotes:cache": "tsx build/quotes-cache.ts",
     "regime": "tsx build/fetch-regime.ts",
     "cot": "tsx build/fetch-cot.ts",
+    "movers": "tsx build/fetch-movers.ts",
     "market": "tsx build/market-open.ts",
     "pages-guard": "tsx build/pages-guard.ts",
     "encrypt": "tsx build/encrypt.ts",
