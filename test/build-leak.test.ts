@@ -198,11 +198,11 @@ describe("encrypted dist (canary bundle)", () => {
     expect(logs.join("\n")).toContain("data.enc: missing");
   });
 
-  it("handles a Playbook with no Reviews/ or Images/", () => {
+  it("handles a Playbook with no Reviews/, Plays/ or Images/", () => {
     const empty = join(tmp, "empty-playbook");
     mkdirSync(empty);
     const { bundle, images } = bundleData({ ...sources, playbookDir: empty });
-    expect(bundle.playbook).toEqual({ reviews: [], images: [] });
+    expect(bundle.playbook).toEqual({ reviews: [], images: [], plays: [] });
     expect(images).toEqual([]);
     const dir = join(tmp, "dist-empty");
     cpSync(outDir, dir, { recursive: true });

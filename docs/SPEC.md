@@ -1478,6 +1478,43 @@ books, other traders or the owner's own head.
   marked **DEPLOYING** until the redeploy brings it into the data.
 - The demo shows made-up quotes from made-up sources; COMMIT is disabled there.
 
+### 6.7e Plays (Q84)
+
+The owner's playbook of setups. Each play is one markdown file in Playbook,
+`Plays/<slug>.md`, with its images under `Images/plays/<slug>/<date>-<n>.<ext>`.
+The file is the play: nothing is generated later, and a Claude session in
+Playbook can read or edit it like any other file.
+
+- File format: `# <Name>`, then `**Created:**`, `**Markets:**` and
+  `**Timeframes:**` (comma-separated) and `**Entry Tactics:**` followed by a
+  `- ` list; then `## Write-up` and any number of
+  `## Update — <YYYY-MM-DD>[ · <title>]` sections, appended one at a time.
+  Images are embedded relative to the file (`../Images/plays/…`), so the
+  review renderer shows them. Hand-written files (CRLF, `*` bullets, other
+  section names) parse too.
+- The **PLAYS** page lists plays (newest update first): name, markets,
+  timeframes, tactic and update counts, last updated, with a search box and a
+  pill per market. **+ NEW PLAY** takes the name, markets and timeframes (free
+  text, comma-separated; owner asked for no suggestion pills), entry tactics
+  (one per line, reorderable) and the write-up. Pasting,
+  dropping or choosing an image in a write-up puts a `pending:<n>` token at the
+  cursor; at commit time it becomes the image's real path (an image whose token
+  was deleted goes on the end of the section).
+- A play's page shows the header and each section rendered, with **EDIT
+  HEADER** (the file keeps its name when renamed, so image links hold),
+  **EDIT** per section, **+ ADD UPDATE** (optional title, today's ET date),
+  **COPY MARKDOWN** and **REMOVE PLAY** (deletes the file and its image folder).
+- Every change is one commit to Playbook's main with the browser token
+  (Contents: read and write on Playbook, as chart uploads need, Q78), after a
+  COMMIT PREVIEW / CONFIRM COMMIT step. The file is read fresh at commit time
+  and the commit retried if main moves, so an edit made elsewhere is never
+  overwritten; an edited section is matched by index and heading and refused if
+  the file changed under it. A saved play shows at once marked DEPLOYING, with
+  its new images shown from the picked files until the redeploy.
+- The commit code (`src/core/plays/commit.ts`) loads only on save and is never
+  in the demo, which shows three generic plays using its generated charts.
+- The leak guard treats each play's path and file name as private.
+
 ### 6.7c Lookups (Q80, Q82)
 
 Search a stock to find its single-stock inverse ETF(s), or the other way round.
@@ -1938,6 +1975,7 @@ the commit leaves the private repo.
 | Q81 | Quotes page | Owner request 2026-11-15: a page to keep and scroll through trading quotes heard or thought of while trading, "similar to the Errors page", with an optional source, link and category. Unlike ERRORS (read from Playbook reviews) quotes are entered in the app, so they live in trade-history's `sayings.json` (§3.6), encrypted like the rest, and each change is one previewed commit like the account value (Q68). Free-form tags rather than a fixed category list, so a category is just a tag. Named `sayings` to stay clear of `quotes.json` (prices). |
 | Q82 | Editable lookups | Owner request 2026-11-17, with two inverse ETFs being delisted that day: add or remove several lookups at once in the UI, not by command. Owner chose to move the table into trade-history (`lookups.json`, §3.7) rather than keep it in the app with edits on top, so LOOKUPS now unlocks like the other pages (previously reachable while locked). The old built-in table stays in the app only as the starting list until the first commit creates `lookups.json`. Ticked removals and any number of added rows go in one previewed commit (§6.7c). Named `lookups` to leave room for other lookups later. |
 | Q83 | COT page | Owner request 2026-11-19: a COT tab that mimics Jason Shapiro's Crowded Market Report, a quick heads-up across the futures and a chart like his TradingView COT indicator (alongside a Pine copy of it saved to the owner's TradingView). Built as a board of 44 futures in `cot.json` from the same `npm run cot` run (§5.8) and a COT page (§6.7d). Ranks are recomputed in the browser so the page can show the system's 3-year % of OI rank (default, matching the gauge and backtest) or a 26-week contracts rank like the indicator. Signals stay on the system settings and are labelled SYSTEM. Follow-up the same day: the owner trades stocks, not futures, so each market lists stocks and ETFs for each side (§6.7d), and the chart is just the net bars. The gauge and its brake are unchanged: still the three indices. |
+| Q84 | Plays page | Owner request 2026-11-21: a place to keep and grow notes for Playbook setups ("plays"): a name, the markets it works in, timeframes, entry tactics and a long write-up with images, then further write-ups and images appended one at a time in their own sections, ending up as one .md per play. Built as the PLAYS page (§6.7e) writing `Plays/<slug>.md` in **Playbook** directly, so the saved file is the .md and no generate step is needed; stored in Playbook rather than trade-history because the plays sit beside the reviews and skills that will use them. Named PLAYS, not SETUPS, to stay clear of the Setups page removed on 2026-11-10. |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy

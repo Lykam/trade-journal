@@ -725,3 +725,36 @@ button.linkish:hover { color: var(--accent); }
   .saying blockquote { font-size: 13px; }
 }
 .saying-add .body, .saying.editing .body { padding: 8px 14px; }
+
+/* ---- plays (SPEC §6.7e, Q84) */
+.play-form-panel { max-width: 980px; }
+.play-form-panel .body, .play-edit { padding: 10px 14px 14px; }
+.play-form { display: flex; flex-direction: column; gap: 14px; }
+.play-form textarea { font-family: inherit; line-height: 1.5; resize: vertical; }
+.tactics-edit { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+.tactics-edit li { flex-wrap: nowrap; }
+.play-text { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px dashed transparent; }
+.play-text.drag { border-color: var(--accent); background: var(--inset); }
+.play-images { display: flex; flex-wrap: wrap; gap: 10px; }
+.play-image { margin: 0; width: 200px; max-width: 100%; border: 1px solid var(--border); background: var(--inset); }
+.play-image img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; }
+.play-image figcaption { padding: 4px 6px; flex-wrap: nowrap; }
+.play-image .spacer, .play-foot .spacer { flex: 1 1 0; }
+.play-header { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; padding: 12px 14px; align-items: baseline; }
+.play-header dt { color: var(--muted); font-size: 11px; letter-spacing: 0.04em; }
+.play-header dd { margin: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.play-header dd .chip + .chip { margin-left: 0; }
+.play-tactics { margin: 0; padding-left: 18px; }
+.play-tactics li + li { margin-top: 2px; }
+.play-body { padding-top: 0; }
+.play-remove { display: flex; flex-direction: column; gap: 6px; max-width: 640px; }
+table.grid td.wrap-cell { white-space: normal; min-width: 140px; }
+@media (max-width: 640px) {
+  .play-header { grid-template-columns: 1fr; gap: 2px 0; }
+  .play-header dd { margin-bottom: 8px; }
+}
+/* Market filter pills: room between pills and between each name and its count. */
+.plays-filter { gap: 10px; }
+.plays-filter .pillgroup { gap: 8px 10px; }
+.plays-filter .pill { gap: 8px; padding: 4px 12px; }
+.plays-filter .pill .dim { min-width: 1ch; text-align: right; }

@@ -23,6 +23,7 @@ import { chartSvg, svgDataUrl, type Candle, type Marker } from "./charts";
 import { Rng, seedOf } from "./prng";
 import { demoReview } from "./reviews";
 import { demoSayings } from "./sayings";
+import { demoPlays } from "./plays";
 import { DAY_TICKERS, DEMO_SYMBOLS, SWING_TICKERS, type DemoTicker } from "./tickers";
 
 export const DEMO_SEED = 20261004;
@@ -663,7 +664,7 @@ export function generateDemo(now: string): DemoData {
     quotes,
     regime: regimeFor(quotesAsOf(nowMs)),
     cot: cotFor(quotesAsOf(nowMs)),
-    playbook: { reviews, images: Object.keys(images).sort() },
+    playbook: { reviews, images: Object.keys(images).sort(), plays: demoPlays(now, Object.keys(images).sort()) },
     sayings: demoSayings(now),
     loadedAt: now,
     history: null,
