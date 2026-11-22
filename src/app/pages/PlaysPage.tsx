@@ -203,7 +203,7 @@ function PlayList({ data, by }: { data: DataBundle; by: string | null }) {
       <div className="seg" role="group" aria-label={`${k.title}: plays or routines`}>
         {halves.map((h) => (
           <a key={h.show} className="segl" href={listLink(h.kind, person)} aria-current={h === k ? "true" : undefined}>
-            {h.show.toUpperCase()} <span className="dim">{(h.files(data) ?? []).length}</span>
+            {h.show.toUpperCase()}<span className="dim seg-n">{(h.files(data) ?? []).length}</span>
           </a>
         ))}
       </div>
