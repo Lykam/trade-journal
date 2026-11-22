@@ -28,8 +28,16 @@ generated in your browser; nothing to log in to)
   years, refreshed every Saturday, with filters for direction, faded vs held
   moves and liquidity, a TRADED mark when you were in it that week, and a
   short note (200 characters) per mover, saved to the private data repo.
+  Clicking a ticker shows its weeks and a TradingView daily chart.
 - **Plays:** your Playbook setups (markets, timeframes, entry tactics, a
-  write-up with images and dated updates), each saved as one `.md` file.
+  write-up with images and dated updates) and, under a PLAYS | ROUTINES
+  switch, your prep routines (when, tools, numbered steps), each saved as one
+  `.md` file in Playbook `Plays/` or `Routines/`.
+- **Library:** the same for other traders' plays and routines, kept apart in
+  Playbook `Library/` and `Library/Routines/`, each credited with a source
+  (e.g. a YouTube link) and filterable by person. To fill one from a video,
+  paste the transcript into a Claude session with the Playbook checkout and
+  ask it to write the file (SPEC §6.7g).
 - **Lookups:** single-stock inverse ETFs for each underlying.
 - **Calendar**, **Reports** (stats grid, breakdowns, win vs loss days,
   drawdown, compare, tag breakdown), a **Journal** of Playbook reviews and

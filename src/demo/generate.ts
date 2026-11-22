@@ -24,7 +24,7 @@ import { Rng, seedOf } from "./prng";
 import { demoReview } from "./reviews";
 import { demoSayings } from "./sayings";
 import { demoMoverNotes, demoMovers } from "./movers";
-import { demoPlays } from "./plays";
+import { demoLibrary, demoPlays, demoRoutines } from "./plays";
 import { DAY_TICKERS, DEMO_SYMBOLS, SWING_TICKERS, type DemoTicker } from "./tickers";
 
 export const DEMO_SEED = 20261004;
@@ -666,7 +666,7 @@ export function generateDemo(now: string): DemoData {
     quotes,
     regime: regimeFor(quotesAsOf(nowMs)),
     cot: cotFor(quotesAsOf(nowMs)),
-    playbook: { reviews, images: Object.keys(images).sort(), plays: demoPlays(now, Object.keys(images).sort()) },
+    playbook: { reviews, images: Object.keys(images).sort(), plays: demoPlays(now, Object.keys(images).sort()), library: demoLibrary(now), routines: demoRoutines(now), libraryRoutines: demoRoutines(now, true) },
     sayings: demoSayings(now),
     movers,
     moverNotes: demoMoverNotes(movers),

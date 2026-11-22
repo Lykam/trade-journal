@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { MoversPage } from "../src/app/pages/MoversPage";
+import { chartRange, MoversPage } from "../src/app/pages/MoversPage";
 import type { DataBundle } from "../src/core/types";
 import { lastCompleteFriday } from "../build/fetch-movers";
 import { computeMovers, filterMovers, moverRows, moversCsv, moversFile, NO_FILTER, parseMoversFile, type Bar, type Day, type Split } from "../src/core/movers/movers";
@@ -181,5 +181,24 @@ describe("mover notes (Q86)", () => {
     const html = renderToStaticMarkup(createElement(MoversPage, { data: { movers: file, moverNotes: notes, derived: { trades: [] } } as unknown as DataBundle }));
     expect(html).toContain("Demo note: gapped on news");
     expect(html).toContain("+ NOTE");
+  });
+});
+
+describe("chartRange", () => {
+  it("picks the narrowest preset that still reaches the oldest move", () => {
+    expect(chartRange("2026-11-16", "2026-11-22")).toBe("3M");
+    expect(chartRange("2026-06-22", "2026-11-22")).toBe("6M");
+    expect(chartRange("2026-01-05", "2026-11-22")).toBe("12M");
+    expect(chartRange("2024-12-02", "2026-11-22")).toBe("60M");
+  });
+});
+
+describe("movers filter in the URL", () => {
+  it("round-trips through the hash, so a clicked ticker is a back-button step", async () => {
+    const { moversFilterOf, moversHash } = await import("../src/app/pages/MoversPage");
+    const f = { ...NO_FILTER, q: "SLS", dir: "up" as const };
+    expect(moversHash(NO_FILTER)).toBe("#/movers");
+    expect(moversHash(f)).toBe("#/movers?q=SLS&dir=up");
+    expect(moversFilterOf(new URLSearchParams("q=SLS&dir=up&liq=bogus"))).toEqual(f);
   });
 });

@@ -202,7 +202,7 @@ describe("encrypted dist (canary bundle)", () => {
     const empty = join(tmp, "empty-playbook");
     mkdirSync(empty);
     const { bundle, images } = bundleData({ ...sources, playbookDir: empty });
-    expect(bundle.playbook).toEqual({ reviews: [], images: [], plays: [] });
+    expect(bundle.playbook).toEqual({ reviews: [], images: [], plays: [], library: [], routines: [], libraryRoutines: [] });
     expect(images).toEqual([]);
     const dir = join(tmp, "dist-empty");
     cpSync(outDir, dir, { recursive: true });

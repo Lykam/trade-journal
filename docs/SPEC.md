@@ -1042,7 +1042,7 @@ candlestick charts in v1 (see §11).
   - **Green `#22c55e` gains / red `#ef4444` losses.** Yellow `#facc15` is used
     only for the "½ size" state.
   - **Top navigation bar** instead of a sidebar: DASH · OPEN · CAL · TRADES ·
-    REPORTS · JOURNAL · ERRORS · PLAYS · MOVERS · QUOTES · LOOKUPS · COT · CALC ·
+    REPORTS · JOURNAL · ERRORS · PLAYS · LIBRARY · MOVERS · QUOTES · LOOKUPS · COT · CALC ·
     SETTINGS, with IMPORT and LOCK on the right. Beside
     them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
     SCHWAB 10-02`, the last import per broker turning amber with `!` when it
@@ -1514,7 +1514,44 @@ Playbook can read or edit it like any other file.
   its new images shown from the picked files until the redeploy.
 - The commit code (`src/core/plays/commit.ts`) loads only on save and is never
   in the demo, which shows three generic plays using its generated charts.
+- PLAYS holds only the owner's plays; other traders' are in LIBRARY (§6.7h).
 - The leak guard treats each play's path and file name as private.
+
+### 6.7h Library (Q87)
+
+Plays and routines learned from other traders, kept apart from the owner's:
+the **LIBRARY** tab, next to PLAYS, with the same PLAYS | ROUTINES switch
+(§6.7g). The same page, file shape and commits as PLAYS (§6.7e), over
+`Library/<slug>.md` (images `Images/library/<slug>/`) and
+`Library/Routines/<slug>.md` (images `Images/library-routines/<slug>/`).
+Every one has a **Credit** (who it's from, required) and an optional
+**Source** (a link such as a YouTube video, or text such as a book), written
+under Created as `**Credit:**` and `**Source:**`. **+ ADD PLAY** / **+ ADD
+ROUTINE** opens the form; the list shows a BY <credit> chip and a pill per
+person, kept in the URL (`#/library?show=routines&by=Jane`) so it carries
+across the switch; search covers credit and source, and a page shows CREDIT
+and SOURCE with links clickable. `PlayKind.credit` is `never` for the
+owner's kinds and `always` for the library's.
+
+### 6.7g Routines (Q88)
+
+Prep routines (weekend prep, premarket checklist, …). No tab of their own:
+PLAYS and LIBRARY each have a **PLAYS | ROUTINES** switch (`?show=routines`),
+so the owner's routines sit with the owner's plays (`Routines/<slug>.md`,
+images `Images/routines/<slug>/`) and other traders' with theirs (§6.7h).
+The same page, file shape and commits as PLAYS (§6.7e); the header lists are
+**When**, **Tools** and **Steps** (written `1. …`, in order) in place of
+Markets, Timeframes and Entry Tactics. `PlayKind` (`PLAYS`, `ROUTINES`,
+`LIBRARY`, `LIBRARY_ROUTINES` in `src/core/plays/plays.ts`) carries the
+folders and labels, and `UI` in `PlaysPage.tsx` the wording, tab and half.
+Pages: `#/plays/<slug>`, `#/routines/<slug>`, `#/library/<slug>`,
+`#/library-routines/<slug>` (`#/routines` alone still opens the owner's
+routines). The demo shows one routine on each tab.
+
+**Filling one from a video**: there is no AI in the app. Paste a transcript
+(or a link) into a Claude session with the Playbook checkout and ask for a
+play or routine, yours or someone else's: Claude writes the file in the right
+folder in this format, credited, and the push redeploys the site.
 
 ### 6.7f Movers (Q85)
 
@@ -1551,7 +1588,15 @@ behave (long or short). Public market data, not the owner's trades.
   (linking the trade) when the owner had a trade on it open that week. Filters:
   ticker search (clicking a ticker shows all its weeks), direction, close vs
   intraweek, and liquidity (already liquid before the move vs only because of
-  it).
+  it). The filters live in the hash (`#/movers?q=SLS&dir=up`): clicking a
+  ticker or CLEAR adds a history entry, so the browser's back button returns
+  to the full list instead of leaving the site; typing and pills update the
+  current entry.
+- **Chart**: when the list is one ticker (a clicked ticker), a TradingView
+  daily chart of it shows under the table, its range (3M/6M/12M/60M back from
+  today) long enough to include the oldest listed move, whose weeks are named
+  in the header. The free widget can't mark or start at a date, and a ticker
+  since delisted or renamed may not load. Not in the demo (invented tickers).
 - **Notes** (Q86): each row has a NOTE cell, a short note of up to 200
   characters (one line, whitespace collapsed), shown truncated with the full
   text on hover. **+ NOTE** or clicking the note opens an editor under the row:
@@ -2029,6 +2074,8 @@ the commit leaves the private repo.
 | Q84 | Plays page | Owner request 2026-11-21: a place to keep and grow notes for Playbook setups ("plays"): a name, the markets it works in, timeframes, entry tactics and a long write-up with images, then further write-ups and images appended one at a time in their own sections, ending up as one .md per play. Built as the PLAYS page (§6.7e) writing `Plays/<slug>.md` in **Playbook** directly, so the saved file is the .md and no generate step is needed; stored in Playbook rather than trade-history because the plays sit beside the reviews and skills that will use them. Named PLAYS, not SETUPS, to stay clear of the Setups page removed on 2026-11-10. |
 | Q85 | Movers page | Owner request 2026-11-22: a weekly historical list of stocks that moved 50%+ (either way: "I can long or short, but seeing what is moving greatly is key"), with $100M+ average daily dollar volume over the week or 30 days and price over $5, for research. A TradingView screen only sees the current week and live listings, so history comes from Massive's grouped daily bars (free plan: 2 years), including delisted names to avoid survivorship bias. Weekly volatility was considered and rejected as the filter (it ranks chop, not distance travelled) but kept as the ADR column. Runs locally as a Windows scheduled task and publishes `movers.json` to trade-history, so no market-data key lives in Actions and the deploy just bundles the file (§6.7f). |
 | Q86 | Mover notes | Owner request 2026-11-22: a short note (~200 characters) per MOVERS row, behind an edit/notes button, showing all or part of it in the table. Kept in a separate `mover-notes.json` in trade-history (movers.json is regenerated weekly), keyed by week end and ticker so a ticker that repeats gets a note per move. Saved with one click, without the usual COMMIT PREVIEW step, since the note being edited is the whole change (§6.7f). |
+| Q87 | Library: other people's plays | Owner request 2026-11-22: keep plays learned from other traders, credited, with a source (e.g. a YouTube video) and the same write-up and charts as the owner's, but told apart so they can be looked up later. First built inside PLAYS with a credit line and MINE / OTHERS' filters; the owner then asked for them "even more separate", in their own tab next to PLAYS, so they live in Playbook's `Library/` on a LIBRARY page (§6.7h). Named LIBRARY rather than IDEAS, which already means grouped trades (COUNT BY IDEA) and review ideas (ERRORS). |
+| Q88 | Routines | Owner request 2026-11-22: the same for routines (weekend prep and the like), the owner's or someone else's, possibly filled in by Claude from a video transcript. Built as a ROUTINES page sharing the PLAYS code through a `PlayKind` (folder, labels, numbered steps), files in Playbook's `Routines/`. Filling from a transcript is done in a Claude session writing the file, not in the browser, so no AI key lives in the site (§6.7g). Same day: clicking a MOVERS ticker now adds a history entry (filters in the hash), since back previously left the site from a filtered list. Then (same day), with LIBRARY split out: no ROUTINES tab; PLAYS and LIBRARY each switch PLAYS | ROUTINES, so the owner's routines sit with the owner's plays and other traders' (in `Library/Routines/`) with theirs, filterable by person (§6.7g, §6.7h). |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
