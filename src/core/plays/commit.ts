@@ -8,8 +8,8 @@ import type { FileWrite } from "../history/files";
 import { etDate } from "../normalize/util";
 import { checkUpload } from "../reviews/upload";
 import {
-  appendSection, buildPlayMarkdown, checkHeader, PLAY_IMAGES_DIR, playImagePath, playPath, playSlugOf, PlayError, replaceHeader, replaceSection,
-  resolvePending, type PlayHeader,
+  appendSection, buildPlayMarkdown, checkHeader, PLAYS, playImagePath, playPath, playSlugOf, PlayError, replaceHeader, replaceSection,
+  resolvePending, type PlayHeader, type PlayKind,
 } from "./plays";
 
 export interface PlayImage {
@@ -37,14 +37,14 @@ export interface PlayCommit extends CommitResult {
 
 const utf8 = new TextDecoder("utf-8");
 
-export function playMessage(c: PlayChange, name: string, images = 0): string {
+export function playMessage(c: PlayChange, name: string, images = 0, noun = "play"): string {
   const withImages = images ? ` with ${images} image${images === 1 ? "" : "s"}` : "";
   switch (c.kind) {
-    case "create": return `Add play: ${name}${withImages} (written in the journal)`;
-    case "header": return `Edit play header: ${name} (in the journal)`;
-    case "append": return `Add update to play: ${name}${withImages} (in the journal)`;
-    case "section": return `Edit play section “${c.title}”: ${name}${withImages} (in the journal)`;
-    case "delete": return `Remove play: ${name} (in the journal)`;
+    case "create": return `Add ${noun}: ${name}${withImages} (written in the journal)`;
+    case "header": return `Edit ${noun} header: ${name} (in the journal)`;
+    case "append": return `Add update to ${noun}: ${name}${withImages} (in the journal)`;
+    case "section": return `Edit ${noun} section “${c.title}”: ${name}${withImages} (in the journal)`;
+    case "delete": return `Remove ${noun}: ${name} (in the journal)`;
   }
 }
 
@@ -55,7 +55,7 @@ async function current(gh: GitHubClient, state: RepoState, path: string): Promis
 }
 
 /** Apply one change to Playbook's main. `now` dates new images and a new play's Created line. */
-export async function commitPlay(gh: GitHubClient, repo: RepoId, change: PlayChange, now = new Date(), attempts = 3): Promise<PlayCommit> {
+export async function commitPlay(gh: GitHubClient, repo: RepoId, change: PlayChange, now = new Date(), attempts = 3, kind: PlayKind = PLAYS): Promise<PlayCommit> {
   if ("header" in change) {
     const bad = checkHeader(change.header);
     if (bad) throw new PlayError(bad);
@@ -67,11 +67,11 @@ export async function commitPlay(gh: GitHubClient, repo: RepoId, change: PlayCha
     try {
       const state = await readState(gh, repo);
       const taken = new Set(state.files.keys());
-      const path = change.kind === "create" ? playPath(taken, change.header.name) : change.path;
+      const path = change.kind === "create" ? playPath(taken, change.header.name, kind) : change.path;
       const slug = playSlugOf(path);
       const imagePaths = new Map<number, string>();
       images.forEach((img, k) => {
-        const p = playImagePath(taken, slug, date, exts[k]!);
+        const p = playImagePath(taken, slug, date, exts[k]!, kind);
         taken.add(p);
         imagePaths.set(img.id, p);
       });
@@ -80,19 +80,19 @@ export async function commitPlay(gh: GitHubClient, repo: RepoId, change: PlayCha
       let name: string;
       const remove: string[] = [];
       if (change.kind === "create") {
-        markdown = buildPlayMarkdown(change.header, date, resolvePending(change.body, imagePaths));
+        markdown = buildPlayMarkdown(change.header, date, resolvePending(change.body, imagePaths), kind);
         name = change.header.name.trim();
       } else {
         const before = await current(gh, state, path);
         name = /^# (.+)$/m.exec(before)?.[1]?.trim() ?? slug;
         if (change.kind === "header") {
-          markdown = replaceHeader(before, change.header, date);
+          markdown = replaceHeader(before, change.header, date, kind);
           name = change.header.name.trim();
         } else if (change.kind === "append") markdown = appendSection(before, change.title, resolvePending(change.body, imagePaths));
         else if (change.kind === "section") markdown = replaceSection(before, change.index, change.title, resolvePending(change.body, imagePaths));
         else {
           markdown = null;
-          remove.push(path, ...[...state.files.keys()].filter((p) => p.startsWith(`${PLAY_IMAGES_DIR}${slug}/`)));
+          remove.push(path, ...[...state.files.keys()].filter((p) => p.startsWith(`${kind.imagesDir}${slug}/`)));
         }
       }
 
@@ -100,7 +100,7 @@ export async function commitPlay(gh: GitHubClient, repo: RepoId, change: PlayCha
         ...(markdown !== null ? [{ path, content: markdown }] : []),
         ...images.map((img) => ({ path: imagePaths.get(img.id)!, content: img.bytes })),
       ];
-      const commit = await commitFiles(gh, state, files, playMessage(change, name, images.length), remove);
+      const commit = await commitFiles(gh, state, files, playMessage(change, name, images.length, kind.noun), remove);
       if (!commit) throw new PlayError("Nothing changed: Playbook already has this.");
       return { ...commit, path, markdown, imagePaths: [...imagePaths.values()] };
     } catch (e) {

@@ -322,6 +322,7 @@ code { color: var(--text-2); background: var(--inset); padding: 0 4px; border: 1
 .seg a.segl[aria-current="true"] { background: var(--accent); color: var(--on-accent); font-weight: 700; }
 .chip.auto { color: var(--muted); border-style: dashed; }
 .chip.etf { color: var(--accent); }
+.chip.credit { color: var(--text); border-style: dashed; text-transform: none; }
 .chip + .chip { margin-left: 4px; }
 .sym + .chip, .tag + .chip { margin-left: 6px; }
 
@@ -746,7 +747,7 @@ button.linkish:hover { color: var(--accent); }
 .play-header dd .chip + .chip { margin-left: 0; }
 .play-tactics { margin: 0; padding-left: 18px; }
 .play-tactics li + li { margin-top: 2px; }
-.play-body { padding-top: 0; }
+.play-body { padding: 4px 14px 14px; overflow-wrap: anywhere; }
 .play-remove { display: flex; flex-direction: column; gap: 6px; max-width: 640px; }
 table.grid td.wrap-cell { white-space: normal; min-width: 140px; }
 @media (max-width: 640px) {
@@ -774,3 +775,4 @@ button.mover-note { display: block; max-width: 28ch; overflow: hidden; text-over
 .mover-note-edit { display: flex; flex-direction: column; gap: 6px; max-width: 640px; padding: 4px 0; }
 .mover-note-edit textarea { width: 100%; resize: vertical; }
 @media (max-width: 640px) { .mover-note-cell, button.mover-note { max-width: 16ch; } }
+.chart-foot { padding: 6px 14px 10px; }

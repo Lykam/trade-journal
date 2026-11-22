@@ -8,6 +8,8 @@
 //   **Created:** 2026-11-21
 //   **Markets:** US small caps, Premarket gappers
 //   **Timeframes:** 1m, 5m
+//   **Credit:** Jane Trader            (only on someone else's play, Q87)
+//   **Source:** https://youtu.be/…     (optional, with a credit)
 //   **Entry Tactics:**
 //   - First 1m candle to make a new high
 //   - Break of premarket high on volume
@@ -26,11 +28,50 @@ export const PLAYS_DIR = "Plays/";
 export const PLAY_IMAGES_DIR = "Images/plays/";
 export const WRITEUP_TITLE = "Write-up";
 
+/**
+ * Plays and routines (Q88), the owner's and other traders' (LIBRARY, Q87),
+ * share one file shape and one page; a kind names the folder, the image folder
+ * and the labels of the three header lists (stored in PlayHeader as markets,
+ * timeframes and tactics).
+ */
+export interface PlayKind {
+  id: "plays" | "routines" | "library" | "library-routines";
+  /** For commit messages: "Add library play: …". */
+  noun: string;
+  dir: string;
+  imagesDir: string;
+  labels: readonly [string, string, string];
+  /** Steps are written "1. …" (order matters); entry tactics "- …". */
+  ordered: boolean;
+  /** "never": the owner's (PLAYS tab). "always": another trader's, credited (LIBRARY tab). */
+  credit: "never" | "always";
+}
+
+export const PLAYS: PlayKind = { id: "plays", noun: "play", dir: PLAYS_DIR, imagesDir: PLAY_IMAGES_DIR, labels: ["Markets", "Timeframes", "Entry Tactics"], ordered: false, credit: "never" };
+export const LIBRARY: PlayKind = { id: "library", noun: "library play", dir: "Library/", imagesDir: "Images/library/", labels: ["Markets", "Timeframes", "Entry Tactics"], ordered: false, credit: "always" };
+export const ROUTINES: PlayKind = { id: "routines", noun: "routine", dir: "Routines/", imagesDir: "Images/routines/", labels: ["When", "Tools", "Steps"], ordered: true, credit: "never" };
+export const LIBRARY_ROUTINES: PlayKind = { id: "library-routines", noun: "library routine", dir: "Library/Routines/", imagesDir: "Images/library-routines/", labels: ["When", "Tools", "Steps"], ordered: true, credit: "always" };
+
 export interface PlayHeader {
   name: string;
   markets: string[];
   timeframes: string[];
   tactics: string[];
+  /** Someone else's play or routine: who it's from (Q87). Absent on the owner's own. */
+  credit?: string;
+  /** Where it's from, for someone else's play: a link (a YouTube video, a post) or text (a book). */
+  source?: string;
+}
+
+/** A play credited to someone else. */
+export const isTheirs = (h: PlayHeader) => Boolean(h.credit?.trim());
+
+/** Source text split into plain text and links, so the URLs can be shown clickable. */
+export function sourceParts(source: string): Array<{ text: string; url: boolean }> {
+  return source
+    .split(/(https?:\/\/[^\s<>()]+)/)
+    .filter(Boolean)
+    .map((text) => ({ text, url: /^https?:\/\//.test(text) }));
 }
 
 export interface PlaySection {
@@ -57,7 +98,9 @@ export interface Play {
 
 const FIELD_RE = /^\*\*([^*:]+):\*\*[ \t]*(.*)$/;
 const DATE_RE = /\d{4}-\d{2}-\d{2}/;
-const UPDATE_RE = /^Update\s*[—–-]\s*(\d{4}-\d{2}-\d{2})(?:\s*[·:|—–-]\s*(.+))?$/i;
+/** A list item: "- ", "* ", "+ " or "1. " / "1) ". */
+const ITEM_RE = /^\s*(?:[-*+]|\d+[.)])\s+/;
+const UPDATE_RE =/^Update\s*[—–-]\s*(\d{4}-\d{2}-\d{2})(?:\s*[·:|—–-]\s*(.+))?$/i;
 
 /** "Plays/gap-and-go.md" → "gap-and-go". */
 export const playSlugOf = (path: string) => (path.split("/").pop() ?? path).replace(/\.md$/i, "");
@@ -80,7 +123,10 @@ export function cleanList(items: string[]): string[] {
 /** Markets and timeframes are written comma-separated, so a comma can't be inside one. */
 export const parseCommaList = (v: string) => cleanList(splitList(v));
 
-export function parsePlay(file: ReviewFile): Play {
+
+
+export function parsePlay(file: ReviewFile, kind: PlayKind = PLAYS): Play {
+  const [aKey, bKey, listKey] = kind.labels.map((l) => l.toLowerCase());
   const lines = file.markdown.replace(/\r\n?/g, "\n").split("\n");
   const firstSection = lines.findIndex((l) => /^## /.test(l));
   const head = firstSection < 0 ? lines : lines.slice(0, firstSection);
@@ -94,12 +140,13 @@ export function parsePlay(file: ReviewFile): Play {
     if (!f) continue;
     const key = f[1]!.trim().toLowerCase();
     const value = f[2]!.trim();
-    if (key === "markets") header.markets = parseCommaList(value);
-    else if (key === "timeframes") header.timeframes = parseCommaList(value);
+    if (key === aKey) header.markets = parseCommaList(value);
+    else if (key === bKey) header.timeframes = parseCommaList(value);
     else if (key === "created") created = DATE_RE.exec(value)?.[0] ?? null;
-    else if (key === "entry tactics") {
+    else if ((key === "credit" || key === "source") && value) header[key] = value;
+    else if (key === listKey) {
       const tactics = value ? [value] : [];
-      while (i + 1 < head.length && /^\s*[-*+]\s+/.test(head[i + 1]!)) tactics.push(head[++i]!.replace(/^\s*[-*+]\s+/, ""));
+      while (i + 1 < head.length && ITEM_RE.test(head[i + 1]!)) tactics.push(head[++i]!.replace(ITEM_RE, ""));
       header.tactics = cleanList(tactics);
     }
   }
@@ -132,9 +179,9 @@ function sectionOf(title: string, body: string): PlaySection {
 }
 
 /** Every play, newest update first, then by name. */
-export function readPlays(files: ReviewFile[] | undefined): Play[] {
+export function readPlays(files: ReviewFile[] | undefined, kind: PlayKind = PLAYS): Play[] {
   return (files ?? [])
-    .map(parsePlay)
+    .map((f) => parsePlay(f, kind))
     .sort((a, b) => (b.updated ?? "").localeCompare(a.updated ?? "") || a.header.name.localeCompare(b.header.name));
 }
 
@@ -150,10 +197,34 @@ export function marketCounts(plays: Play[]): Array<{ market: string; n: number }
   return [...m.values()].sort((a, b) => b.n - a.n || a.market.localeCompare(b.market));
 }
 
-/** Every word must appear in the name, markets, timeframes, tactics or text. */
-export function filterPlays(plays: Play[], q: string, market: string | null): Play[] {
+/** Whose plays to list: all, the owner's, everyone else's, or one person's ("by:<name>"). */
+export type PlayWho = "all" | "mine" | "theirs" | `by:${string}`;
+
+/** People credited across plays, most plays first. */
+export function creditCounts(plays: Play[]): Array<{ credit: string; n: number }> {
+  const m = new Map<string, { credit: string; n: number }>();
+  for (const p of plays) {
+    const c = p.header.credit?.trim();
+    if (!c) continue;
+    const e = m.get(c.toLowerCase()) ?? { credit: c, n: 0 };
+    e.n++;
+    m.set(c.toLowerCase(), e);
+  }
+  return [...m.values()].sort((a, b) => b.n - a.n || a.credit.localeCompare(b.credit));
+}
+
+function whoMatches(h: PlayHeader, who: PlayWho): boolean {
+  if (who === "all") return true;
+  if (who === "mine") return !isTheirs(h);
+  if (who === "theirs") return isTheirs(h);
+  return h.credit?.trim().toLowerCase() === who.slice(3).toLowerCase();
+}
+
+/** Every word must appear in the name, markets, timeframes, tactics or text (credit and source included). */
+export function filterPlays(plays: Play[], q: string, market: string | null, who: PlayWho = "all"): Play[] {
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   return plays.filter((p) => {
+    if (!whoMatches(p.header, who)) return false;
     if (market && !p.header.markets.some((m) => m.toLowerCase() === market.toLowerCase())) return false;
     if (!words.length) return true;
     const hay = [p.header.name, ...p.header.markets, ...p.header.timeframes, ...p.header.tactics, p.markdown].join("\n").toLowerCase();
@@ -174,13 +245,22 @@ export function checkHeader(h: PlayHeader): string | null {
   if (/[\r\n]/.test(h.name)) return "The name must be one line.";
   if (h.name.trim().length > 80) return "Keep the name under 80 characters.";
   if (h.tactics.some((t) => /[\r\n]/.test(t))) return "Each entry tactic must be one line.";
+  if (h.credit !== undefined && !h.credit.trim()) return "Say whose play it is.";
+  if (/[\r\n]/.test(h.credit ?? "") || /[\r\n]/.test(h.source ?? "")) return "Credit and source must each be one line.";
+  if ((h.credit ?? "").trim().length > 80) return "Keep the credit under 80 characters.";
   return null;
 }
 
 /** The header block: everything above the first "## " section. */
-export function buildHeader(h: PlayHeader, created: string): string {
-  const lines = [`# ${h.name.trim()}`, "", `**Created:** ${created}`, `**Markets:** ${cleanList(h.markets).join(", ")}`, `**Timeframes:** ${cleanList(h.timeframes).join(", ")}`, "**Entry Tactics:**"];
-  for (const t of cleanList(h.tactics)) lines.push(`- ${t}`);
+export function buildHeader(h: PlayHeader, created: string, kind: PlayKind = PLAYS): string {
+  const lines = [`# ${h.name.trim()}`, "", `**Created:** ${created}`];
+  if (isTheirs(h)) {
+    lines.push(`**Credit:** ${h.credit!.trim()}`);
+    if (h.source?.trim()) lines.push(`**Source:** ${h.source.trim()}`);
+  }
+  const [a, b, list] = kind.labels;
+  lines.push(`**${a}:** ${cleanList(h.markets).join(", ")}`, `**${b}:** ${cleanList(h.timeframes).join(", ")}`, `**${list}:**`);
+  cleanList(h.tactics).forEach((t, i) => lines.push(kind.ordered ? `${i + 1}. ${t}` : `- ${t}`));
   return `${lines.join("\n")}\n`;
 }
 
@@ -189,17 +269,17 @@ export const updateTitle = (date: string, label: string) => `Update — ${date}$
 const section = (title: string, body: string) => `## ${title}\n\n${body.trim() || "(nothing written yet)"}\n`;
 
 /** A new play's file: the header and its Write-up. */
-export function buildPlayMarkdown(h: PlayHeader, created: string, writeup: string): string {
-  return `${buildHeader(h, created)}\n${section(WRITEUP_TITLE, writeup)}`;
+export function buildPlayMarkdown(h: PlayHeader, created: string, writeup: string, kind: PlayKind = PLAYS): string {
+  return `${buildHeader(h, created, kind)}\n${section(WRITEUP_TITLE, writeup)}`;
 }
 
 /** Swap the header block, keeping every section exactly as it is in the file. */
-export function replaceHeader(markdown: string, h: PlayHeader, fallbackCreated: string): string {
+export function replaceHeader(markdown: string, h: PlayHeader, fallbackCreated: string, kind: PlayKind = PLAYS): string {
   const text = markdown.replace(/\r\n?/g, "\n");
   const created = parsePlay({ path: "x.md", markdown: text }).created ?? fallbackCreated;
   const at = text.search(/^## /m);
   const rest = at < 0 ? "" : text.slice(at);
-  return `${buildHeader(h, created)}${rest ? `\n${rest}` : ""}`;
+  return `${buildHeader(h, created, kind)}${rest ? `\n${rest}` : ""}`;
 }
 
 /** Add a dated update section at the end of the file. */
@@ -230,20 +310,20 @@ export function slugify(name: string): string {
 }
 
 /** "Plays/<slug>.md", adding -2, -3, … when taken (case-insensitively). */
-export function playPath(existing: Iterable<string>, name: string): string {
+export function playPath(existing: Iterable<string>, name: string, kind: PlayKind = PLAYS): string {
   const taken = new Set([...existing].map((p) => p.toLowerCase()));
-  const stem = `${PLAYS_DIR}${slugify(name)}`;
+  const stem = `${kind.dir}${slugify(name)}`;
   let path = `${stem}.md`;
   for (let n = 2; taken.has(path.toLowerCase()); n++) path = `${stem}-${n}.md`;
   return path;
 }
 
 /** "Images/plays/<slug>/<date>-<n>.<ext>": the next free n that day, in any image format. */
-export function playImagePath(existing: Iterable<string>, slug: string, date: string, ext: string): string {
+export function playImagePath(existing: Iterable<string>, slug: string, date: string, ext: string, kind: PlayKind = PLAYS): string {
   if (!/^[a-z0-9-]+$/.test(slug)) throw new PlayError(`Bad play name: ${slug}`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new PlayError(`Bad date: ${date}`);
   if (!Object.values(UPLOAD_TYPES).includes(ext)) throw new PlayError(`Unsupported image type: ${ext}`);
-  const dir = `${PLAY_IMAGES_DIR}${slug}/`;
+  const dir = `${kind.imagesDir}${slug}/`;
   const taken = new Set([...existing].filter((p) => p.startsWith(dir) && IMAGE_EXT_RE.test(p)).map((p) => p.slice(dir.length).replace(IMAGE_EXT_RE, "").toLowerCase()));
   let n = 1;
   while (taken.has(`${date}-${n}`)) n++;

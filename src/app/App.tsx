@@ -37,6 +37,7 @@ const NAV = [
   { path: "/journal", label: "JOURNAL" },
   { path: "/errors", label: "ERRORS" },
   { path: "/plays", label: "PLAYS" },
+  { path: "/library", label: "LIBRARY" },
   { path: "/movers", label: "MOVERS" },
   { path: "/quotes", label: "QUOTES" },
   { path: "/lookups", label: "LOOKUPS" },
@@ -115,9 +116,14 @@ export function App() {
     else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
     else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
     else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
-    else if (path === "/plays") page = <PlaysPage data={data} />;
+    else if (path === "/plays") page = <PlaysPage key={`${path}?${params.get("show")}`} data={data} kind={params.get("show") === "routines" ? "routines" : "plays"} />;
     else if (path.startsWith("/plays/")) page = <PlayPage key={path} data={data} slug={decodeURIComponent(path.slice(7))} />;
-    else if (path === "/movers") page = <MoversPage data={data} />;
+    else if (path === "/library") page = <PlaysPage key={`${path}?${params.get("show")}`} data={data} kind={params.get("show") === "routines" ? "library-routines" : "library"} by={params.get("by")} />;
+    else if (path.startsWith("/library/")) page = <PlayPage key={path} data={data} slug={decodeURIComponent(path.slice(9))} kind="library" />;
+    else if (path === "/routines") page = <PlaysPage key={path} data={data} kind="routines" />;
+    else if (path.startsWith("/routines/")) page = <PlayPage key={path} data={data} slug={decodeURIComponent(path.slice(10))} kind="routines" />;
+    else if (path.startsWith("/library-routines/")) page = <PlayPage key={path} data={data} slug={decodeURIComponent(path.slice(18))} kind="library-routines" />;
+    else if (path === "/movers") page = <MoversPage data={data} params={params} />;
     else if (path === "/quotes") page = <QuotesPage data={data} />;
     else if (path === "/lookups") page = <LookupsPage data={data} />;
     else if (path === "/cot") page = <CotPage data={data} params={params} />;
@@ -127,7 +133,7 @@ export function App() {
     else page = <Stub title="NOT FOUND" />;
   }
 
-  const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path.startsWith("/plays/") ? "/plays" : path;
+  const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path.startsWith("/plays/") ? "/plays" : path.startsWith("/library/") || path.startsWith("/library-routines/") ? "/library" : path.startsWith("/routines") ? "/plays" : path;
   return (
     <>
       <nav className="nav" aria-label="Main">

@@ -3,11 +3,12 @@
 // movers.json is written weekly by `npm run movers -- --publish` (a Windows
 // scheduled task) into trade-history, and the deploy bundles it. Each row can
 // carry a short note (Q86), saved to trade-history's mover-notes.json.
-import { Fragment, useMemo, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { etDate } from "../../core/normalize/util";
 import { filterMovers, moverRows, NO_FILTER, type MoverFilter, type MoverRow } from "../../core/movers/movers";
 import { NOTE_MAX, cleanNote, noteKey } from "../../core/movers/notes";
 import type { DataBundle, Trade } from "../../core/types";
+import { TradingViewChart } from "../components/TradingViewChart";
 import { DEMO_COMMIT_NOTE } from "../demo-text";
 import { ACTIONS_URL, useToken, watchDeploy } from "../github";
 
@@ -135,19 +136,52 @@ function NoteFields({ initial, onClose, busy, error, save, status }: NoteProps &
   );
 }
 
+/** The narrowest TradingView range preset (counted back from today; the free widget can't anchor to a date) that reaches `oldest`. */
+export function chartRange(oldest: string, today: string): string {
+  const days = (Date.parse(today) - Date.parse(oldest)) / 86_400_000 + 14;
+  return days <= 90 ? "3M" : days <= 180 ? "6M" : days <= 365 ? "12M" : "60M";
+}
+
 /** Your trades on the ticker that were open at some point in the mover's week. */
 function tradedThatWeek(trades: Trade[], r: MoverRow): Trade | undefined {
   return trades.find((t) => t.underlying === r.ticker && etDate(t.openedAt) <= r.weekEnd && (!t.closedAt || etDate(t.closedAt) >= r.week));
 }
 
-export function MoversPage({ data }: { data: DataBundle }) {
+/** The filter lives in the hash ("#/movers?q=SLS&dir=up"), so clicking a ticker is a page the back button returns from. */
+export function moversFilterOf(params: URLSearchParams): MoverFilter {
+  const pick = <T extends string>(v: string | null, ok: readonly T[], d: T): T => (ok.includes(v as T) ? (v as T) : d);
+  return {
+    q: params.get("q") ?? "",
+    dir: pick(params.get("dir"), ["all", "up", "down"], "all"),
+    basis: pick(params.get("basis"), ["all", "close", "intraweek"], "all"),
+    liquidity: pick(params.get("liq"), ["all", "before", "move"], "all"),
+  };
+}
+
+export function moversHash(f: MoverFilter): string {
+  const p = new URLSearchParams();
+  if (f.q) p.set("q", f.q);
+  if (f.dir !== "all") p.set("dir", f.dir);
+  if (f.basis !== "all") p.set("basis", f.basis);
+  if (f.liquidity !== "all") p.set("liq", f.liquidity);
+  const qs = p.toString();
+  return `#/movers${qs ? `?${qs}` : ""}`;
+}
+
+export function MoversPage({ data, params = new URLSearchParams() }: { data: DataBundle; params?: URLSearchParams }) {
   const file = data.movers ?? null;
   const all = useMemo(() => moverRows(file), [file]);
-  const [f, setF] = useState<MoverFilter>(NO_FILTER);
+  const fromUrl = useMemo(() => moversFilterOf(params), [params]);
+  const [f, setF] = useState<MoverFilter>(fromUrl);
   const [shown, setShown] = useState(PAGE);
-  const set = (next: MoverFilter) => {
+  useEffect(() => setF(fromUrl), [fromUrl]);
+  /** `push`: a new history entry (a ticker click, CLEAR); otherwise the current entry is updated, so typing doesn't fill the history. */
+  const set = (next: MoverFilter, push = false) => {
     setF(next);
     setShown(PAGE);
+    const h = moversHash(next);
+    if (push) window.location.hash = h;
+    else window.history.replaceState(window.history.state, "", h);
   };
   const bar = file?.criteria.dollarVolume;
   const rows = useMemo(() => filterMovers(all, f, bar), [all, f, bar]);
@@ -155,6 +189,9 @@ export function MoversPage({ data }: { data: DataBundle }) {
   const trades = data.derived.trades;
   useSyncExternalStore(savedStore.subscribe, savedStore.get, savedStore.get);
   const [editing, setEditing] = useState<string | null>(null);
+  // A clicked ticker (the search is exactly one ticker's symbol) gets a daily chart under the table.
+  const charted = f.q.trim().toUpperCase();
+  const chartRows = charted && rows.length && rows.every((r) => r.ticker === charted) ? rows : null;
   const noteOf = (k: string) => (saved.has(k) ? saved.get(k)! : data.moverNotes?.notes[k]?.text ?? "");
 
   const up = rows.filter((r) => r.dir === "up").length;
@@ -182,7 +219,7 @@ export function MoversPage({ data }: { data: DataBundle }) {
           <section className="panel quotes-filter plays-filter movers-filter" aria-label="Filter movers">
             <div className="row">
               <input type="search" className="input quotes-search" placeholder="Ticker…" value={f.q} onChange={(e) => set({ ...f, q: e.target.value })} aria-label="Search tickers" />
-              {filtered && <button type="button" className="btn ghost tiny" onClick={() => set(NO_FILTER)}>CLEAR</button>}
+              {filtered && <button type="button" className="btn ghost tiny" onClick={() => set(NO_FILTER, true)}>CLEAR</button>}
             </div>
             <Pills label="DIRECTION" k="dir" choices={DIRS} f={f} set={set} />
             <Pills label="MOVE" k="basis" choices={BASES} f={f} set={set} />
@@ -225,7 +262,7 @@ export function MoversPage({ data }: { data: DataBundle }) {
                       <tr className={firstOfWeek ? "week-first" : ""}>
                         <td className="muted">{firstOfWeek ? r.weekEnd : ""}</td>
                         <td>
-                          <button type="button" className="linklike sym" title={`Show every week ${r.ticker} qualified`} onClick={() => set({ ...NO_FILTER, q: r.ticker })}>{r.ticker}</button>
+                          <button type="button" className="linklike sym" title={`Show every week ${r.ticker} qualified`} onClick={() => set({ ...NO_FILTER, q: r.ticker }, true)}>{r.ticker}</button>
                           {r.repeats > 1 && <> <span className="chip" title={`Qualified in ${r.repeats} weeks`}>×{r.repeats}</span></>}
                           {r.basis === "intraweek" && <> <span className="chip auto" title="Only the week's high or low reached the move; it faded by Friday">INTRAWEEK</span></>}
                           {t && <> <a className="chip etf" href={`#/trade/${encodeURIComponent(t.id)}`} title="You had a trade on it that week">TRADED</a></>}
@@ -268,6 +305,17 @@ Click to edit`} onClick={() => setEditing(editing === k ? null : k)}>{note}</but
           </>
         )}
       </section>
+
+      {chartRows && !__TJ_DEMO__ && (
+        <section className="panel" aria-label={`Daily chart of ${charted}`}>
+          <div className="panel-head">
+            <h2>Chart · {charted}</h2>
+            <span className="dim small">TRADINGVIEW · DAILY · MOVES: {chartRows.map((r) => `WEEK OF ${r.week}`).join(" · ")}</span>
+          </div>
+          <TradingViewChart symbol={charted} range={chartRange(chartRows.at(-1)!.week, etDate(new Date().toISOString()))} interval="D" height={460} />
+          <div className="dim small chart-foot">A stock that has since delisted or changed ticker may not load here.</div>
+        </section>
+      )}
     </main>
   );
 }

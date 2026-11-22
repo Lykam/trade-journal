@@ -268,6 +268,12 @@ export interface PlaybookData {
   images: string[];
   /** Plays/*.md, the PLAYS page (Q84); absent in bundles built before it existed. */
   plays?: ReviewFile[];
+  /** Library/*.md, other traders' plays on the LIBRARY page (Q87); same file shape as plays. */
+  library?: ReviewFile[];
+  /** Routines/*.md, the owner's routines under PLAYS (Q88); same file shape as plays. */
+  routines?: ReviewFile[];
+  /** Library/Routines/*.md, other traders' routines under LIBRARY (Q87, Q88). */
+  libraryRoutines?: ReviewFile[];
 }
 
 /** Everything the app reads: served by the dev plugin in dev, decrypted from data.enc in production. */

@@ -1,9 +1,12 @@
 // PLAYS (SPEC §6.7e, Q84): the play file format, and commits to a fake Playbook.
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { PlaysPage } from "../src/app/pages/PlaysPage";
 import { GitHubClient } from "../src/core/github/client";
-import { commitPlay } from "../src/core/plays/commit";
+import { commitPlay, playMessage } from "../src/core/plays/commit";
 import {
-  appendSection, buildPlayMarkdown, checkHeader, filterPlays, marketCounts, parsePlay, pendingIds, pendingToken, playImagePath, playPath,
+  appendSection, buildPlayMarkdown, checkHeader, creditCounts, filterPlays, LIBRARY, LIBRARY_ROUTINES, ROUTINES, sourceParts, marketCounts, parsePlay, pendingIds, pendingToken, playImagePath, playPath,
   readPlays, replaceHeader, replaceSection, resolvePending, slugify, stripPending, updateTitle, type PlayHeader,
 } from "../src/core/plays/plays";
 import { generateDemo } from "../src/demo/generate";
@@ -183,5 +186,111 @@ describe("demo plays", () => {
     for (const p of plays) {
       for (const m of p.markdown.matchAll(/\]\(\.\.\/([^)]+)\)/g)) expect(images[m[1]!]).toBeTruthy();
     }
+  });
+});
+
+// Someone else's plays (Q87) and routines (Q88).
+describe("credited plays", () => {
+  const T: PlayHeader = { ...H, name: "Their Gap", credit: "Jane Trader", source: "https://www.youtube.com/watch?v=abc — at 12:30" };
+
+  it("writes Credit and Source under Created, and parses them back", () => {
+    const md = buildPlayMarkdown(T, "2026-11-22", "w");
+    expect(md).toContain("**Created:** 2026-11-22\n**Credit:** Jane Trader\n**Source:** https://www.youtube.com/watch?v=abc — at 12:30\n**Markets:**");
+    expect(parsePlay({ path: "Plays/their-gap.md", markdown: md }).header).toEqual(T);
+    // The owner's own plays have neither line.
+    expect(buildPlayMarkdown(H, "2026-11-22", "w")).not.toMatch(/Credit|Source/);
+    expect(buildPlayMarkdown({ ...H, credit: "Jane", source: "  " }, "2026-11-22", "w")).not.toContain("Source");
+  });
+
+  it("asks for a credit once the play is marked someone else's", () => {
+    expect(checkHeader({ ...H, credit: " " })).toMatch(/whose play/);
+    expect(checkHeader({ ...H, credit: "A", source: "x\ny" })).toMatch(/one line/);
+    expect(checkHeader(T)).toBeNull();
+  });
+
+  it("filters by whose play it is, and counts people", () => {
+    const plays = readPlays([
+      { path: "Plays/a.md", markdown: buildPlayMarkdown({ ...H, name: "Mine" }, "2026-11-01", "x") },
+      { path: "Plays/b.md", markdown: buildPlayMarkdown({ ...T, name: "Jane 1" }, "2026-11-02", "x") },
+      { path: "Plays/c.md", markdown: buildPlayMarkdown({ ...T, name: "Jane 2", credit: "jane trader" }, "2026-11-03", "x") },
+      { path: "Plays/d.md", markdown: buildPlayMarkdown({ ...T, name: "Bob's", credit: "Bob" }, "2026-11-04", "x") },
+    ]);
+    const names = (who: Parameters<typeof filterPlays>[3]) => filterPlays(plays, "", null, who).map((p) => p.header.name);
+    expect(names("mine")).toEqual(["Mine"]);
+    expect(names("theirs")).toEqual(["Bob's", "Jane 2", "Jane 1"]);
+    expect(names("by:JANE TRADER")).toEqual(["Jane 2", "Jane 1"]);
+    expect(creditCounts(plays)).toEqual([{ credit: "jane trader", n: 2 }, { credit: "Bob", n: 1 }]);
+    expect(filterPlays(plays, "youtube", null).length).toBe(3);
+  });
+
+  it("splits a source into text and links", () => {
+    expect(sourceParts("Video https://youtu.be/x?t=5 (part 2)")).toEqual([
+      { text: "Video ", url: false }, { text: "https://youtu.be/x?t=5", url: true }, { text: " (part 2)", url: false },
+    ]);
+  });
+});
+
+describe("library", () => {
+  it("keeps other traders' plays in Library/, credited", async () => {
+    const T: PlayHeader = { ...H, name: "ORB", credit: "Jane Trader" };
+    expect(playPath([], "ORB", LIBRARY)).toBe("Library/orb.md");
+    const fake = new FakeGitHub({ "Template.md": "# T" });
+    const out = await commitPlay(new GitHubClient(TOKEN, fake.fetch), REPO, { kind: "create", header: T, body: `x\n\n${pendingToken(1)}`, images: [{ id: 1, type: "image/png", bytes: PNG }] }, NOW, 3, LIBRARY);
+    expect(out.path).toBe("Library/orb.md");
+    expect(out.imagePaths).toEqual(["Images/library/orb/2026-11-21-1.png"]);
+    expect(fake.text(out.path)).toContain("**Credit:** Jane Trader");
+  });
+});
+
+describe("routines", () => {
+  const R: PlayHeader = { name: "Weekend prep", markets: ["Weekend"], timeframes: ["TradingView"], tactics: ["Weekly charts", "Sector ETFs"], credit: "Jane Trader" };
+
+  it("use When / Tools / numbered Steps, in Routines/", () => {
+    const md = buildPlayMarkdown(R, "2026-11-22", "w", ROUTINES);
+    expect(md).toContain("**When:** Weekend\n**Tools:** TradingView\n**Steps:**\n1. Weekly charts\n2. Sector ETFs\n");
+    expect(parsePlay({ path: "Routines/weekend-prep.md", markdown: md }, ROUTINES).header).toEqual(R);
+    expect(replaceHeader(md, { ...R, tactics: ["Only"] }, "2026-12-01", ROUTINES)).toContain("**Created:** 2026-11-22\n**Credit:** Jane Trader\n**When:**");
+    expect(playPath(["Routines/weekend-prep.md"], "Weekend Prep", ROUTINES)).toBe("Routines/weekend-prep-2.md");
+    expect(playImagePath([], "weekend-prep", "2026-11-22", "png", ROUTINES)).toBe("Images/routines/weekend-prep/2026-11-22-1.png");
+  });
+
+  it("commit to Routines/ with routine wording", async () => {
+    const fake = new FakeGitHub({ "Template.md": "# T" });
+    const out = await commitPlay(new GitHubClient(TOKEN, fake.fetch), REPO, { kind: "create", header: R, body: `x\n\n${pendingToken(1)}`, images: [{ id: 1, type: "image/png", bytes: PNG }] }, NOW, 3, ROUTINES);
+    expect(out.path).toBe("Routines/weekend-prep.md");
+    expect(out.imagePaths).toEqual(["Images/routines/weekend-prep/2026-11-21-1.png"]);
+    expect(playMessage({ kind: "create", header: R, body: "", images: [] }, "Weekend prep", 0, "routine")).toBe("Add routine: Weekend prep (written in the journal)");
+  });
+
+  it("sit under PLAYS (yours) and LIBRARY (other traders'), each tab switching PLAYS | ROUTINES", () => {
+    const { bundle } = generateDemo("2026-11-21T15:00:00-05:00");
+    expect(readPlays(bundle.playbook!.routines, ROUTINES).map((r) => r.header.name)).toEqual(["Weekend prep"]);
+    expect(readPlays(bundle.playbook!.libraryRoutines, LIBRARY_ROUTINES).map((r) => r.header.credit)).toEqual(["Demo Trader"]);
+    const render = (kind: Parameters<typeof PlaysPage>[0]["kind"], by?: string) => renderToStaticMarkup(createElement(PlaysPage, { data: bundle, kind, by }));
+
+    const plays = render("plays");
+    expect(plays).toContain("Gap and Go");
+    expect(plays).not.toContain("Weekend prep");
+    expect(plays).not.toContain("BY ");
+    expect(plays).toContain('href="#/plays?show=routines"');
+
+    const routines = render("routines");
+    expect(routines).toContain("Weekend prep");
+    expect(routines).toContain("+ NEW ROUTINE");
+    expect(routines).not.toContain("Premarket checklist");
+    expect(routines).not.toContain("Gap and Go");
+
+    const library = render("library");
+    expect(library).toContain("Opening range breakout");
+    expect(library).toContain("BY Demo Trader");
+    expect(library).toContain("+ ADD PLAY");
+    expect(library).not.toContain("Gap and Go");
+
+    // The person filter carries to the other half of the tab.
+    const theirRoutines = render("library-routines", "Demo Trader");
+    expect(theirRoutines).toContain("Premarket checklist");
+    expect(theirRoutines).toContain("+ ADD ROUTINE");
+    expect(theirRoutines).toContain('href="#/library?by=Demo+Trader"');
+    expect(theirRoutines).not.toContain("Weekend prep");
   });
 });

@@ -6,7 +6,8 @@
 // daily candles on a wider one regardless of what's requested here.
 import { useEffect, useRef } from "react";
 
-export function TradingViewChart({ symbol, range, height = 440 }: { symbol: string; range: string; height?: number }) {
+/** `interval`: "5" (5-minute, Trade detail) or "D" (daily, the MOVERS page). */
+export function TradingViewChart({ symbol, range, height = 440, interval = "5" }: { symbol: string; range: string; height?: number; interval?: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const host = hostRef.current;
@@ -29,7 +30,7 @@ export function TradingViewChart({ symbol, range, height = 440 }: { symbol: stri
     script.text = JSON.stringify({
       autosize: true,
       symbol,
-      interval: "5",
+      interval,
       range,
       timezone: "America/New_York",
       theme: "dark",
@@ -45,6 +46,6 @@ export function TradingViewChart({ symbol, range, height = 440 }: { symbol: stri
     container.appendChild(widget);
     container.appendChild(script);
     host.appendChild(container);
-  }, [symbol, range]);
+  }, [symbol, range, interval]);
   return <div ref={hostRef} style={{ height, width: "100%" }} />;
 }
