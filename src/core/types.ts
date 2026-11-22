@@ -264,6 +264,8 @@ export interface PlaybookData {
   reviews: ReviewFile[];
   /** Image paths relative to the Playbook root, e.g. "Images/2026-07-27/ABC-daily.png". */
   images: string[];
+  /** Plays/*.md, the PLAYS page (Q84); absent in bundles built before it existed. */
+  plays?: ReviewFile[];
 }
 
 /** Everything the app reads: served by the dev plugin in dev, decrypted from data.enc in production. */

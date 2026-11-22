@@ -163,13 +163,14 @@ export function usePersistedText(name: string, initial: string): [string, (v: st
 export function useImageSrcs(paths: string[]): Map<string, string | null | undefined> {
   const key = paths.join("\n");
   const initial = () =>
-    new Map(paths.map((p) => [p, __TJ_DEMO__ ? (demoImages[p] ?? null) : import.meta.env.DEV ? devImageUrl(p) : hasEncryptedImage(p) ? undefined : null] as const));
+    new Map(paths.map((p) => [p, localImages.get(p) ?? (__TJ_DEMO__ ? (demoImages[p] ?? null) : import.meta.env.DEV ? devImageUrl(p) : hasEncryptedImage(p) ? undefined : null)] as const));
   const [srcs, setSrcs] = useState(initial);
   useEffect(() => {
     setSrcs(initial());
     if (__TJ_DEMO__ || import.meta.env.DEV) return;
     let live = true;
     for (const p of paths) {
+      if (localImages.has(p)) continue;
       encryptedImageUrl(p)?.then(
         (url) => live && setSrcs((m) => new Map(m).set(p, url)),
         () => live && setSrcs((m) => new Map(m).set(p, null)),
@@ -182,6 +183,13 @@ export function useImageSrcs(paths: string[]): Map<string, string | null | undef
   }, [key]);
   return srcs;
 }
+
+/**
+ * Images committed from this page (PLAYS, Q84) that the loaded data doesn't
+ * have yet: path → the blob URL of the picked file, until the next reload.
+ */
+const localImages = new Map<string, string>();
+export const registerLocalImage = (path: string, url: string) => void localImages.set(path, url);
 
 function devImageUrl(path: string): string | null {
   if (import.meta.env.DEV) return `${import.meta.env.BASE_URL}__data/playbook/${path.split("/").map(encodeURIComponent).join("/")}`;

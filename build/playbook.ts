@@ -20,7 +20,7 @@ function walk(root: string, rel: string): string[] {
   });
 }
 
-/** Reviews/*.md and every image under Images/ (and Reviews/, where older reviews kept theirs). null without a checkout. */
+/** Reviews/*.md, Plays/*.md (Q84) and every image under Images/ (and Reviews/, where older reviews kept theirs). null without a checkout. */
 export function loadPlaybook(dir: string): PlaybookData | null {
   if (!existsSync(dir)) return null;
   const reviewsDir = join(dir, "Reviews");
@@ -30,6 +30,13 @@ export function loadPlaybook(dir: string): PlaybookData | null {
         .sort()
         .map((n) => ({ path: `Reviews/${n}`, markdown: readFileSync(join(reviewsDir, n), "utf8") }))
     : [];
+  const playsDir = join(dir, "Plays");
+  const plays = existsSync(playsDir)
+    ? readdirSync(playsDir)
+        .filter((n) => /.md$/i.test(n) && statSync(join(playsDir, n)).isFile())
+        .sort()
+        .map((n) => ({ path: `Plays/${n}`, markdown: readFileSync(join(playsDir, n), "utf8") }))
+    : [];
   const images = [...walk(dir, "Images"), ...walk(dir, "Reviews")].filter((p) => IMAGE_EXT_RE.test(p)).sort();
-  return { reviews, images };
+  return { reviews, images, plays };
 }
