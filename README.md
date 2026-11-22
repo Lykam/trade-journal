@@ -26,7 +26,8 @@ generated in your browser; nothing to log in to)
 - **Movers:** every week's US stocks that moved 50%+ either way on $100M+
   average daily dollar volume, priced over $5: a research list going back two
   years, refreshed every Saturday, with filters for direction, faded vs held
-  moves and liquidity, and a TRADED mark when you were in it that week.
+  moves and liquidity, a TRADED mark when you were in it that week, and a
+  short note (200 characters) per mover, saved to the private data repo.
 - **Plays:** your Playbook setups (markets, timeframes, entry tactics, a
   write-up with images and dated updates), each saved as one `.md` file.
 - **Lookups:** single-stock inverse ETFs for each underlying.
@@ -121,7 +122,10 @@ How the pieces fit:
    Start-ScheduledTask -TaskName "TradeJournal Movers"                                    # run it now
    Unregister-ScheduledTask -TaskName "TradeJournal Movers" -Confirm:$false               # remove it
    ```
-5. **Page:** `src/app/pages/MoversPage.tsx` (route `#/movers`) is read-only.
+5. **Page:** `src/app/pages/MoversPage.tsx` (route `#/movers`). Its only write
+   is the row notes: trade-history's `mover-notes.json`, committed from the
+   browser by `src/core/movers/notes-commit.ts` (Q86), and kept apart from
+   `movers.json` so the weekly run never touches them.
    The demo uses invented movers from `src/demo/movers.ts`.
 
 Notes: a full backfill from an empty cache takes about 2 hours, because of the

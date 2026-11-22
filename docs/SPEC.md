@@ -1551,7 +1551,18 @@ behave (long or short). Public market data, not the owner's trades.
   (linking the trade) when the owner had a trade on it open that week. Filters:
   ticker search (clicking a ticker shows all its weeks), direction, close vs
   intraweek, and liquidity (already liquid before the move vs only because of
-  it). Read-only.
+  it).
+- **Notes** (Q86): each row has a NOTE cell, a short note of up to 200
+  characters (one line, whitespace collapsed), shown truncated with the full
+  text on hover. **+ NOTE** or clicking the note opens an editor under the row:
+  SAVE (or Enter), REMOVE, CANCEL (or Esc). Notes live in trade-history's
+  `mover-notes.json` (`{ schemaVersion: 1, notes: { "<week end>|<ticker>":
+  { text, updated } } }`), not in `movers.json`, which the weekly run
+  rewrites. SAVE commits at once with the browser token (the editor is the
+  preview: no separate COMMIT PREVIEW step for a one-line note); the file is
+  read fresh and the commit retried if main moved. A saved note shows at once
+  and the site redeploys. The commit code (`src/core/movers/notes-commit.ts`)
+  loads only on save and is never in the demo, which shows two sample notes.
 - The bundle reads trade-history's `movers.json`; without one (dev on the
   fixtures) the local `movers.json`. The demo shows 26 weeks of invented movers.
 
@@ -2017,6 +2028,7 @@ the commit leaves the private repo.
 | Q83 | COT page | Owner request 2026-11-19: a COT tab that mimics Jason Shapiro's Crowded Market Report, a quick heads-up across the futures and a chart like his TradingView COT indicator (alongside a Pine copy of it saved to the owner's TradingView). Built as a board of 44 futures in `cot.json` from the same `npm run cot` run (§5.8) and a COT page (§6.7d). Ranks are recomputed in the browser so the page can show the system's 3-year % of OI rank (default, matching the gauge and backtest) or a 26-week contracts rank like the indicator. Signals stay on the system settings and are labelled SYSTEM. Follow-up the same day: the owner trades stocks, not futures, so each market lists stocks and ETFs for each side (§6.7d), and the chart is just the net bars. The gauge and its brake are unchanged: still the three indices. |
 | Q84 | Plays page | Owner request 2026-11-21: a place to keep and grow notes for Playbook setups ("plays"): a name, the markets it works in, timeframes, entry tactics and a long write-up with images, then further write-ups and images appended one at a time in their own sections, ending up as one .md per play. Built as the PLAYS page (§6.7e) writing `Plays/<slug>.md` in **Playbook** directly, so the saved file is the .md and no generate step is needed; stored in Playbook rather than trade-history because the plays sit beside the reviews and skills that will use them. Named PLAYS, not SETUPS, to stay clear of the Setups page removed on 2026-11-10. |
 | Q85 | Movers page | Owner request 2026-11-22: a weekly historical list of stocks that moved 50%+ (either way: "I can long or short, but seeing what is moving greatly is key"), with $100M+ average daily dollar volume over the week or 30 days and price over $5, for research. A TradingView screen only sees the current week and live listings, so history comes from Massive's grouped daily bars (free plan: 2 years), including delisted names to avoid survivorship bias. Weekly volatility was considered and rejected as the filter (it ranks chop, not distance travelled) but kept as the ADR column. Runs locally as a Windows scheduled task and publishes `movers.json` to trade-history, so no market-data key lives in Actions and the deploy just bundles the file (§6.7f). |
+| Q86 | Mover notes | Owner request 2026-11-22: a short note (~200 characters) per MOVERS row, behind an edit/notes button, showing all or part of it in the table. Kept in a separate `mover-notes.json` in trade-history (movers.json is regenerated weekly), keyed by week end and ticker so a ticker that repeats gets a note per move. Saved with one click, without the usual COMMIT PREVIEW step, since the note being edited is the whole change (§6.7f). |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy

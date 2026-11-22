@@ -1,11 +1,15 @@
 // MOVERS (SPEC §6.7f, Q85): a research list of every week's big movers, US stocks
 // that moved 50%+ either way on $100M+ average daily dollar volume, priced over $5.
-// Read-only: movers.json is written weekly by `npm run movers -- --publish` (a
-// Windows scheduled task) into trade-history, and the deploy bundles it.
-import { useMemo, useState } from "react";
+// movers.json is written weekly by `npm run movers -- --publish` (a Windows
+// scheduled task) into trade-history, and the deploy bundles it. Each row can
+// carry a short note (Q86), saved to trade-history's mover-notes.json.
+import { Fragment, useMemo, useState, useSyncExternalStore } from "react";
 import { etDate } from "../../core/normalize/util";
 import { filterMovers, moverRows, NO_FILTER, type MoverFilter, type MoverRow } from "../../core/movers/movers";
+import { NOTE_MAX, cleanNote, noteKey } from "../../core/movers/notes";
 import type { DataBundle, Trade } from "../../core/types";
+import { DEMO_COMMIT_NOTE } from "../demo-text";
+import { ACTIONS_URL, useToken, watchDeploy } from "../github";
 
 const MINUS = "−";
 const PAGE = 150;
@@ -39,6 +43,98 @@ function Pills<K extends keyof MoverFilter>({ label, k, choices, f, set }: { lab
   );
 }
 
+// Notes saved this session (key → text, "" when removed), shown at once and kept across
+// navigation until the redeploy brings them in the bundle.
+const saved = new Map<string, string>();
+const listeners = new Set<() => void>();
+let version = 0;
+const savedStore = {
+  subscribe: (fn: () => void) => (listeners.add(fn), () => void listeners.delete(fn)),
+  get: () => version,
+};
+function setSaved(key: string, text: string) {
+  saved.set(key, text);
+  version++;
+  listeners.forEach((fn) => fn());
+}
+
+interface NoteProps {
+  k: string;
+  initial: string;
+  onClose: () => void;
+}
+
+/** The demo has no token or GitHub code (Q50): its editor can't save. */
+function NoteEditor(p: NoteProps) {
+  return __TJ_DEMO__ ? <NoteFields {...p} busy={false} error={null} save={null} status={<span className="note-line small">{DEMO_COMMIT_NOTE}</span>} /> : <LiveNoteEditor {...p} />;
+}
+
+function LiveNoteEditor({ k, initial, onClose }: NoteProps) {
+  const token = useToken();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async (value: string) => {
+    if (token.status !== "ok" || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const [{ commitMoverNote }, { GitHubClient, parseRepo }] = await Promise.all([import("../../core/movers/notes-commit"), import("../../core/github/client")]);
+      const repo = parseRepo(token.record.repo);
+      if (!repo) throw new Error("The saved token has no trade-history repo; save it again in SETTINGS.");
+      const out = await commitMoverNote(new GitHubClient(token.record.token), repo, k, value);
+      setSaved(k, out.file.notes[k]?.text ?? "");
+      if (out.date) watchDeploy({ label: value.trim() ? "Note saved" : "Note removed", want: { date: out.date, ...(out.sha ? { sha: out.sha } : {}) }, link: `${ACTIONS_URL}/workflows/deploy.yml`, ...(out.url ? { commitUrl: out.url } : {}) });
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  };
+
+  const status =
+    token.status === "ok" ? <span className="dim small">Commits to {token.record.repo}.</span>
+    : token.status === "loading" ? null
+    : <span className="dim small">To save, add a GitHub token in <a href="#/settings">SETTINGS</a>.</span>;
+  return <NoteFields k={k} initial={initial} onClose={onClose} busy={busy} error={error} save={token.status === "ok" ? save : null} status={status} />;
+}
+
+function NoteFields({ initial, onClose, busy, error, save, status }: NoteProps & { busy: boolean; error: string | null; save: ((text: string) => Promise<void>) | null; status: React.ReactNode }) {
+  const [text, setText] = useState(initial);
+  const clean = cleanNote(text);
+  const canSave = !!save && clean !== initial && !busy;
+  return (
+    <div className="mover-note-edit">
+      <textarea
+        className="input"
+        rows={2}
+        maxLength={NOTE_MAX}
+        value={text}
+        autoFocus
+        placeholder="A short note on this move…"
+        aria-label="Note"
+        disabled={busy}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (canSave) void save(text);
+          }
+        }}
+      />
+      <div className="row">
+        <span className="dim small">{clean.length}/{NOTE_MAX}</span>
+        <button type="button" className="btn primary" disabled={!canSave} onClick={() => save && void save(text)}>{busy ? "SAVING…" : "SAVE"}</button>
+        {initial && <button type="button" className="btn" disabled={busy || !save} onClick={() => save && void save("")}>REMOVE</button>}
+        <button type="button" className="btn ghost" disabled={busy} onClick={onClose}>CANCEL</button>
+        {status}
+      </div>
+      {error && <div className="loss small" role="alert">{error}</div>}
+    </div>
+  );
+}
+
 /** Your trades on the ticker that were open at some point in the mover's week. */
 function tradedThatWeek(trades: Trade[], r: MoverRow): Trade | undefined {
   return trades.find((t) => t.underlying === r.ticker && etDate(t.openedAt) <= r.weekEnd && (!t.closedAt || etDate(t.closedAt) >= r.week));
@@ -57,6 +153,9 @@ export function MoversPage({ data }: { data: DataBundle }) {
   const rows = useMemo(() => filterMovers(all, f, bar), [all, f, bar]);
   const filtered = JSON.stringify(f) !== JSON.stringify(NO_FILTER);
   const trades = data.derived.trades;
+  useSyncExternalStore(savedStore.subscribe, savedStore.get, savedStore.get);
+  const [editing, setEditing] = useState<string | null>(null);
+  const noteOf = (k: string) => (saved.has(k) ? saved.get(k)! : data.moverNotes?.notes[k]?.text ?? "");
 
   const up = rows.filter((r) => r.dir === "up").length;
   const held = rows.filter((r) => r.basis === "close").length;
@@ -112,14 +211,18 @@ export function MoversPage({ data }: { data: DataBundle }) {
                     <th className="num" title="Average daily dollar volume this week">$VOL/DAY</th>
                     <th className="num ph-hide" title="Average daily dollar volume, 21 market days ending this week">30D</th>
                     <th className="num ph-hide" title="Average daily range (high − low) / low this week">ADR</th>
+                    <th>NOTE</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.slice(0, shown).map((r, i) => {
                     const t = tradedThatWeek(trades, r);
                     const firstOfWeek = i === 0 || rows[i - 1]!.weekEnd !== r.weekEnd;
+                    const k = noteKey(r.weekEnd, r.ticker);
+                    const note = noteOf(k);
                     return (
-                      <tr key={`${r.weekEnd}-${r.ticker}`} className={firstOfWeek ? "week-first" : ""}>
+                      <Fragment key={k}>
+                      <tr className={firstOfWeek ? "week-first" : ""}>
                         <td className="muted">{firstOfWeek ? r.weekEnd : ""}</td>
                         <td>
                           <button type="button" className="linklike sym" title={`Show every week ${r.ticker} qualified`} onClick={() => set({ ...NO_FILTER, q: r.ticker })}>{r.ticker}</button>
@@ -134,7 +237,24 @@ export function MoversPage({ data }: { data: DataBundle }) {
                         <td className="num">{dollars(r.dv5)}</td>
                         <td className="num ph-hide muted">{dollars(r.dv30)}</td>
                         <td className="num ph-hide muted">{r.adr.toFixed(1)}%</td>
+                        <td className="mover-note-cell">
+                          {note ? (
+                            <button type="button" className="linklike mover-note" title={`${note}
+
+Click to edit`} onClick={() => setEditing(editing === k ? null : k)}>{note}</button>
+                          ) : (
+                            <button type="button" className="btn ghost tiny" aria-label={`Add a note on ${r.ticker}`} onClick={() => setEditing(editing === k ? null : k)}>+ NOTE</button>
+                          )}
+                        </td>
                       </tr>
+                      {editing === k && (
+                        <tr className="mover-note-row">
+                          <td colSpan={10}>
+                            <NoteEditor k={k} initial={note} onClose={() => setEditing(null)} />
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

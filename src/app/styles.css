@@ -768,3 +768,9 @@ button.linklike.sym { font-weight: 700; }
 button.linklike:hover, button.linklike:focus-visible { color: var(--accent); text-decoration: underline; }
 .movers-table tr.week-first td { border-top: 1px solid var(--border); }
 .movers-table a.chip { text-decoration: none; }
+.mover-note-cell { max-width: 28ch; }
+button.mover-note { display: block; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-weight: 400; color: var(--muted); }
+.mover-note-row td { background: var(--panel-2, transparent); }
+.mover-note-edit { display: flex; flex-direction: column; gap: 6px; max-width: 640px; padding: 4px 0; }
+.mover-note-edit textarea { width: 100%; resize: vertical; }
+@media (max-width: 640px) { .mover-note-cell, button.mover-note { max-width: 16ch; } }
