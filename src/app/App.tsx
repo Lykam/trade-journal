@@ -19,6 +19,7 @@ import { ImportPage } from "./pages/ImportPage";
 import { JournalPage, ReviewPage } from "./pages/JournalPage";
 import { LockScreen } from "./pages/LockScreen";
 import { LookupsPage } from "./pages/LookupsPage";
+import { MoversPage } from "./pages/MoversPage";
 import { OpenPage } from "./pages/OpenPage";
 import { QuotesPage } from "./pages/QuotesPage";
 import { ReportsPage } from "./pages/ReportsPage";
@@ -36,6 +37,7 @@ const NAV = [
   { path: "/journal", label: "JOURNAL" },
   { path: "/errors", label: "ERRORS" },
   { path: "/plays", label: "PLAYS" },
+  { path: "/movers", label: "MOVERS" },
   { path: "/quotes", label: "QUOTES" },
   { path: "/lookups", label: "LOOKUPS" },
   { path: "/cot", label: "COT" },
@@ -115,6 +117,7 @@ export function App() {
     else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
     else if (path === "/plays") page = <PlaysPage data={data} />;
     else if (path.startsWith("/plays/")) page = <PlayPage key={path} data={data} slug={decodeURIComponent(path.slice(7))} />;
+    else if (path === "/movers") page = <MoversPage data={data} />;
     else if (path === "/quotes") page = <QuotesPage data={data} />;
     else if (path === "/lookups") page = <LookupsPage data={data} />;
     else if (path === "/cot") page = <CotPage data={data} params={params} />;
