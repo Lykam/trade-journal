@@ -71,7 +71,8 @@ export function CotChart({ name, weeks, range, lookback, basis }: CotChartProps)
   const { rows } = series;
   const phone = width > 0 && width < 560;
   const R = phone ? 44 : 56;
-  const L = 2;
+  // Left gutter for the LONG / SHORT side labels.
+  const L = phone ? 16 : 20;
   const PLOT_H = phone ? 220 : 320;
   const AXIS_H = 18;
   const H = PLOT_H + AXIS_H;
@@ -166,6 +167,17 @@ export function CotChart({ name, weeks, range, lookback, basis }: CotChartProps)
               );
             })}
             <path d={small} className="cot-s-small" />
+            {/* Which side of zero is which: net long above, net short below (rotated, read bottom to top). Left out when that side is too thin to fit the word. */}
+            {[
+              { label: "LONG →", top: 4, bottom: y(0) },
+              { label: "← SHORT", top: y(0), bottom: PLOT_H - 4 },
+            ].filter((s) => s.bottom - s.top >= 56).map((s) => {
+              const cy = (s.top + s.bottom) / 2;
+              const x = L / 2 + 3;
+              return (
+                <text key={s.label} x={x} y={cy} transform={`rotate(-90 ${x} ${cy})`} textAnchor="middle" className="chart-text cot-side">{s.label}</text>
+              );
+            })}
             {xTicks.map((t) => (
               <text key={`x${t.i}`} x={cx(t.i)} y={H - 4} textAnchor="middle" className="chart-text">{t.label}</text>
             ))}

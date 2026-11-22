@@ -1042,7 +1042,8 @@ candlestick charts in v1 (see §11).
   - **Green `#22c55e` gains / red `#ef4444` losses.** Yellow `#facc15` is used
     only for the "½ size" state.
   - **Top navigation bar** instead of a sidebar: DASH · OPEN · CAL · TRADES ·
-    REPORTS · JOURNAL · ERRORS · QUOTES · SETTINGS, with IMPORT and LOCK on the right. Beside
+    REPORTS · JOURNAL · ERRORS · PLAYS · QUOTES · LOOKUPS · COT · CALC ·
+    SETTINGS, with IMPORT and LOCK on the right. Beside
     them, the data stamps: `PRICES FRI 10-02 16:00 ET · WEBULL 10-02 ·
     SCHWAB 10-02`, the last import per broker turning amber with `!` when it
     is older than the latest closed session (Q55). Webull counts an import at
