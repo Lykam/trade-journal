@@ -16,20 +16,16 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Back-to-back imports and price runs queue here; a newer pending run replaces an older pending one.
     concurrency:
       group: pages
       cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: read
       pages: write
-      id-token: write
     steps:
       - name: Check secrets
         env:
@@ -169,5 +165,23 @@ jobs:
         with:
           path: dist
 
+  # Its own job, not a step after the upload: GitHub's artifact list can lag the upload,
+  # and deploy-pages then found 0 artifacts (3 runs on 2026-11-23). By the time a
+  # dependent job starts, the artifact is listed. Deploys queue in their own group, in
+  # the order their builds finished.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
