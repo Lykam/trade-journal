@@ -9,6 +9,8 @@
 // - Nothing is dated after `now`.
 // - The current week is scripted: a small search over the outcomes of the
 //   trades the gauges look at makes Day show ½ (or ¼) size and Swing Full size.
+import { tradingDays as bookedDays } from "../core/cadence/status";
+import { demoJournal } from "./journal";
 import { addDays, dayOfWeek, etInstant, weekStart } from "../core/calendar";
 import { BOARD_MARKETS, BOARD_WEEKS, computeBoardMarket, type CotBoard } from "../core/cot/board";
 import { cotBrake, type CotMarketSnapshot, type CotReport, type DailyBar } from "../core/cot/cot";
@@ -666,7 +668,7 @@ export function generateDemo(now: string): DemoData {
     quotes,
     regime: regimeFor(quotesAsOf(nowMs)),
     cot: cotFor(quotesAsOf(nowMs)),
-    playbook: { reviews, images: Object.keys(images).sort(), plays: demoPlays(now, Object.keys(images).sort()), library: demoLibrary(now), routines: demoRoutines(now), libraryRoutines: demoRoutines(now, true) },
+    playbook: { reviews, images: Object.keys(images).sort(), plays: demoPlays(now, Object.keys(images).sort()), library: demoLibrary(now), routines: demoRoutines(now), libraryRoutines: demoRoutines(now, true), journal: demoJournal(now, [...bookedDays(trades)]) },
     sayings: demoSayings(now),
     movers,
     moverNotes: demoMoverNotes(movers),

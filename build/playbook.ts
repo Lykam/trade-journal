@@ -20,7 +20,7 @@ function walk(root: string, rel: string): string[] {
   });
 }
 
-/** Reviews/*.md, Plays/*.md (Q84), Library/*.md (Q87), Routines/*.md and Library/Routines/*.md (Q88) and every image under Images/ (and Reviews/, where older reviews kept theirs). null without a checkout. */
+/** Reviews/*.md, Plays/*.md (Q84), Library/*.md (Q87), Routines/*.md and Library/Routines/*.md (Q88), the Journal folders (Q89) and every image under Images/ (and Reviews/, where older reviews kept theirs). null without a checkout. */
 export function loadPlaybook(dir: string): PlaybookData | null {
   if (!existsSync(dir)) return null;
   const reviewsDir = join(dir, "Reviews");
@@ -43,6 +43,7 @@ export function loadPlaybook(dir: string): PlaybookData | null {
   const library = mdFiles("Library");
   const routines = mdFiles("Routines");
   const libraryRoutines = mdFiles("Library/Routines");
+  const journal = ["Daily", "Weekly", "Monthly"].flatMap((p) => mdFiles(`Journal/${p}`));
   const images = [...walk(dir, "Images"), ...walk(dir, "Reviews")].filter((p) => IMAGE_EXT_RE.test(p)).sort();
-  return { reviews, images, plays, library, routines, libraryRoutines };
+  return { reviews, images, plays, library, routines, libraryRoutines, journal };
 }

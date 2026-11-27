@@ -22,11 +22,21 @@ export interface ReviewAnswers {
   howShouldHaveTraded: string;
   howToFindMore: string;
   lessons: string;
+  /** Q90: the play from PLAYS it was, its grade (A/B/C), whether size matched the grade (YES/NO), and the see-it moment. */
+  play: string;
+  grade: string;
+  sizeMatched: string;
+  seeIt: string;
 }
+
+/** QUICK (five fields, the day-trade default) or FULL (Template.md's sections), Q90. */
+export type ReviewMode = "quick" | "full";
+export const GRADES = ["A", "B", "C"] as const;
 
 export const blankAnswers: ReviewAnswers = {
   category: "", context: "", dailyChart: "", intradayChart: "", level2: "",
   howTraded: "", howResolved: "", error: "", howShouldHaveTraded: "", howToFindMore: "", lessons: "",
+  play: "", grade: "", sizeMatched: "", seeIt: "",
 };
 
 const money = (n: number) => `${n < 0 ? "-" : "+"}$${Math.abs(n).toFixed(2)}`;
@@ -62,19 +72,52 @@ function imageLines(idea: Idea, charts: ReviewChart[], kinds: UploadKind[], labe
  * stays OPEN) for a swing idea still open; otherwise every section, with The
  * Error auto-answered "not applicable" for a non-losing trade (Q77).
  */
-export function buildReviewMarkdown(idea: Idea, a: ReviewAnswers, charts: ReviewChart[] = []): string {
+function headerLines(idea: Idea, a: ReviewAnswers, mode: ReviewMode): string[] {
   const closed = idea.status === "closed";
-  const day = idea.style === "day";
-  const pnl = closed ? money(idea.netPnl) : "open";
-  const lines = [
+  const one = (v: string) => v.replace(/[\r\n]+/g, " ").trim();
+  return [
     `# Playbook Review — ${idea.underlying} ${idea.date}`,
     "",
     `**Date:** ${idea.date}`,
     `**Ticker:** ${idea.underlying}`,
-    `**P&L:** ${pnl}`,
-    `**Trade Type:** ${day ? "DAY TRADE" : "SWING TRADE"}`,
+    `**P&L:** ${closed ? money(idea.netPnl) : "open"}`,
+    `**Trade Type:** ${idea.style === "day" ? "DAY TRADE" : "SWING TRADE"}`,
     `**Status:** ${closed ? "CLOSED" : "OPEN"}`,
     `**Idea ID:** ${idea.id}`,
+    ...(mode === "quick" ? ["**Review:** Quick"] : []),
+    ...(one(a.play) ? [`**Play:** ${one(a.play)}`] : []),
+    ...(one(a.grade) ? [`**Grade:** ${one(a.grade).toUpperCase()}`] : []),
+    ...(one(a.sizeMatched) ? [`**Size Matched Grade:** ${one(a.sizeMatched).toUpperCase()}`] : []),
+  ];
+}
+
+/**
+ * The QUICK review (Q90): the usual header plus Play / Grade / Size Matched
+ * Grade, then Category (the play's name, so Q30's tag works), any intraday
+ * chart, See-It Moment and The Error. A win with no error written says "No
+ * error."; a loss with none stays "(not answered)", so ERRORS lists it.
+ */
+export function buildQuickReviewMarkdown(idea: Idea, a: ReviewAnswers, charts: ReviewChart[] = []): string {
+  const closed = idea.status === "closed";
+  const lines = [
+    ...headerLines(idea, a, "quick"),
+    "",
+    "## Category",
+    "",
+    a.play.trim() || a.category.trim() || "(not answered)",
+  ];
+  const images = imageLines(idea, charts, ["1m", "5m"], "intraday");
+  if (images.length) lines.push("", "## Intraday Chart", "", ...images.slice(0, -1));
+  lines.push("", "## See-It Moment", "", a.seeIt.trim() || "(not answered)");
+  if (closed) lines.push("", "## The Error", "", a.error.trim() || (idea.netPnl >= 0 ? "No error." : "(not answered)"));
+  return `${lines.join("\n")}\n`;
+}
+
+export function buildReviewMarkdown(idea: Idea, a: ReviewAnswers, charts: ReviewChart[] = []): string {
+  const closed = idea.status === "closed";
+  const day = idea.style === "day";
+  const lines = [
+    ...headerLines(idea, a, "full"),
     "",
     "## Category",
     "",
@@ -101,6 +144,7 @@ export function buildReviewMarkdown(idea: Idea, a: ReviewAnswers, charts: Review
     "## How I Traded It",
     "",
     a.howTraded.trim() || "(not answered)",
+    ...(a.seeIt.trim() ? ["", "## See-It Moment", "", a.seeIt.trim()] : []),
   ];
   if (closed) {
     lines.push(
@@ -129,8 +173,8 @@ export function buildReviewMarkdown(idea: Idea, a: ReviewAnswers, charts: Review
   return `${lines.join("\n")}\n`;
 }
 
-export const reviewMessage = (idea: Idea, phase: "entry phase, open" | "closed") =>
-  `Add ${idea.underlying} ${idea.date} ${idea.style} review (${phase})`;
+export const reviewMessage = (idea: Idea, phase: "entry phase, open" | "closed", mode: ReviewMode = "full") =>
+  `Add ${idea.underlying} ${idea.date} ${idea.style} ${mode === "quick" ? "quick " : ""}review (${phase})`;
 
 /**
  * Commit the review to `repo`'s main, along with any chart images picked in the
@@ -146,9 +190,10 @@ export async function commitReview(
   answers: ReviewAnswers,
   charts: ChartUpload[] = [],
   attempts = 3,
+  mode: ReviewMode = "full",
 ): Promise<CommitResult & { path: string; chartPaths: string[] }> {
   const exts = charts.map(checkUpload);
-  const base = reviewMessage(idea, idea.status === "closed" ? "closed" : "entry phase, open");
+  const base = reviewMessage(idea, idea.status === "closed" ? "closed" : "entry phase, open", mode);
   const message = charts.length ? `${base} with ${charts.length} chart${charts.length === 1 ? "" : "s"}` : base;
   for (let i = 1; ; i++) {
     try {
@@ -163,7 +208,7 @@ export async function commitReview(
         chartPaths.push(p);
         return { kind: c.kind, path: p };
       });
-      const markdown = buildReviewMarkdown(idea, answers, reviewCharts);
+      const markdown = (mode === "quick" ? buildQuickReviewMarkdown : buildReviewMarkdown)(idea, answers, reviewCharts);
       const files: FileWrite[] = [{ path, content: markdown }, ...charts.map((c, ci) => ({ path: chartPaths[ci]!, content: c.bytes }))];
       const commit = await commitFiles(gh, state, files, message);
       // A new review path always changes the tree, so a commit is always made.

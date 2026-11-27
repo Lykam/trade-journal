@@ -30,6 +30,10 @@ export interface ReviewHeader {
   error: string | null;
   /** The section says there was no error ("No error", "None", "Not applicable…"), as opposed to not answered yet (Q79). */
   noError: boolean;
+  /** Q90: `**Play:**` (the PLAYS name), `**Grade:**` (A/B/C), and whether it was a QUICK review. */
+  play: string | null;
+  grade: string | null;
+  quick: boolean;
 }
 
 export interface ReviewName {
@@ -117,5 +121,8 @@ export function parseReviewHeader(markdown: string): ReviewHeader {
     category: category === null ? null : categoryLabel(category),
     error: error === null ? null : errorText(error),
     noError: error !== null && isNoError(error),
+    play: clean(fields.get("play")),
+    grade: clean(fields.get("grade"))?.toUpperCase().slice(0, 1) ?? null,
+    quick: /^quick/i.test(clean(fields.get("review")) ?? ""),
   };
 }

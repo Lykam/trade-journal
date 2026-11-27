@@ -34,17 +34,17 @@ export function findLeaks(text: string, symbols: Iterable<string>): string[] {
 
 /**
  * Private names that must never reach dist/: each review's file name and stem
- * ("2026-07-27-ABC.md", "2026-07-27-ABC"), each play's, library play's and routine's path and file name,
+ * ("2026-07-27-ABC.md", "2026-07-27-ABC"), each play's, library play's, routine's and journal entry's path and file name,
  * and each image's path and file name.
  */
-export function playbookNames(playbook: { reviews: Array<{ path: string }>; images: string[]; plays?: Array<{ path: string }>; library?: Array<{ path: string }>; routines?: Array<{ path: string }>; libraryRoutines?: Array<{ path: string }> }): Set<string> {
+export function playbookNames(playbook: { reviews: Array<{ path: string }>; images: string[]; plays?: Array<{ path: string }>; library?: Array<{ path: string }>; routines?: Array<{ path: string }>; libraryRoutines?: Array<{ path: string }>; journal?: Array<{ path: string }> }): Set<string> {
   const names = new Set<string>();
   for (const r of playbook.reviews) {
     names.add(r.path.split("/").pop()!);
     names.add(reviewIdOf(r.path));
   }
   // Play files by path and file name; not the bare stem, which is ordinary words ("gap-and-go").
-  for (const p of [...(playbook.plays ?? []), ...(playbook.library ?? []), ...(playbook.routines ?? []), ...(playbook.libraryRoutines ?? [])]) {
+  for (const p of [...(playbook.plays ?? []), ...(playbook.library ?? []), ...(playbook.routines ?? []), ...(playbook.libraryRoutines ?? []), ...(playbook.journal ?? [])]) {
     names.add(p.path);
     names.add(p.path.split("/").pop()!);
   }

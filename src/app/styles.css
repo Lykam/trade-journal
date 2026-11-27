@@ -442,6 +442,19 @@ a.cal-cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; color
 .cal-cell.today .cal-date { color: var(--accent); font-weight: 700; }
 .cal-cell.week { border-right: 0; border-left: 1px solid var(--border-strong); background: var(--inset); }
 .cal-date { color: var(--muted); font-size: 11px; }
+/* REVIEW view (§6.7i): a big mark per day / week; missed days get a faint red wash. */
+.rv-big { font-size: 22px; line-height: 1; flex: 1; display: flex; align-items: center; justify-content: center; }
+.rv-mark { font-weight: 700; }
+.cal-cell.review.rv-done { background: color-mix(in srgb, var(--gain) 14%, var(--panel)); }
+.cal-cell.review.rv-missed { background: color-mix(in srgb, var(--loss) 10%, var(--panel)); }
+.entry-group .field { margin-top: 10px; }
+.morning-context { border-left: 2px solid var(--accent); padding: 4px 10px; display: flex; flex-direction: column; gap: 2px; }
+.film { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.film-card { border: 1px solid var(--rule); padding: 8px; margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.film-img { width: 100%; max-height: 260px; object-fit: contain; background: var(--inset); display: flex; align-items: center; justify-content: center; min-height: 60px; }
+.month-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.plain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 640px) { .film { grid-template-columns: 1fr; } }
 .cal-pnl { font-weight: 700; font-size: 13px; }
 .cal-n { font-size: 11px; }
 .cal-split { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 10px; }

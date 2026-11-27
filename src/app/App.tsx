@@ -13,6 +13,8 @@ import { CalendarPage } from "./pages/CalendarPage";
 import { CotPage } from "./pages/CotPage";
 import { DeployBanner } from "./components/DeployBanner";
 import { Dashboard } from "./pages/Dashboard";
+import { DayPage } from "./pages/DayPage";
+import { MonthPage, WeekPage } from "./pages/PeriodPages";
 import { ErrorsPage } from "./pages/ErrorsPage";
 import { PlayPage, PlaysPage } from "./pages/PlaysPage";
 import { ImportPage } from "./pages/ImportPage";
@@ -112,12 +114,15 @@ export function App() {
     else if (path === "/open") page = <OpenPage data={data} now={now} />;
     else if (path === "/trades") page = <TradesPage data={data} journal={journal!} view={view} />;
     else if (path.startsWith("/trade/")) page = <TradeDetail key={path} data={data} journal={journal!} id={decodeURIComponent(path.slice(7))} view={view} now={now} />;
-    else if (path === "/cal") page = <CalendarPage journal={journal!} view={view} params={params} />;
+    else if (path === "/cal") page = <CalendarPage data={data} journal={journal!} view={view} params={params} />;
+    else if (path.startsWith("/week/")) page = <WeekPage key={path} data={data} journal={journal!} monday={decodeURIComponent(path.slice(6))} view={view} />;
+    else if (path.startsWith("/month/")) page = <MonthPage key={path} data={data} journal={journal!} month={decodeURIComponent(path.slice(7))} />;
+    else if (path.startsWith("/day/")) page = <DayPage key={path} data={data} journal={journal!} date={decodeURIComponent(path.slice(5))} view={view} now={now} />;
     else if (path === "/journal") page = <JournalPage journal={journal!} view={view} />;
     else if (path.startsWith("/journal/")) page = <ReviewPage key={path} journal={journal!} id={decodeURIComponent(path.slice(9))} view={view} />;
     else if (path === "/errors") page = <ErrorsPage journal={journal!} />;
     else if (path === "/plays") page = <PlaysPage key={`${path}?${params.get("show")}`} data={data} kind={params.get("show") === "routines" ? "routines" : "plays"} />;
-    else if (path.startsWith("/plays/")) page = <PlayPage key={path} data={data} slug={decodeURIComponent(path.slice(7))} />;
+    else if (path.startsWith("/plays/")) page = <PlayPage key={path} data={data} slug={decodeURIComponent(path.slice(7))} journal={journal!} />;
     else if (path === "/library") page = <PlaysPage key={`${path}?${params.get("show")}`} data={data} kind={params.get("show") === "routines" ? "library-routines" : "library"} by={params.get("by")} />;
     else if (path.startsWith("/library/")) page = <PlayPage key={path} data={data} slug={decodeURIComponent(path.slice(9))} kind="library" />;
     else if (path === "/routines") page = <PlaysPage key={path} data={data} kind="routines" />;
@@ -133,7 +138,7 @@ export function App() {
     else page = <Stub title="NOT FOUND" />;
   }
 
-  const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path.startsWith("/plays/") ? "/plays" : path.startsWith("/library/") || path.startsWith("/library-routines/") ? "/library" : path.startsWith("/routines") ? "/plays" : path;
+  const active = path.startsWith("/trade/") ? "/trades" : path.startsWith("/journal/") ? "/journal" : path.startsWith("/plays/") ? "/plays" : path.startsWith("/library/") || path.startsWith("/library-routines/") ? "/library" : path.startsWith("/routines") ? "/plays" : path.startsWith("/day/") || path.startsWith("/week/") || path.startsWith("/month/") ? "/cal" : path;
   return (
     <>
       <nav className="nav" aria-label="Main">
