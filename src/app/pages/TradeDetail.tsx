@@ -23,6 +23,8 @@ import { Timeline } from "../components/OpenPositions";
 import { Pnl } from "../components/Pnl";
 import { LazyReview } from "../components/LazyReview";
 import { useImageSrcs } from "../data";
+import { useEntries } from "../cadence";
+import { readPlays } from "../../core/plays/plays";
 import { CopyCommand, reviewCommand } from "../components/ReviewCommand";
 import { GitHubClient } from "../../core/github/client";
 import { deleteChart } from "../../core/reviews/upload";
@@ -400,6 +402,8 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
   const { staged, apply, locked } = staging;
   const [note, setNote] = useState(t.note ?? "");
   const [writing, setWriting] = useState(false);
+  const entries = useEntries(data);
+  const playNames = useMemo(() => readPlays(data.playbook?.plays).map((p) => p.header.name), [data]);
   if (reviews.length) {
     return (
       <section className="panel notes" aria-label="Review">
@@ -432,6 +436,8 @@ function NotesPanel({ data, journal: j, t }: { data: DataBundle; journal: Journa
             idea={idea}
             existingReviewPaths={(data.playbook?.reviews ?? []).map((r) => r.path)}
             existingImages={data.playbook?.images ?? []}
+            plays={playNames}
+            morning={entries.daily.get(idea.date) ?? null}
             onDone={() => setWriting(false)}
           />
         ) : (

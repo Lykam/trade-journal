@@ -6,6 +6,10 @@ import { addDays, dayOfWeek } from "../../core/calendar";
 import { monthGrid, tint, yearView, type DayTotal } from "../../core/journal/calendar-view";
 import { nextMonth, prevMonth, type ViewState } from "../../core/journal/filter";
 import { filterTrades, reviewDates, type Journal } from "../../core/journal/journal";
+import { dayStatus } from "../../core/cadence/entries";
+import { dayMark, monthMark, streak, tradingDays, weekMark, weekOfRow, type DayMark, type PeriodMark } from "../../core/cadence/status";
+import type { DataBundle } from "../../core/types";
+import { useEntries } from "../cadence";
 import { FilterBar, viewHref } from "../components/FilterBar";
 import { compactMoney, DOW, money, MONTH_NAMES, monthLabel, pnlClass } from "../format";
 
@@ -39,7 +43,29 @@ function bg(pnl: number, maxAbs: number): React.CSSProperties | undefined {
   return { background: `color-mix(in srgb, var(${pnl > 0 ? "--gain" : "--loss"}) ${Math.round(8 + a * 40)}%, var(--panel))` };
 }
 
-export function CalendarPage({ journal: j, view, params }: { journal: Journal; view: ViewState; params: URLSearchParams }) {
+const DAY_MARK: Record<DayMark, { icon: string; cls: string; title: string }> = {
+  done: { icon: "✓", cls: "gain", title: "Report card done" },
+  morning: { icon: "◐", cls: "accent", title: "Morning context written; report card to do" },
+  missed: { icon: "●", cls: "loss", title: "Traded, no report card" },
+  today: { icon: "○", cls: "accent", title: "Today: not done yet" },
+  none: { icon: "", cls: "", title: "No trades, nothing written" },
+};
+const PERIOD_MARK: Record<PeriodMark, { icon: string; cls: string; title: string }> = {
+  done: { icon: "✓", cls: "gain", title: "Review written" },
+  missed: { icon: "●", cls: "loss", title: "Traded, ended without a review" },
+  open: { icon: "○", cls: "accent", title: "Still running" },
+  none: { icon: "", cls: "", title: "No trades" },
+};
+
+function Mark({ m, label }: { m: { icon: string; cls: string; title: string }; label?: string }) {
+  if (!m.icon) return null;
+  return <span className={`rv-mark ${m.cls}`} title={m.title} aria-label={`${label ? `${label}: ` : ""}${m.title}`}>{m.icon}</span>;
+}
+
+export function CalendarPage({ data, journal: j, view, params }: { data: DataBundle; journal: Journal; view: ViewState; params: URLSearchParams }) {
+  const entries = useEntries(data);
+  const reviewMode = params.get("mode") === "review";
+  const keep: Record<string, string> = reviewMode ? { mode: "review" } : {};
   const thisMonth = j.today.slice(0, 7);
   const month = MONTH_RE.test(params.get("month") ?? "") ? params.get("month")! : thisMonth;
   const mode = params.get("view") === "year" ? "year" : "month";
@@ -57,15 +83,21 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
     <header className="page-head">
       <h1>CALENDAR <span className="sub">/ {mode === "year" ? month.slice(0, 4) : monthLabel(month)} · {view.pnl.toUpperCase()}</span></h1>
       <div className="row">
+        {mode === "month" && (
+          <div className="seg" role="group" aria-label="Calendar mode">
+            <a className="segl" aria-current={!reviewMode ? "true" : undefined} href={self({ month })}>P&amp;L</a>
+            <a className="segl" aria-current={reviewMode ? "true" : undefined} href={self({ month, mode: "review" })}>REVIEW</a>
+          </div>
+        )}
         <div className="seg" role="group" aria-label="Calendar view">
           <a className="segl" aria-current={mode === "month" ? "true" : undefined} href={self({ month })}>MONTH</a>
           <a className="segl" aria-current={mode === "year" ? "true" : undefined} href={self({ month, view: "year" })}>YEAR</a>
         </div>
         {mode === "month" ? (
           <>
-            <a className="btn" href={self({ month: prevMonth(month) })} aria-label="Previous month">‹</a>
-            <a className="btn" href={self({ month: thisMonth })}>TODAY</a>
-            <a className="btn" href={self({ month: nextMonth(month) })} aria-label="Next month">›</a>
+            <a className="btn" href={self({ month: prevMonth(month), ...keep })} aria-label="Previous month">‹</a>
+            <a className="btn" href={self({ month: thisMonth, ...keep })}>TODAY</a>
+            <a className="btn" href={self({ month: nextMonth(month), ...keep })} aria-label="Next month">›</a>
           </>
         ) : (
           <>
@@ -77,7 +109,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
       </div>
     </header>
   );
-  const filters = <FilterBar view={view} journal={j} base="#/cal" dates={false} extra={{ month, ...(mode === "year" ? { view: "year" } : {}) }} />;
+  const filters = reviewMode ? null : <FilterBar view={view} journal={j} base="#/cal" dates={false} extra={{ month, ...(mode === "year" ? { view: "year" } : {}) }} />;
 
   if (mode === "year") {
     const months = yearView(trades, Number(month.slice(0, 4)), { pnl: view.pnl, startsOn });
@@ -131,6 +163,8 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
     );
   }
 
+  if (reviewMode) return <ReviewMonth j={j} month={month} entries={entries} head={head} />;
+
   const { weeks, total } = monthGrid(trades, month, { pnl: view.pnl, startsOn, reviewDates: reviews });
   // The same grid per style, for the day / swing split in each cell (Q76).
   const dayGrid = monthGrid(trades.filter((t) => t.style === "day"), month, { pnl: view.pnl, startsOn });
@@ -172,7 +206,7 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
                 {w.days.filter((d) => shown(d.date)).map((d) => {
                   const body = (
                     <>
-                      <span className="cal-date">{Number(d.date.slice(8))}{d.review && <span className="rv" title="Review written this day"> 📄</span>}</span>
+                      <span className="cal-date">{Number(d.date.slice(8))}{d.review && <span className="rv" title="Review written this day"> 📄</span>}{d.inMonth && <DailyMark s={dayStatus(entries.daily.get(d.date))} />}</span>
                       {d.trades > 0 && (
                         <>
                           <span className={`cal-pnl ${pnlClass(d.pnl)}`}>
@@ -217,7 +251,74 @@ export function CalendarPage({ journal: j, view, params }: { journal: Journal; v
 
         </div>
       </section>
-      <div className="dim small">P&amp;L lands on the day it's booked (ET). Trims on their day, the rest on the close. Darker = bigger day. 📄 = review.</div>
+      <div className="dim small">P&amp;L lands on the day it's booked (ET). Trims on their day, the rest on the close. Darker = bigger day. 📄 = trade review. ✓ / ◐ = daily journal done / morning only (see REVIEW).</div>
+    </main>
+  );
+}
+
+/** The daily journal's state in a P&L cell: ✓ done, ◐ morning only. */
+function DailyMark({ s }: { s: ReturnType<typeof dayStatus> }) {
+  return s === "none" ? null : <> <Mark m={DAY_MARK[s]} /></>;
+}
+
+/**
+ * The REVIEW view (§6.7i, Q89): each trading day, week and the month marked
+ * reviewed or missed, with the streak. The whole account, whatever the filters.
+ */
+function ReviewMonth({ j, month, entries, head }: { j: Journal; month: string; entries: ReturnType<typeof useEntries>; head: React.ReactNode }) {
+  const traded = useMemo(() => tradingDays(j.trades), [j]);
+  const { weeks } = monthGrid([], month, { pnl: "net", startsOn: j.startsOn });
+  const fiveDay = !weeks.some((w) => w.days.some((d) => d.inMonth && isWeekend(d.date) && (traded.has(d.date) || entries.daily.has(d.date))));
+  const shown = (date: string) => !fiveDay || !isWeekend(date);
+  const dows = Array.from({ length: 7 }, (_, i) => addDays(weeks[0]!.start, i)).filter(shown).map((d) => DOW[dayOfWeek(d)]!);
+  const days = weeks.flatMap((w) => w.days).filter((d) => d.inMonth && traded.has(d.date) && d.date <= j.today);
+  const done = days.filter((d) => dayStatus(entries.daily.get(d.date)) === "done").length;
+  const weekKeys = [...new Set(weeks.map((w) => weekOfRow(w.start)))];
+  const weekMarks = new Map(weekKeys.map((m) => [m, weekMark(m, j.today, entries, traded)]));
+  const weeksDone = [...weekMarks.values()].filter((m) => m === "done").length;
+  const weeksDue = [...weekMarks.values()].filter((m) => m !== "none").length;
+  const mm = monthMark(month, j.today, entries, traded);
+  const run = streak(j.today, entries, traded);
+  return (
+    <main className="page">
+      {head}
+      <section className="panel" aria-label={`${monthLabel(month)} reviews`}>
+        <div className="panel-head">
+          <h2><a href={`#/month/${month}`}>{monthLabel(month)}</a> <Mark m={PERIOD_MARK[mm]} label="Monthly review" /></h2>
+          <span className="muted small">DAYS {done}/{days.length} · WEEKS {weeksDone}/{weeksDue}</span>
+          <span className="grow" />
+          <span className={`small ${run ? "gain b" : "muted"}`} title="Trading days in a row with the report card done">STREAK {run}</span>
+        </div>
+        <div className={fiveDay ? "cal weekdays" : `cal starts-${j.startsOn}`} role="grid">
+          <div className="cal-row head" role="row">
+            {dows.map((d) => <div key={d} role="columnheader">{d}</div>)}
+            <div role="columnheader">WEEK</div>
+          </div>
+          {weeks.map((w) => {
+            const monday = weekOfRow(w.start);
+            const wm = weekMarks.get(monday)!;
+            return (
+              <div key={w.start} className="cal-row" role="row">
+                {w.days.filter((d) => shown(d.date)).map((d) => {
+                  const m = d.inMonth ? dayMark(d.date, j.today, entries, traded) : "none";
+                  const cls = `cal-cell review ${d.inMonth ? "" : "out"} ${d.date === j.today ? "today" : ""} rv-${m}`;
+                  return (
+                    <a key={d.date} role="gridcell" className={cls} href={`#/day/${d.date}`} aria-label={`${d.date}: ${DAY_MARK[m].title}`}>
+                      <span className="cal-date">{Number(d.date.slice(8))}</span>
+                      <span className="rv-big"><Mark m={DAY_MARK[m]} /></span>
+                    </a>
+                  );
+                })}
+                <a role="gridcell" className={`cal-cell week review rv-${wm}`} href={`#/week/${monday}`} aria-label={`Week of ${monday}: ${PERIOD_MARK[wm].title}`}>
+                  <span className="cal-date muted">WK</span>
+                  <span className="rv-big"><Mark m={PERIOD_MARK[wm]} /></span>
+                </a>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      <div className="dim small">✓ done · ◐ morning only · <span className="loss">●</span> traded, not reviewed · ○ today or still running. Click a day, week or the month to write it. The streak counts trading days in a row with the report card done; today never breaks it.</div>
     </main>
   );
 }

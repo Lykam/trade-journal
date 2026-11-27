@@ -274,6 +274,8 @@ export interface PlaybookData {
   routines?: ReviewFile[];
   /** Library/Routines/*.md, other traders' routines under LIBRARY (Q87, Q88). */
   libraryRoutines?: ReviewFile[];
+  /** Journal/{Daily,Weekly,Monthly}/*.md, the review cadence entries (§6.7i, Q89). */
+  journal?: ReviewFile[];
 }
 
 /** Everything the app reads: served by the dev plugin in dev, decrypted from data.enc in production. */

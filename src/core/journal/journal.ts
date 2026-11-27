@@ -198,3 +198,24 @@ export function errorTable(j: Journal): ErrorRow[] {
   }
   return rows.sort((a, b) => b.idea.date.localeCompare(a.idea.date) || a.idea.underlying.localeCompare(b.idea.underlying));
 }
+
+export interface PlayExample {
+  review: Review;
+  /** The idea it's joined to, when there is one. */
+  idea: Idea | null;
+  grade: string | null;
+}
+
+/**
+ * A play's EXAMPLES (Q90): every review whose `**Play:**` names it
+ * (case-insensitive, spaces collapsed), newest first. "100 examples of one setup."
+ */
+export function playExamples(j: Journal, name: string): PlayExample[] {
+  const key = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+  const want = key(name);
+  if (!want) return [];
+  return j.reviews.reviews
+    .filter((r) => r.header.play && key(r.header.play) === want)
+    .map((r) => ({ review: r, idea: j.ideaById.get(j.reviews.ideaOf.get(r.id) ?? "") ?? null, grade: r.header.grade }))
+    .sort((a, b) => (b.review.date ?? "").localeCompare(a.review.date ?? "") || b.review.id.localeCompare(a.review.id));
+}

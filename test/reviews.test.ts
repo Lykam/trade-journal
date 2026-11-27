@@ -22,7 +22,7 @@ describe("parseReviewHeader", () => {
       header(["**Date:** 2025-04-01", "**Ticker:** zzab", "**P&L:** +$85", "**Trade Type:** DAY TRADE", "**Status:** CLOSED"]),
     );
     expect(h).toEqual({
-      date: "2025-04-01", ticker: "ZZAB", pnl: "+$85", tradeType: "day", status: "closed", ideaId: null, category: "Breaking news", error: null, noError: false,
+      date: "2025-04-01", ticker: "ZZAB", pnl: "+$85", tradeType: "day", status: "closed", ideaId: null, category: "Breaking news", error: null, noError: false, play: null, grade: null, quick: false,
     });
   });
 

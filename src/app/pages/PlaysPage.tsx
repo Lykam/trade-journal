@@ -20,7 +20,10 @@ import {
 import type { PlayChange, PlayCommit } from "../../core/plays/commit";
 import { UPLOAD_TYPES } from "../../core/reviews/images";
 import type { DataBundle, ReviewFile } from "../../core/types";
+import { playExamples, type Journal } from "../../core/journal/journal";
 import { LazyReview } from "../components/LazyReview";
+import { money, pnlClass } from "../format";
+import { reviewLink } from "./TradesPage";
 import { appNow, copyText, registerLocalImage } from "../data";
 import { DEMO_COMMIT_NOTE } from "../demo-text";
 import { ACTIONS_URL, PLAYBOOK_REPO, useToken, watchDeploy } from "../github";
@@ -284,11 +287,42 @@ function PlayList({ data, by }: { data: DataBundle; by: string | null }) {
 
 type Mode = { kind: "view" } | { kind: "header" } | { kind: "append" } | { kind: "section"; index: number } | { kind: "remove" };
 
-export function PlayPage({ data, slug, kind = "plays" }: { data: DataBundle; slug: string; kind?: PlayKind["id"] }) {
-  return <KindContext.Provider value={UI[kind]}><PlayView data={data} slug={slug} /></KindContext.Provider>;
+export function PlayPage({ data, slug, kind = "plays", journal }: { data: DataBundle; slug: string; kind?: PlayKind["id"]; journal?: Journal }) {
+  return <KindContext.Provider value={UI[kind]}><PlayView data={data} slug={slug} journal={journal} /></KindContext.Provider>;
 }
 
-function PlayView({ data, slug }: { data: DataBundle; slug: string }) {
+/** Reviews that name this play (Q90), newest first: the play's growing set of examples. */
+function Examples({ j, name }: { j: Journal; name: string }) {
+  const rows = playExamples(j, name);
+  return (
+    <section className="panel" aria-label="Examples">
+      <div className="panel-head">
+        <h2>EXAMPLES <span className="muted">· {rows.length}</span></h2>
+        <span className="dim small">Reviews whose PLAY is “{name}”</span>
+      </div>
+      {rows.length ? (
+        <div className="scroll-x"><table className="grid">
+          <tbody>
+            {rows.map(({ review: r, idea, grade }) => (
+              <tr key={r.id}>
+                <td className="muted">{r.date ?? "—"}</td>
+                <td><a className="sym" href={reviewLink(r.id)}>{idea?.underlying ?? r.ticker ?? r.id}</a></td>
+                <td className="muted small">{idea?.style.toUpperCase() ?? ""}</td>
+                <td>{grade ? <span className="chip">{grade}</span> : <span className="dim">—</span>}</td>
+                <td className="num">{idea ? <span className={pnlClass(idea.netPnl)}>{idea.status === "open" ? "open" : money(idea.netPnl)}</span> : <span className="dim">—</span>}</td>
+                <td className="small">{r.header.error ?? (r.header.noError ? <span className="dim">No error</span> : "")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table></div>
+      ) : (
+        <div className="dim small">None yet. Pick this play in a trade review (QUICK or FULL) and it shows here.</div>
+      )}
+    </section>
+  );
+}
+
+function PlayView({ data, slug, journal }: { data: DataBundle; slug: string; journal?: Journal }) {
   const k = useKind();
   const plays = usePlays(data, k);
   const p = usePending();
@@ -366,6 +400,8 @@ function PlayView({ data, slug }: { data: DataBundle; slug: string }) {
           )}
         </section>
       ))}
+
+      {journal && k.kind.id === "plays" && <Examples j={journal} name={h.name} />}
 
       {mode.kind === "append" && (
         <section className="panel play-form-panel" aria-label="Add update">

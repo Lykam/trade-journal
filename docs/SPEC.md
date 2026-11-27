@@ -1,4 +1,4 @@
-# Trade Journal — Spec (v0.24)
+# Trade Journal — Spec (v0.25)
 
 A personal, Tradervue-style trade journal and weekly "temperature gauge"
 dashboard. Trades from Schwab and Webull are normalized into JSON in a
@@ -1553,6 +1553,105 @@ routines). The demo shows one routine on each tab.
 play or routine, yours or someone else's: Claude writes the file in the right
 folder in this format, credited, and the push redeploys the site.
 
+### 6.7i Review cadence (Q89–Q92)
+
+Review by day, week and month instead of trade by trade, after SMB
+Capital's "compress the learning cycle" routines in the LIBRARY (One-Setup
+Playbook Build, Rep Compression, Film Review & See-It Moment). The owner
+wrote 13 full reviews for 166 ideas from October 1 to November 27: an 11-section
+form per trade was too heavy to keep up. The calendar is the habit tracker and
+the only reminder: filling it in is the reward.
+
+**Files** (Playbook, beside `Reviews/`; `src/core/cadence/`):
+
+- `Journal/Daily/<YYYY-MM-DD>.md`, `Journal/Weekly/<monday YYYY-MM-DD>.md`
+  (the week is always keyed by its Monday, whatever `weekStartsOn` says),
+  `Journal/Monthly/<YYYY-MM>.md`.
+- `# Daily Journal — <date>` (`Weekly Review — week of <monday>`, `Monthly
+  Review — <Month YYYY>`), then `**Date:**` / `**Week:**` / `**Month:**` and
+  the header fields below, then one `## <Heading>` per question. Empty
+  sections are left out; hand edits (CRLF, extra sections) parse and
+  extra sections are kept on save.
+- Each save writes the whole file in one commit (`Add daily journal
+  2026-11-27 (written in the journal)` / `Edit …`), read fresh at commit time
+  and retried if main moves. If the file changed in Playbook since the page
+  loaded, the save is refused with "changed elsewhere; reload".
+- A saved entry shows at once (kept in memory until the redeploy). The
+  commit code loads only on save and is not in the demo, which shows
+  generated entries.
+- The leak guard treats each entry's path and file name as private.
+
+**Daily entry (Q89)** — `#/day/<date>`, opened from the calendar:
+
+- **Morning context**, written once before the open, so trade reviews
+  don't repeat it: header `**Market Mood:**` (STRONG / CHOPPY / WEAK, one
+  pick, used to group P&L later), then *Market going in* (sentiment,
+  futures, overnight news), *Themes & sectors in play*, *Expectations &
+  plan*. Saving it on the day itself adds a `**Snapshot:**` header line from
+  what the app knows then: regime state and the day / swing gauge sizes.
+- **Report card**, after the close, beside the day's trades (filled in from
+  the data, not typed: net P&L, trade and idea counts, best and worst idea,
+  P&L after the first losing idea): `**Risk Plan Followed:**` (YES / NO),
+  then *Best trade & why*, *Worst trade & see-it moment* (when should I have
+  known?), *Missed*, *Forced*, *Fix for tomorrow*.
+- The day's ideas are listed with their review state and a link to write a
+  quick review (Q90).
+- Status: **morning** once any morning field is written, **done** once
+  any report-card field is.
+
+**Calendar REVIEW view (Q89)** — a **P&L | REVIEW** switch on the month view
+(`#/cal?mode=review`):
+
+- Day cells: ✓ done, ◐ morning only, a red dot for a past day with booked
+  trades and no report card, an amber ring for today until it is done,
+  blank otherwise (no trades, nothing written). Each cell opens
+  `#/day/<date>`.
+- WEEK column: ✓ when the weekly review exists, a red dot when the week had
+  trades and has ended without one; opens `#/week/<monday>`.
+- Month header: ✓ / red dot the same way for the monthly review, which
+  opens `#/month/<YYYY-MM>`; and a streak, `STREAK 12`: trading days in a
+  row (days with booked trades), counted back from the latest past one,
+  whose report card is done. Today never breaks it.
+- The P&L view keeps 📄 for trade reviews and adds ✓ / ◐ for the daily
+  entry.
+
+**Quick trade review (Q90)** — the review form on Trade detail gets a
+**QUICK | FULL** switch, QUICK by default for day trades and FULL for swing
+trades (still required, Q70):
+
+- QUICK asks: **Play** (pick from PLAYS, or type a name), **Grade** (A / B /
+  C), **Size matched grade** (YES / NO), **See-it moment** and **The Error**.
+  The day's morning context shows above it, read-only.
+- It writes the same `Reviews/<date>-<ticker>.md` with the usual header plus
+  `**Review:** Quick`, `**Play:**`, `**Grade:**`, `**Size Matched Grade:**`,
+  and sections `## Category` (the play's name, so Q30's tag works), `## See-It
+  Moment`, `## The Error`. ERRORS and JOURNAL read it like any review; a
+  later FULL review on the same idea is a separate file as before.
+- FULL keeps the 11 sections and adds Play, Grade and See-It Moment.
+- A play's page lists its **EXAMPLES**: every review whose Play matches the
+  play's name (case-insensitive), newest first, with date, ticker, grade and
+  P&L, each opening the review. This is the "100 examples of one setup".
+
+**Weekly film study (Q91)** — `#/week/<monday>`:
+
+- Each trading day of the week in a row: mood chip, the first line of
+  *Market going in*, net P&L, and ✓ / ◐ / dot for its entry.
+- **Best 3 and worst 3 ideas** of the week side by side, with their charts
+  from Playbook when uploaded (the Q33 gallery rule), P&L, grade and play
+  when reviewed, and links.
+- **Errors this week**, with a REPEAT chip on any error text (normalized)
+  seen more than once in the week or the four weeks before.
+- Questions: *Setup that worked*, *Mistake that showed up twice*, *What I did
+  well*, *One focus for next week*.
+
+**Monthly review (Q92)** — `#/month/<YYYY-MM>`:
+
+- Numbers to read, not to type: net P&L, ideas and win rate grouped by
+  play, by grade, by style (day / swing), by Market Mood, and by error
+  (count and P&L); and the month's review coverage (daily entries done
+  / trading days, weekly reviews done / weeks).
+- Questions: *Keep*, *Cut*, *Earned a size increase?*, *Focus next month*.
+
 ### 6.7f Movers (Q85)
 
 A research list of the market's biggest weekly moves, for studying how they
@@ -2076,6 +2175,10 @@ the commit leaves the private repo.
 | Q86 | Mover notes | Owner request 2026-11-22: a short note (~200 characters) per MOVERS row, behind an edit/notes button, showing all or part of it in the table. Kept in a separate `mover-notes.json` in trade-history (movers.json is regenerated weekly), keyed by week end and ticker so a ticker that repeats gets a note per move. Saved with one click, without the usual COMMIT PREVIEW step, since the note being edited is the whole change (§6.7f). |
 | Q87 | Library: other people's plays | Owner request 2026-11-22: keep plays learned from other traders, credited, with a source (e.g. a YouTube video) and the same write-up and charts as the owner's, but told apart so they can be looked up later. First built inside PLAYS with a credit line and MINE / OTHERS' filters; the owner then asked for them "even more separate", in their own tab next to PLAYS, so they live in Playbook's `Library/` on a LIBRARY page (§6.7h). Named LIBRARY rather than IDEAS, which already means grouped trades (COUNT BY IDEA) and review ideas (ERRORS). |
 | Q88 | Routines | Owner request 2026-11-22: the same for routines (weekend prep and the like), the owner's or someone else's, possibly filled in by Claude from a video transcript. Built as a ROUTINES page sharing the PLAYS code through a `PlayKind` (folder, labels, numbered steps), files in Playbook's `Routines/`. Filling from a transcript is done in a Claude session writing the file, not in the browser, so no AI key lives in the site (§6.7g). Same day: clicking a MOVERS ticker now adds a history entry (filters in the hash), since back previously left the site from a filtered list. Then (same day), with LIBRARY split out: no ROUTINES tab; PLAYS and LIBRARY each switch PLAYS | ROUTINES, so the owner's routines sit with the owner's plays and other traders' (in `Library/Routines/`) with theirs, filterable by person (§6.7g, §6.7h). |
+| Q89 | Review calendar and daily entry | Owner request 2026-11-27, after SMB Capital's review routines: the per-trade form went mostly unused (13 reviews for 166 ideas since October). A daily entry (morning context written once, report card after the close) in Playbook's `Journal/Daily/`, and a REVIEW view on the calendar marking each day, week and month as reviewed or missed, with a streak. The calendar is the only reminder (owner: "filling in the calendar is the dopamine hit"). Stored in Playbook, not trade-history: it is writing about trades, like `Reviews/`, and Claude sessions in Playbook can read it (§6.7i). |
+| Q90 | Quick trade review | Same request: a five-field QUICK review (play, grade, size matched grade, see-it moment, error) as the default for day trades, writing the usual review file, and each play's page listing its reviewed examples (§6.7i). |
+| Q91 | Weekly film study | Same request: a weekly page laying the week's best and worst ideas side by side with charts, each day's morning context, and repeated errors, plus four questions, in `Journal/Weekly/` (§6.7i). |
+| Q92 | Monthly review | Same request: a monthly page of P&L by play, grade, style, mood and error, review coverage, and four questions, in `Journal/Monthly/` (§6.7i). |
   desktop and 390 px width; the owner checks the real site after the merge.
   #24's features are listed in §11, not built.
 - Milestones 8–12 (2026-10-04) are tested locally, including the full deploy
