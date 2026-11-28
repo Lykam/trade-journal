@@ -40,7 +40,12 @@ function StyleSplit({ s, n, header = false }: { s: Split; n: (d: DayTotal) => nu
 function bg(pnl: number, maxAbs: number): React.CSSProperties | undefined {
   const a = tint(pnl, maxAbs);
   if (!a) return undefined;
-  return { background: `color-mix(in srgb, var(${pnl > 0 ? "--gain" : "--loss"}) ${Math.round(8 + a * 40)}%, var(--panel))` };
+  // --tint lets the cell's red/green text lighten as the background darkens, so
+  // a big red day's -12.24 doesn't sink into its own red fill.
+  return {
+    background: `color-mix(in srgb, var(${pnl > 0 ? "--gain" : "--loss"}) ${Math.round(8 + a * 40)}%, var(--panel))`,
+    ["--tint" as string]: a.toFixed(2),
+  };
 }
 
 const DAY_MARK: Record<DayMark, { icon: string; cls: string; title: string }> = {
