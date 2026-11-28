@@ -456,6 +456,8 @@ a.cal-cell:hover { outline: 1px solid var(--accent); outline-offset: -1px; color
 .plain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 @media (max-width: 640px) { .film { grid-template-columns: 1fr; } }
 .cal-pnl { font-weight: 700; font-size: 13px; }
+.cal-cell .loss { color: color-mix(in srgb, var(--loss), #fff calc(var(--tint, 0) * 60%)); }
+.cal-cell .gain { color: color-mix(in srgb, var(--gain), #fff calc(var(--tint, 0) * 50%)); }
 .cal-n { font-size: 11px; }
 .cal-split { display: flex; flex-wrap: wrap; gap: 0 10px; font-size: 10px; }
 .cal-split.head { font-size: 11px; gap: 0 14px; margin-left: 4px; }
